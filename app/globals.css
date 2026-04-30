@@ -57,7 +57,7 @@
   --muted: #f5f5f5;
   --accent: #e2ebff;
   --border: #e7e7ee;
-  --radius: 1.4rem;
+  --radius: 0.75rem;
   --chart-1: #4ac885;
   --chart-2: #7033ff;
   --chart-3: #fd822b;
@@ -98,50 +98,50 @@
 }
 
 .dark {
-  --card: #222327;
-  --ring: #8c5cff;
-  --input: #33353a;
-  --muted: #2a2c33;
-  --accent: #1e293b;
-  --border: #33353a;
-  --radius: 1.4rem;
+  --card: #111113;
+  --ring: #d946ef;
+  --input: #1c1c1f;
+  --muted: #111113;
+  --accent: #1c1c1f;
+  --border: #2a2a2e;
+  --radius: 0.75rem;
   --chart-1: #4ade80;
-  --chart-2: #8c5cff;
-  --chart-3: #fca5a5;
-  --chart-4: #5993f4;
-  --chart-5: #a0a0a0;
-  --popover: #222327;
-  --primary: #8c5cff;
-  --sidebar: #161618;
+  --chart-2: #d946ef;
+  --chart-3: #f87171;
+  --chart-4: #60a5fa;
+  --chart-5: #a1a1aa;
+  --popover: #111113;
+  --primary: #d946ef;
+  --sidebar: #0a0a0a;
   --spacing: 0.27rem;
   --font-mono: IBM Plex Mono, monospace;
   --font-sans: Plus Jakarta Sans, sans-serif;
-  --secondary: #2a2c33;
-  --background: #1a1b1e;
+  --secondary: #1c1c1f;
+  --background: #050505;
   --font-serif: Lora, serif;
-  --foreground: #f0f0f0;
-  --destructive: #f87171;
-  --shadow-blur: 3px;
+  --foreground: #fafafa;
+  --destructive: #ef4444;
+  --shadow-blur: 0px;
   --shadow-color: hsl(0 0% 0%);
-  --sidebar-ring: #8c5cff;
+  --sidebar-ring: #d946ef;
   --shadow-spread: 0px;
-  --letter-spacing: -0.025em;
-  --shadow-opacity: 0.16;
-  --sidebar-accent: #2a2c33;
-  --sidebar-border: #33353a;
-  --card-foreground: #f0f0f0;
-  --shadow-offset-x: 0px;
-  --shadow-offset-y: 2px;
-  --sidebar-primary: #8c5cff;
-  --muted-foreground: #a0a0a0;
-  --accent-foreground: #79c0ff;
-  --popover-foreground: #f0f0f0;
-  --primary-foreground: #ffffff;
-  --sidebar-foreground: #f0f0f0;
-  --secondary-foreground: #f0f0f0;
+  --letter-spacing: -0.03em;
+  --shadow-opacity: 1;
+  --sidebar-accent: #1c1c1f;
+  --sidebar-border: #2a2a2e;
+  --card-foreground: #fafafa;
+  --shadow-offset-x: 3px;
+  --shadow-offset-y: 3px;
+  --sidebar-primary: #d946ef;
+  --muted-foreground: #71717a;
+  --accent-foreground: #d946ef;
+  --popover-foreground: #fafafa;
+  --primary-foreground: #000000;
+  --sidebar-foreground: #fafafa;
+  --secondary-foreground: #fafafa;
   --destructive-foreground: #ffffff;
-  --sidebar-accent-foreground: #8c5cff;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent-foreground: #d946ef;
+  --sidebar-primary-foreground: #000000;
 }
 
 @layer base {
@@ -158,22 +158,6 @@
 
   body {
     @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(
-        ellipse at 15% 0%,
-        color-mix(in srgb, var(--primary) 18%, transparent) 0%,
-        transparent 45%
-      ),
-      radial-gradient(
-        ellipse at 85% 5%,
-        color-mix(in srgb, var(--chart-3) 14%, transparent) 0%,
-        transparent 40%
-      ),
-      radial-gradient(
-        ellipse at 50% 100%,
-        color-mix(in srgb, var(--primary) 10%, transparent) 0%,
-        transparent 50%
-      );
   }
 }
 

@@ -6,7 +6,6 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 import { LayoutDashboard, LogOut, Swords, Wallet, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Dock } from "@/components/ui/dock-two";
 import { loadProfileSummary } from "@/app/actions";
 
@@ -53,14 +52,14 @@ export function AppNav() {
   });
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/80 backdrop-blur-md pt-safe">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-black pt-safe">
       <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:h-16 sm:grid-cols-[1fr_minmax(0,auto)_1fr] sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
-          className="justify-self-start text-base font-bold uppercase tracking-widest"
+          className="justify-self-start text-base font-black uppercase tracking-widest"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          MOG<span className="text-primary">BATTLE</span>
+          MOG<span className="text-fuchsia-400">BATTLE</span>
         </Link>
 
         <div className="flex justify-center min-w-0">
@@ -70,29 +69,26 @@ export function AppNav() {
         <div className="flex items-center justify-end gap-2 sm:gap-3">
           <div
             className={cn(
-              "hidden items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/8 px-3 py-1.5 sm:flex",
-              "shadow-[0_0_24px_color-mix(in_srgb,var(--primary)_12%,transparent)]"
+              "hidden items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5 sm:flex"
             )}
           >
-            <Zap className="size-3.5 text-primary" />
+            <Zap className="size-3.5 text-fuchsia-400" />
             <span
-              className="text-sm font-semibold tabular-nums text-foreground"
+              className="text-sm font-black tabular-nums text-white"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {credits.toLocaleString()}
             </span>
-            <span className="text-xs text-muted-foreground">MC</span>
+            <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
           </div>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="border border-white/10 text-zinc-500 hover:text-white hover:border-white/30 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"
             onClick={() => logout()}
           >
             <LogOut className="size-3.5" />
             <span className="hidden sm:inline">Out</span>
-          </Button>
+          </button>
         </div>
       </div>
     </header>

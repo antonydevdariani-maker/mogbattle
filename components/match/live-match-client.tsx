@@ -206,7 +206,7 @@ export function LiveMatchClient({
           >
             <button
               onClick={startAnalysis}
-              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 py-4 text-base font-bold text-white transition-all glow-red flex items-center justify-center gap-2"
+              className="w-full bg-red-600 hover:bg-red-500 py-4 text-base font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
             >
               <Swords className="size-5" />
               Begin AI Judgment
@@ -356,20 +356,12 @@ export function LiveMatchClient({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring", bounce: 0.3 }}
-            className={`relative overflow-hidden rounded-2xl border ${
+            className={`relative overflow-hidden border ${
               iWon
-                ? "border-fuchsia-500/40 bg-gradient-to-b from-fuchsia-950/80 to-zinc-950"
-                : "border-red-500/30 bg-gradient-to-b from-red-950/40 to-zinc-950"
+                ? "border-fuchsia-500/40 bg-zinc-950"
+                : "border-red-500/30 bg-zinc-950"
             } p-6 space-y-5`}
           >
-            <div
-              className="absolute inset-0 pointer-events-none opacity-20"
-              style={{
-                backgroundImage: iWon
-                  ? `radial-gradient(circle at 50% 0%, oklch(0.72 0.26 305), transparent 60%)`
-                  : `radial-gradient(circle at 50% 0%, oklch(0.66 0.26 18), transparent 60%)`,
-              }}
-            />
 
             <div className="relative text-center space-y-2">
               <div className="flex justify-center mb-4">

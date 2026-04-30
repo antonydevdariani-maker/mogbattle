@@ -5,7 +5,6 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { Swords } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 function LoginContent() {
   const { ready, authenticated, login } = usePrivy();
@@ -21,7 +20,7 @@ function LoginContent() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-400">
+      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-600 text-xs uppercase tracking-widest">
         Loading…
       </div>
     );
@@ -30,17 +29,21 @@ function LoginContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.06]"
+        className="pointer-events-none absolute inset-0 opacity-[0.05]"
         style={{
-          backgroundImage: `linear-gradient(oklch(0.72 0.26 305) 1px, transparent 1px),
-            linear-gradient(90deg, oklch(0.72 0.26 305) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(#fff 1px, transparent 1px),
+            linear-gradient(90deg, #fff 1px, transparent 1px)`,
           backgroundSize: "48px 48px",
         }}
       />
-      <div className="relative w-full max-w-md space-y-8 rounded-2xl border border-fuchsia-500/25 bg-zinc-950/90 p-8 shadow-[0_0_60px_oklch(0.72_0.26_305/0.2)]">
+
+      <div className="relative w-full max-w-sm space-y-8 border border-white/10 bg-zinc-950 p-8">
+        <div className="absolute -top-px -left-px w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
+        <div className="absolute -bottom-px -right-px w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+
         <div className="space-y-2 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-red-400">MogBattle</p>
-          <h1 className="text-4xl font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>
+          <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-400 font-bold">MogBattle</p>
+          <h1 className="text-4xl font-black text-white uppercase" style={{ fontFamily: "var(--font-heading)" }}>
             Begin
           </h1>
           <p className="text-sm text-zinc-500">
@@ -48,14 +51,14 @@ function LoginContent() {
           </p>
         </div>
 
-        <Button
+        <button
           type="button"
-          className="h-14 w-full bg-gradient-to-r from-fuchsia-600 to-pink-600 text-base font-bold text-white hover:from-fuchsia-500 hover:to-pink-500"
+          className="flex w-full items-center justify-center gap-2 h-14 bg-fuchsia-500 text-black text-base font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
           onClick={() => login()}
         >
           <Swords className="size-5" />
-          Begin
-        </Button>
+          Connect
+        </button>
       </div>
     </div>
   );
@@ -65,7 +68,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">
+        <div className="flex min-h-screen items-center justify-center bg-black text-zinc-600 text-xs uppercase tracking-widest">
           Loading…
         </div>
       }

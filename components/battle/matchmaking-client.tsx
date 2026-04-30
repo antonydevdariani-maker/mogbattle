@@ -42,10 +42,8 @@ export function MatchmakingClient({
   const myRawOffer = isP1 ? match?.player1_bet_offer : match?.player2_bet_offer;
   const oppRawOffer = isP1 ? match?.player2_bet_offer : match?.player1_bet_offer;
 
-  // Sync from parent polling
   useEffect(() => { setMatch(existingMatch); }, [existingMatch]);
 
-  // Supabase realtime for negotiation phase
   useEffect(() => {
     if (!match?.id || !isNegotiating) return;
     const supabase = createClient();
@@ -58,7 +56,6 @@ export function MatchmakingClient({
           const updated = payload.new as MatchRow;
           setMatch(updated);
           if (updated.status === "live") {
-            // Both agreed — trigger pot animation then redirect
             setPotAnimating(true);
             setAgreed(true);
             setTimeout(() => router.push(`/match/${match.id}`), 1800);
@@ -69,7 +66,6 @@ export function MatchmakingClient({
     return () => { supabase.removeChannel(channel); };
   }, [match?.id, isNegotiating, router]);
 
-  // Negotiation countdown
   useEffect(() => {
     if (!isNegotiating || !match?.negotiation_deadline) return;
     const tick = () => {
@@ -81,19 +77,16 @@ export function MatchmakingClient({
     return () => clearInterval(t);
   }, [isNegotiating, match?.negotiation_deadline]);
 
-  // Queue timer
   useEffect(() => {
     if (!isQueued) { setQueueSeconds(0); return; }
     const t = setInterval(() => setQueueSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [isQueued]);
 
-  // Auto-focus input during negotiation
   useEffect(() => {
     if (isNegotiating) inputRef.current?.focus();
   }, [isNegotiating]);
 
-  // If match goes live from polling (realtime fallback)
   useEffect(() => {
     if (isLive && match?.id) {
       setPotAnimating(true);
@@ -112,11 +105,9 @@ export function MatchmakingClient({
   }
 
   function onOfferChange(val: string) {
-    // Only digits
     const cleaned = val.replace(/\D/g, "").slice(0, 6);
     setMyOffer(cleaned);
 
-    // Debounce submit to DB
     if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
     if (!cleaned || !match?.id) return;
     const amount = parseInt(cleaned, 10);
@@ -141,7 +132,7 @@ export function MatchmakingClient({
     <div className="space-y-4">
       <AnimatePresence mode="wait">
 
-        {/* Idle: Enter queue */}
+        {/* Idle */}
         {!match && (
           <motion.div
             key="idle"
@@ -150,17 +141,17 @@ export function MatchmakingClient({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-center space-y-2">
+            <div className="border border-white/10 bg-zinc-950 p-6 text-center space-y-2">
               <p className="text-zinc-400 text-sm">Connect with a random opponent. Negotiate your bet live.</p>
-              <p className="text-xs text-zinc-600">Min 1 MOG coin required to enter</p>
+              <p className="text-xs text-zinc-600 uppercase tracking-widest">Min 1 MOG coin required</p>
             </div>
             <button
               onClick={onQueue}
               disabled={isPending}
-              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 disabled:opacity-60 py-4 text-base font-bold text-white transition-all flex items-center justify-center gap-2"
+              className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 py-4 text-base font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
             >
               {isPending ? (
-                <><Loader2 className="size-4 animate-spin" /> Finding opponent...</>
+                <><Loader2 className="size-4 animate-spin" /> Finding opponent…</>
               ) : (
                 <><Swords className="size-4" /> Enter the Arena</>
               )}
@@ -175,30 +166,30 @@ export function MatchmakingClient({
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
-            className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-6 text-center space-y-4"
+            className="border border-white/10 bg-zinc-950 p-8 text-center space-y-5"
           >
             <div className="relative mx-auto size-16">
-              <div className="absolute inset-0 rounded-full border-2 border-fuchsia-500/30 animate-ping" />
-              <div className="absolute inset-0 rounded-full border-2 border-fuchsia-500/60 animate-pulse" />
-              <div className="relative flex size-full items-center justify-center rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10">
+              <div className="absolute inset-0 border-2 border-fuchsia-500/30 animate-ping" />
+              <div className="absolute inset-0 border-2 border-fuchsia-500/60 animate-pulse" />
+              <div className="relative flex size-full items-center justify-center border border-fuchsia-500/40 bg-fuchsia-500/10">
                 <Swords className="size-6 text-fuchsia-400" />
               </div>
             </div>
             <div>
-              <p className="text-lg font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>
-                Hunting for prey...
+              <p className="text-lg font-black text-white uppercase tracking-wide" style={{ fontFamily: "var(--font-heading)" }}>
+                Hunting for prey…
               </p>
-              <p className="text-zinc-500 text-sm mt-1">{queueSeconds}s in queue</p>
+              <p className="text-zinc-600 text-sm mt-1 tabular-nums">{queueSeconds}s in queue</p>
             </div>
             <div className="flex justify-center gap-1">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="size-1.5 rounded-full bg-fuchsia-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+                <div key={i} className="size-1.5 bg-fuchsia-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
               ))}
             </div>
           </motion.div>
         )}
 
-        {/* Negotiation phase */}
+        {/* Negotiation */}
         {isNegotiating && !agreed && (
           <motion.div
             key="negotiating"
@@ -208,16 +199,16 @@ export function MatchmakingClient({
             className="space-y-6"
           >
             {/* Timer bar */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500">Opponent found — agree on bet</span>
-                <span className={`font-bold tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-fuchsia-300"}`}>
+                <span className="text-zinc-500 uppercase tracking-widest">Agree on bet</span>
+                <span className={`font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-fuchsia-400"}`}>
                   {timeLeft}s
                 </span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+              <div className="h-1 w-full bg-zinc-900 overflow-hidden">
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-red-500"
+                  className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-fuchsia-500"}`}
                   initial={{ width: "100%" }}
                   animate={{ width: `${(timeLeft / 10) * 100}%` }}
                   transition={{ duration: 0.2 }}
@@ -225,36 +216,32 @@ export function MatchmakingClient({
               </div>
             </div>
 
-            {/* Battle area — 10s black screen with heads + offers */}
-            <div className="relative rounded-2xl border border-zinc-800 bg-black overflow-hidden" style={{ minHeight: 220 }}>
-              {/* Black screen label */}
+            {/* Battle area */}
+            <div className="relative border border-white/10 bg-black overflow-hidden" style={{ minHeight: 220 }}>
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-                <span className="text-xs text-zinc-600 uppercase tracking-widest">video starts after bet agreed</span>
+                <span className="text-xs text-zinc-700 uppercase tracking-widest">video starts after bet agreed</span>
               </div>
 
               <div className="flex items-end justify-between px-4 sm:px-12 pb-8 pt-16">
                 {/* Your side */}
                 <div className="flex flex-col items-center gap-2">
-                  {/* Bet offer above head */}
                   <AnimatePresence>
                     {displayMyOffer && (
                       <motion.div
                         key={displayMyOffer}
                         initial={{ opacity: 0, y: 8, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="rounded-lg bg-fuchsia-500/20 border border-fuchsia-500/40 px-3 py-1"
+                        className="border border-fuchsia-500/50 bg-fuchsia-500/10 px-3 py-1"
                       >
-                        <span className="text-fuchsia-200 font-bold text-lg tabular-nums">{displayMyOffer} MC</span>
+                        <span className="text-fuchsia-300 font-black text-lg tabular-nums">{displayMyOffer} MC</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  {/* Head */}
-                  <div className="size-16 rounded-full border-2 border-fuchsia-500/50 bg-fuchsia-500/10 flex items-center justify-center">
-                    <span className="text-fuchsia-300 font-bold text-xs">YOU</span>
+                  <div className="size-16 border-2 border-fuchsia-500/50 bg-fuchsia-500/10 flex items-center justify-center">
+                    <span className="text-fuchsia-300 font-black text-xs uppercase">YOU</span>
                   </div>
                 </div>
 
-                {/* Center VS */}
                 <div className="flex flex-col items-center gap-1 pb-4">
                   <span className="text-zinc-700 font-black text-xl tracking-widest">VS</span>
                 </div>
@@ -267,14 +254,14 @@ export function MatchmakingClient({
                         key={displayOppOffer}
                         initial={{ opacity: 0, y: 8, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1"
+                        className="border border-red-500/50 bg-red-500/10 px-3 py-1"
                       >
-                        <span className="text-red-200 font-bold text-lg tabular-nums">{displayOppOffer} MC</span>
+                        <span className="text-red-300 font-black text-lg tabular-nums">{displayOppOffer} MC</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <div className="size-16 rounded-full border-2 border-red-500/50 bg-red-500/10 flex items-center justify-center">
-                    <span className="text-red-300 font-bold text-xs uppercase truncate max-w-[52px] text-center px-1">
+                  <div className="size-16 border-2 border-red-500/50 bg-red-500/10 flex items-center justify-center">
+                    <span className="text-red-300 font-black text-xs uppercase truncate max-w-[52px] text-center px-1">
                       {opponentName?.slice(0, 5) ?? "???"}
                     </span>
                   </div>
@@ -284,7 +271,7 @@ export function MatchmakingClient({
 
             {/* Bet input */}
             <div className="space-y-2">
-              <p className="text-xs text-zinc-500 text-center">Type your bet — match their amount to agree</p>
+              <p className="text-xs text-zinc-600 text-center uppercase tracking-widest">Type your bet — match theirs to agree</p>
               <input
                 ref={inputRef}
                 type="text"
@@ -293,41 +280,41 @@ export function MatchmakingClient({
                 value={myOffer}
                 onChange={(e) => onOfferChange(e.target.value)}
                 placeholder="0"
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-4 text-center text-2xl font-bold text-white placeholder-zinc-700 focus:border-fuchsia-500/60 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/30 tabular-nums"
+                className="w-full border border-white/10 bg-zinc-950 px-4 py-4 text-center text-2xl font-black text-white placeholder-zinc-800 focus:border-fuchsia-500 focus:outline-none tabular-nums"
               />
-              <p className="text-xs text-zinc-600 text-center">MOG coins</p>
+              <p className="text-xs text-zinc-700 text-center uppercase tracking-widest">MOG coins</p>
             </div>
           </motion.div>
         )}
 
-        {/* Pot merge animation */}
+        {/* Pot merge */}
         {agreed && potAnimating && (
           <motion.div
             key="agreed"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="rounded-2xl border border-yellow-500/30 bg-zinc-900/80 p-8 text-center space-y-4"
+            className="border border-yellow-500/30 bg-zinc-950 p-8 text-center space-y-4"
           >
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 18 }}
             >
-              <p className="text-xs text-yellow-400/70 uppercase tracking-widest mb-2">Pot</p>
-              <p className="text-5xl font-black text-yellow-300" style={{ fontFamily: "var(--font-heading)" }}>
+              <p className="text-xs text-yellow-500/70 uppercase tracking-widest mb-2 font-bold">Pot</p>
+              <p className="text-5xl font-black text-yellow-400 tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
                 {potSize?.toLocaleString()} MC
               </p>
             </motion.div>
-            <p className="text-zinc-400 text-sm">Bet agreed — entering arena...</p>
+            <p className="text-zinc-500 text-sm uppercase tracking-widest">Bet agreed — entering arena…</p>
             <div className="flex justify-center gap-1">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="size-1.5 rounded-full bg-yellow-400 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+                <div key={i} className="size-1.5 bg-yellow-400 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
               ))}
             </div>
           </motion.div>
         )}
 
-        {/* Already live (direct nav fallback) */}
+        {/* Already live fallback */}
         {isLive && !potAnimating && match && (
           <motion.div
             key="live"
@@ -337,7 +324,7 @@ export function MatchmakingClient({
           >
             <button
               onClick={() => router.push(`/match/${match.id}`)}
-              className="w-full rounded-xl bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 py-4 text-base font-bold text-white transition-all flex items-center justify-center gap-2"
+              className="w-full bg-red-600 hover:bg-red-500 py-4 text-base font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
             >
               <Swords className="size-4" />
               Enter the Arena

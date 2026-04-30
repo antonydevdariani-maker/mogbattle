@@ -44,69 +44,69 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `radial-gradient(circle at 80% 50%, oklch(0.72 0.26 305) 0%, transparent 60%)`,
-          }}
-        />
-        <div className="relative flex items-start justify-between">
+    <div className="w-full space-y-5">
+      {/* Hero identity card */}
+      <div className="relative border border-white/10 bg-zinc-950 p-6">
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+        <div className="flex items-start justify-between">
           <div>
-            <p className="mb-1 text-xs uppercase tracking-widest text-zinc-500">Arena Identity</p>
+            <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
             <h1
-              className="mb-1 text-3xl font-bold text-white"
+              className="mb-1 text-3xl font-black text-white uppercase"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {profile?.username ?? "…"}
             </h1>
-            <p className="text-sm text-zinc-400">
-              ELO <span className="font-semibold text-fuchsia-300">{profile?.elo ?? 1500}</span>
+            <p className="text-sm text-zinc-500">
+              ELO <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span>
               {" · "}
-              {profile?.wins ?? 0}W / {losses}L
+              <span className="text-white">{profile?.wins ?? 0}W</span>
+              {" / "}
+              <span className="text-zinc-400">{losses}L</span>
             </p>
           </div>
           <Link
             href="/battle"
-            className="glow-fuchsia flex items-center gap-2 rounded-xl bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-fuchsia-500"
+            className="flex items-center gap-2 bg-fuchsia-500 text-black px-4 py-2 text-sm font-black uppercase tracking-wide shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
           >
             <Swords className="size-4" />
-            Battle Now
+            Battle
             <ArrowRight className="size-3.5" />
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard icon={Zap} label="Mog Credits" value={(profile?.total_credits ?? 0).toLocaleString()} color="fuchsia" />
-        <StatCard icon={TrendingUp} label="ELO Rating" value={String(profile?.elo ?? 1500)} color="blue" />
-        <StatCard icon={Trophy} label="Wins" value={String(profile?.wins ?? 0)} color="yellow" />
-        <StatCard icon={Swords} label="Win Rate" value={`${winRate}%`} color={winRate >= 50 ? "green" : "red"} />
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-px md:grid-cols-4 bg-white/10">
+        <StatCard icon={Zap} label="Mog Credits" value={(profile?.total_credits ?? 0).toLocaleString()} accent="fuchsia" />
+        <StatCard icon={TrendingUp} label="ELO Rating" value={String(profile?.elo ?? 1500)} accent="blue" />
+        <StatCard icon={Trophy} label="Wins" value={String(profile?.wins ?? 0)} accent="yellow" />
+        <StatCard icon={Swords} label="Win Rate" value={`${winRate}%`} accent={winRate >= 50 ? "green" : "red"} />
       </div>
 
+      {/* Recent battles */}
       {matches.length > 0 && userId && (
-        <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/60">
-          <div className="border-b border-zinc-800 px-5 py-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">Recent Battles</h2>
+        <div className="border border-white/10 bg-zinc-950">
+          <div className="border-b border-white/10 px-5 py-4">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Recent Battles</h2>
           </div>
-          <div className="divide-y divide-zinc-800/60">
+          <div className="divide-y divide-white/5">
             {matches.map((m) => {
               const won = m.winner_id === userId;
               const myScore = m.player1_id === userId ? m.ai_score_p1 : m.ai_score_p2;
               const oppScore = m.player1_id === userId ? m.ai_score_p2 : m.ai_score_p1;
               return (
-                <div key={m.id} className="flex items-center justify-between px-5 py-3">
+                <div key={m.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-zinc-900 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className={`size-2 rounded-full ${won ? "bg-green-400" : "bg-red-400"}`} />
-                    <span className={`text-sm font-semibold ${won ? "text-green-300" : "text-red-300"}`}>
+                    <span className={`text-xs font-black uppercase px-2 py-0.5 border ${won ? "border-green-500 text-green-400 bg-green-500/5" : "border-red-500 text-red-400 bg-red-500/5"}`}>
                       {won ? "W" : "L"}
                     </span>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-zinc-500 tabular-nums">
                       {myScore?.toFixed(1)} vs {oppScore?.toFixed(1)}
                     </span>
                   </div>
-                  <span className={`text-sm font-semibold ${won ? "text-green-300" : "text-zinc-500"}`}>
+                  <span className={`text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}>
                     {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} MC
                   </span>
                 </div>
@@ -117,11 +117,11 @@ export default function DashboardPage() {
       )}
 
       {matches.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/30 p-12 text-center">
+        <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center">
           <Swords className="mx-auto mb-3 size-8 text-zinc-700" />
-          <p className="text-sm text-zinc-500">No battles yet. Enter the pit.</p>
-          <Link href="/battle" className="mt-4 inline-block text-sm font-medium text-fuchsia-400 hover:text-fuchsia-300">
-            Find an opponent →
+          <p className="text-sm text-zinc-500 uppercase tracking-widest">No battles yet.</p>
+          <Link href="/battle" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
+            Enter the pit →
           </Link>
         </div>
       )}
@@ -129,40 +129,33 @@ export default function DashboardPage() {
   );
 }
 
-const colorMap = {
-  fuchsia: "text-fuchsia-300",
-  blue: "text-blue-300",
-  yellow: "text-yellow-300",
-  green: "text-green-300",
-  red: "text-red-300",
-};
-
-const iconBgMap = {
-  fuchsia: "bg-fuchsia-500/10 text-fuchsia-400",
-  blue: "bg-blue-500/10 text-blue-400",
-  yellow: "bg-yellow-500/10 text-yellow-400",
-  green: "bg-green-500/10 text-green-400",
-  red: "bg-red-500/10 text-red-400",
+const accentMap = {
+  fuchsia: { text: "text-fuchsia-400", border: "border-fuchsia-500/30", icon: "text-fuchsia-400" },
+  blue:    { text: "text-blue-400",    border: "border-blue-500/30",    icon: "text-blue-400" },
+  yellow:  { text: "text-yellow-400",  border: "border-yellow-500/30",  icon: "text-yellow-400" },
+  green:   { text: "text-green-400",   border: "border-green-500/30",   icon: "text-green-400" },
+  red:     { text: "text-red-400",     border: "border-red-500/30",     icon: "text-red-400" },
 };
 
 function StatCard({
   icon: Icon,
   label,
   value,
-  color,
+  accent,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
-  color: keyof typeof colorMap;
+  accent: keyof typeof accentMap;
 }) {
+  const c = accentMap[accent];
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-5">
-      <div className={`mb-3 inline-flex rounded-lg p-2 ${iconBgMap[color]}`}>
-        <Icon className="size-4" />
+    <div className="bg-zinc-950 p-5">
+      <div className={`mb-3 inline-flex border ${c.border} p-2`}>
+        <Icon className={`size-4 ${c.icon}`} />
       </div>
-      <p className="mb-1 text-xs uppercase tracking-wider text-zinc-500">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${colorMap[color]}`} style={{ fontFamily: "var(--font-heading)" }}>
+      <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">{label}</p>
+      <p className={`text-2xl font-black tabular-nums ${c.text}`} style={{ fontFamily: "var(--font-heading)" }}>
         {value}
       </p>
     </div>
