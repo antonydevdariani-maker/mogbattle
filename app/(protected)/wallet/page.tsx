@@ -1,21 +1,32 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
 import { useCallback, useEffect, useState } from "react";
 import { cashOutCredits, loadWalletData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { WalletForm } from "@/components/wallet/wallet-form";
-import { SolanaReceiveCard } from "@/components/wallet/solana-receive-card";
 import { ClaimUsdcDeposit } from "@/components/wallet/claim-usdc-deposit";
-import { FEE_RECIPIENT_WALLET, PLATFORM_FEE_FRACTION, USDC_MINT_MAINNET, USER_CREDIT_FRACTION } from "@/lib/wallet/usdc-deposit";
-import { Zap, ArrowUpRight, Info } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Zap, Copy, Check, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 
-export default function WalletPage() {
+function WalletPageInner() {
   const { authenticated, getAccessToken } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const actionParam = searchParams.get("action");
+  const [section, setSection] = useState<"deposit" | "withdraw">(
+    actionParam === "withdraw" ? "withdraw" : "deposit"
+  );
+
+  const address = wallets[0]?.address;
 
   const refresh = useCallback(async () => {
     const token = await getAccessToken();
@@ -30,129 +41,150 @@ export default function WalletPage() {
     void refresh();
   }, [authenticated, refresh]);
 
+  async function copyAddress() {
+    if (!address) return;
+    await navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
-    <div className="w-full space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card/80 p-6 shadow-[0_0_40px_color-mix(in_srgb,var(--primary)_8%,transparent)]">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 30% 40%, var(--primary) 0%, transparent 55%)`,
-          }}
-        />
-        <div className="relative">
-          <div className="mb-1 flex items-center gap-2">
-            <Zap className="size-4 text-primary" />
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Mog Credits balance
-            </p>
-          </div>
-          <p
-            className="text-5xl font-bold tabular-nums text-foreground"
-            style={{ fontFamily: "var(--font-heading)" }}
+    <div className="w-full max-w-lg mx-auto space-y-4">
+
+      {/* Credits balance */}
+      <div className="relative border border-white/10 bg-zinc-950 p-6">
+        <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-fuchsia-500" />
+        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-fuchsia-500" />
+        <div className="flex items-center gap-2 mb-1">
+          <Zap className="size-4 text-fuchsia-400" />
+          <p className="text-xs font-bold uppercase tracking-widest text-zinc-600">Mog Credits</p>
+        </div>
+        <p
+          className="text-6xl font-black tabular-nums text-white"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          {balance.toLocaleString()}
+        </p>
+        <p className="mt-1 text-xs text-zinc-600 uppercase tracking-widest">1 credit ≈ $1 USDC</p>
+      </div>
+
+      {/* Wallet address + QR */}
+      <div className="border border-white/10 bg-zinc-950">
+        <div className="border-b border-white/10 px-5 py-3">
+          <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your Wallet</p>
+        </div>
+        <div className="p-5 space-y-4">
+          {walletsReady && address ? (
+            <>
+              <div className="flex items-start gap-2">
+                <p className="font-mono text-xs text-zinc-400 break-all flex-1 leading-relaxed">{address}</p>
+                <button
+                  onClick={copyAddress}
+                  className="shrink-0 flex items-center gap-1.5 border border-white/10 bg-zinc-900 hover:border-fuchsia-500/50 hover:text-fuchsia-300 text-zinc-400 text-xs font-bold uppercase tracking-widest px-3 py-2 transition-colors"
+                >
+                  {copied ? <Check className="size-3.5 text-green-400" /> : <Copy className="size-3.5" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <div className="flex justify-center pt-1">
+                <div className="border border-white/10 p-3 bg-white">
+                  <QRCodeSVG value={address} size={160} level="H" bgColor="#ffffff" fgColor="#000000" />
+                </div>
+              </div>
+              <p className="text-center text-xs text-zinc-600 uppercase tracking-widest">USDC · Solana</p>
+            </>
+          ) : (
+            <p className="text-sm text-zinc-600">Loading wallet…</p>
+          )}
+        </div>
+      </div>
+
+      {/* Deposit / Withdraw tabs */}
+      <div className="border border-white/10 bg-zinc-950">
+        <div className="grid grid-cols-2 divide-x divide-white/10 border-b border-white/10">
+          <button
+            onClick={() => setSection("deposit")}
+            className={`flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
+              section === "deposit" ? "bg-fuchsia-500/10 text-fuchsia-400" : "text-zinc-600 hover:text-zinc-400"
+            }`}
           >
-            {balance.toLocaleString()}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">Pulled from Supabase · 1 credit ≈ $1 USDC face at deposit</p>
+            <ArrowDownLeft className="size-3.5" />
+            Deposit
+          </button>
+          <button
+            onClick={() => setSection("withdraw")}
+            className={`flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
+              section === "withdraw" ? "bg-red-500/10 text-red-400" : "text-zinc-600 hover:text-zinc-400"
+            }`}
+          >
+            <ArrowUpRight className="size-3.5" />
+            Withdraw
+          </button>
         </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-2xl border border-border bg-card/50 p-6">
-          <div className="flex items-start gap-2">
-            <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p className="text-base font-medium leading-relaxed text-foreground">
-                Send <span className="text-primary">USDC (Solana)</span> to your embedded address below.
+        <div className="p-5">
+          {section === "deposit" ? (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Send <span className="text-fuchsia-400 font-bold">USDC (Solana)</span> to your address above, then claim below. 20% platform fee applies.
               </p>
-              <p className="leading-relaxed">
-                After your on-chain USDC is in this wallet, use <strong className="text-foreground">Claim deposit</strong> to
-                move the <strong>20% platform fee</strong> in USDC to <code className="text-xs text-primary/90">{FEE_RECIPIENT_WALLET}</code> and
-                receive <strong className="text-foreground">{(100 * USER_CREDIT_FRACTION).toFixed(0)}%</strong> of the amount
-                you enter as <strong className="text-foreground">Mog Credits</strong> ({PLATFORM_FEE_FRACTION * 100}% platform fee).
-              </p>
+              <ClaimUsdcDeposit onSettled={refresh} />
             </div>
-          </div>
-
-          <SolanaReceiveCard />
-
-          <p className="text-xs text-muted-foreground/90">
-            Token: USDC · Mint <code className="break-all text-primary/80">{USDC_MINT_MAINNET}</code>
-          </p>
-        </div>
-
-        <div className="space-y-3 rounded-2xl border border-border bg-card/50 p-6">
-          <h2 className="text-sm font-semibold tracking-wide text-foreground">Claim deposit (MVP)</h2>
-          <p className="text-sm text-muted-foreground">
-            Enter the <strong className="text-foreground">gross USDC</strong> you’re converting. We take{" "}
-            {PLATFORM_FEE_FRACTION * 100}% in USDC on-chain; you get{" "}
-            {USER_CREDIT_FRACTION * 100}% as Mog Credits after the transaction confirms.
-          </p>
-          <ClaimUsdcDeposit onSettled={refresh} />
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Withdraw Mog Credits to USDC. Simulated — does not move USDC on-chain yet.
+              </p>
+              <WalletForm
+                onSubmitAction={async (fd) => {
+                  const token = await getAccessToken();
+                  if (!token) throw new Error("Not signed in");
+                  await cashOutCredits(token, fd);
+                  await refresh();
+                }}
+                cta="Withdraw"
+                variant="cashout"
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-muted/20 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="rounded-lg bg-destructive/10 p-2">
-            <ArrowUpRight className="size-4 text-destructive" />
+      {/* Transaction history */}
+      {transactions.length > 0 && (
+        <div className="border border-white/10 bg-zinc-950">
+          <div className="border-b border-white/10 px-5 py-3 flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">History</p>
+            <span className="text-xs text-zinc-700">{transactions.length} entries</span>
           </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Test cash out</h2>
-            <p className="text-xs text-muted-foreground">Simulated — does not move USDC on-chain</p>
-          </div>
-        </div>
-        <WalletForm
-          onSubmitAction={async (fd) => {
-            const token = await getAccessToken();
-            if (!token) throw new Error("Not signed in");
-            await cashOutCredits(token, fd);
-            await refresh();
-          }}
-          cta="Cash out (simulated)"
-          variant="cashout"
-        />
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-card/40">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">Transaction history</h2>
-          <span className="text-xs text-muted-foreground">{transactions.length} entries</span>
-        </div>
-        {transactions.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">No transactions yet.</div>
-        ) : (
-          <div className="divide-y divide-border/60">
+          <div className="divide-y divide-white/5">
             {transactions.map((tx) => (
               <div key={tx.id} className="flex items-center justify-between gap-2 px-5 py-3">
-                <div className="min-w-0 flex items-center gap-3">
-                  <div
-                    className={`shrink-0 rounded-md p-1.5 ${
-                      tx.type === "deposit" ? "bg-green-500/10 text-green-400" : "bg-destructive/10 text-destructive"
-                    }`}
-                  >
-                    {tx.type === "deposit" ? "↓" : "↑"}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium capitalize text-foreground">{tx.type}</p>
-                    <p className="break-all font-mono text-xs text-muted-foreground">{tx.tx_signature ?? "—"}</p>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-black uppercase px-2 py-0.5 border ${
+                    tx.type === "deposit"
+                      ? "border-green-500/50 text-green-400 bg-green-500/5"
+                      : "border-red-500/50 text-red-400 bg-red-500/5"
+                  }`}>
+                    {tx.type === "deposit" ? "IN" : "OUT"}
+                  </span>
+                  <p className="font-mono text-xs text-zinc-600 truncate max-w-[120px]">{tx.tx_signature ?? "—"}</p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p
-                    className={`text-sm font-semibold tabular-nums ${
-                      tx.type === "deposit" ? "text-green-300" : "text-red-300"
-                    }`}
-                  >
-                    {tx.type === "deposit" ? "+" : "-"}
-                    {tx.amount.toLocaleString()} MC
-                  </p>
-                  <p className="text-xs capitalize text-muted-foreground">{tx.status}</p>
-                </div>
+                <p className={`text-sm font-black tabular-nums ${tx.type === "deposit" ? "text-green-400" : "text-red-400"}`}>
+                  {tx.type === "deposit" ? "+" : "-"}{tx.amount.toLocaleString()} MC
+                </p>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <Suspense fallback={<div className="text-zinc-600 text-xs uppercase tracking-widest py-20 text-center">Loading…</div>}>
+      <WalletPageInner />
+    </Suspense>
   );
 }

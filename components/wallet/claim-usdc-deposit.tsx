@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { PublicKey, Connection } from "@solana/web3.js";
 import bs58 from "bs58";
 import { usePrivy } from "@privy-io/react-auth";
 import {
@@ -9,8 +8,7 @@ import {
   useSignAndSendTransaction,
   useWallets,
 } from "@privy-io/react-auth/solana";
-import { buildUsdcFeeTransferTxBytes } from "@/lib/solana/build-usdc-fee-tx";
-import { recordUsdcDepositClaim } from "@/app/actions";
+import { recordUsdcDepositClaim, buildDepositTransaction } from "@/app/actions";
 import { FEE_RECIPIENT_WALLET, USDC_MINT_MAINNET, mogCreditsFromGrossUsdc, PLATFORM_FEE_FRACTION } from "@/lib/wallet/usdc-deposit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { Loader2, ShieldAlert, Sparkles } from "lucide-react";
 
 const MAINNET = "solana:mainnet" as const;
-const DEFAULT_RPC = "https://api.mainnet-beta.solana.com";
 
 function usdcToDisplay(n: number) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
@@ -43,10 +40,6 @@ export function ClaimUsdcDeposit({ onSettled }: Props) {
   const gross = valid ? parsed : 0;
   const feeUsdc = gross * PLATFORM_FEE_FRACTION;
   const netMc = gross > 0 ? mogCreditsFromGrossUsdc(gross) : 0;
-  const rpc = typeof window !== "undefined" && process.env.NEXT_PUBLIC_SOLANA_RPC_URL
-    ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL
-    : DEFAULT_RPC;
-
   async function handleCreateSolana() {
     setError(null);
     setPending("create");
@@ -82,22 +75,21 @@ export function ClaimUsdcDeposit({ onSettled }: Props) {
       setError("Not signed in.");
       return;
     }
-    const owner = new PublicKey(solWallet.address);
-    const connection = new Connection(rpc, "confirmed");
     let signatureBase58: string;
     try {
-      const { transactionBytes } = await buildUsdcFeeTransferTxBytes({
-        owner,
+      const { transactionBase64 } = await buildDepositTransaction(token, {
         grossUsdc: gross,
-        connection,
+        ownerAddress: solWallet.address,
       });
-      const { signature } = await signAndSendTransaction({
+      const transactionBytes = Uint8Array.from(Buffer.from(transactionBase64, "base64"));
+      const result = await signAndSendTransaction({
         transaction: transactionBytes,
         wallet: solWallet,
         chain: MAINNET,
         options: { sponsor: true },
       });
-      signatureBase58 = bs58.encode(signature);
+      const sig = (result as { signature: unknown }).signature;
+      signatureBase58 = typeof sig === "string" ? sig : bs58.encode(sig as Uint8Array);
     } catch (e) {
       setPending(false);
       const msg = e instanceof Error ? e.message : String(e);
@@ -233,6 +225,11 @@ export function ClaimUsdcDeposit({ onSettled }: Props) {
               We request fee sponsorship from Privy when available. You still sign the SPL transfer. Your
               wallet must hold the gross USDC balance you enter (the chain enforces the 20% move).
             </p>
+            {error && (
+              <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
+              </p>
+            )}
             <div className="flex gap-2">
               <Button
                 type="button"

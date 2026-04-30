@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { useEffect, useState } from "react";
-import { LayoutDashboard, LogOut, Swords, Wallet, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LayoutDashboard, LogOut, Swords, Wallet, Zap, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
 import { loadProfileSummary } from "@/app/actions";
@@ -20,6 +20,8 @@ export function AppNav() {
   const router = useRouter();
   const { logout, authenticated, getAccessToken } = usePrivy();
   const [credits, setCredits] = useState(0);
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -35,6 +37,19 @@ export function AppNav() {
     })();
   }, [authenticated, getAccessToken, pathname]);
 
+  // Close menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setWalletMenuOpen(false);
+      }
+    }
+    if (walletMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [walletMenuOpen]);
+
+  const hasCredits = credits > 0;
+
   const dockItems = navItems.map((item) => {
     const inBattleFlow =
       item.href === "/battle" &&
@@ -43,6 +58,16 @@ export function AppNav() {
       inBattleFlow ||
       pathname === item.href ||
       pathname.startsWith(`${item.href}/`);
+
+    if (item.href === "/wallet" && hasCredits) {
+      return {
+        icon: item.icon,
+        label: item.label,
+        active,
+        onClick: () => setWalletMenuOpen((o) => !o),
+      };
+    }
+
     return {
       icon: item.icon,
       label: item.label,
@@ -62,21 +87,35 @@ export function AppNav() {
           MOG<span className="text-fuchsia-400">BATTLE</span>
         </Link>
 
-        <div className="flex justify-center min-w-0">
+        {/* Dock + wallet dropdown */}
+        <div className="relative flex justify-center min-w-0" ref={menuRef}>
           <Dock items={dockItems} className="w-auto max-w-[min(100vw-6rem,28rem)]" />
+
+          {/* Wallet quick menu */}
+          {walletMenuOpen && (
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-44 border border-white/10 bg-zinc-950 shadow-[4px_4px_0_#000] z-50">
+              <button
+                onClick={() => { setWalletMenuOpen(false); router.push("/wallet?action=deposit"); }}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-300 transition-colors border-b border-white/10"
+              >
+                <ArrowDownLeft className="size-3.5 text-fuchsia-400" />
+                Deposit
+              </button>
+              <button
+                onClick={() => { setWalletMenuOpen(false); router.push("/wallet?action=withdraw"); }}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-xs font-black uppercase tracking-widest text-zinc-300 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+              >
+                <ArrowUpRight className="size-3.5 text-red-400" />
+                Withdraw
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 sm:gap-3">
-          <div
-            className={cn(
-              "hidden items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5 sm:flex"
-            )}
-          >
+          <div className={cn("hidden items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5 sm:flex")}>
             <Zap className="size-3.5 text-fuchsia-400" />
-            <span
-              className="text-sm font-black tabular-nums text-white"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
+            <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
               {credits.toLocaleString()}
             </span>
             <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>

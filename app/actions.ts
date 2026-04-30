@@ -488,3 +488,20 @@ export async function finalizeMatchResult(
   revalidatePath(`/match/${args.matchId}`);
 }
 
+
+export async function buildDepositTransaction(
+  accessToken: string,
+  { grossUsdc, ownerAddress }: { grossUsdc: number; ownerAddress: string }
+): Promise<{ transactionBase64: string; expectedFeeRaw: string }> {
+  await requirePrivyUser(accessToken);
+  const { buildUsdcFeeTransferTxBytes } = await import("@/lib/solana/build-usdc-fee-tx");
+  const { PublicKey, Connection } = await import("@solana/web3.js");
+  const rpc = process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+  const connection = new Connection(rpc, "confirmed");
+  const owner = new PublicKey(ownerAddress);
+  const { transactionBytes, expectedFeeRaw } = await buildUsdcFeeTransferTxBytes({ owner, grossUsdc, connection });
+  return {
+    transactionBase64: Buffer.from(transactionBytes).toString("base64"),
+    expectedFeeRaw: expectedFeeRaw.toString(),
+  };
+}

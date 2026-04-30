@@ -23,7 +23,7 @@ create table if not exists public.profiles (
   avatar_url text,
   wallet_address text,
   total_credits bigint not null default 0,
-  elo integer not null default 1500,
+  elo integer not null default 800,
   matches_played integer not null default 0,
   wins integer not null default 0,
   created_at timestamptz not null default now()
