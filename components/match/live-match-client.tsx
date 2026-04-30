@@ -6,6 +6,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { finalizeMatchResult } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull } from "lucide-react";
+import { useAgoraVideo, LocalVideoBox, RemoteVideoBox } from "@/components/match/agora-video";
 
 const METRICS = [
   "Jawline Definition",
@@ -40,6 +41,12 @@ export function LiveMatchClient({
   initialAiP2: number | null;
 }) {
   const isCompleted = initialStatus === "completed";
+
+  const { localVideoTrack, remoteVideoTrack, joined } = useAgoraVideo({
+    channelName: matchId,
+    uid: isPlayer1 ? 1 : 2,
+    enabled: !isCompleted,
+  });
 
   const [myReady, setMyReady] = useState(isCompleted);
   const [oppReady, setOppReady] = useState(isCompleted);
@@ -146,20 +153,46 @@ export function LiveMatchClient({
 
       {/* Camera feeds */}
       <div className="grid gap-4 md:grid-cols-2">
-        <CameraBox
-          label="YOU"
-          ready={myReady}
-          onReady={() => setMyReady(true)}
-          analyzing={phase === "analyzing" || phase === "verdict" || phase === "countdown"}
-          accentColor="fuchsia"
-        />
-        <CameraBox
-          label="OPPONENT"
-          ready={oppReady}
-          onReady={() => setOppReady(true)}
-          analyzing={phase === "analyzing" || phase === "verdict" || phase === "countdown"}
-          accentColor="red"
-        />
+        <div className="space-y-0">
+          <LocalVideoBox
+            track={localVideoTrack}
+            label="YOU"
+            accentColor="fuchsia"
+          />
+          <div className="flex items-center justify-between px-1 py-2">
+            <span className="text-sm font-semibold text-zinc-300">YOU</span>
+            {!myReady ? (
+              <button
+                onClick={() => setMyReady(true)}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all"
+              >
+                Ready
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                <CheckCircle2 className="size-3.5" /> Ready
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-0">
+          <RemoteVideoBox
+            track={remoteVideoTrack}
+            label="OPPONENT"
+            accentColor="red"
+          />
+          <div className="flex items-center justify-between px-1 py-2">
+            <span className="text-sm font-semibold text-zinc-300">OPPONENT</span>
+            {oppReady ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                <CheckCircle2 className="size-3.5" /> Ready
+              </span>
+            ) : (
+              <span className="text-xs text-zinc-600">Waiting...</span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Idle: both ready → start button */}
@@ -358,7 +391,7 @@ export function LiveMatchClient({
             </div>
 
             {/* Score comparison */}
-            <div className="relative grid grid-cols-2 gap-3">
+            <div className="relative grid grid-cols-2 gap-2 sm:gap-3">
               <ScoreCard
                 label="YOU"
                 score={myScore}
@@ -408,84 +441,6 @@ export function LiveMatchClient({
   );
 }
 
-function CameraBox({
-  label,
-  ready,
-  onReady,
-  analyzing,
-  accentColor,
-}: {
-  label: string;
-  ready: boolean;
-  onReady: () => void;
-  analyzing: boolean;
-  accentColor: "fuchsia" | "red";
-}) {
-  const borderClass = ready
-    ? accentColor === "fuchsia"
-      ? "border-fuchsia-500/50 animate-pulse-border"
-      : "border-red-500/50"
-    : "border-zinc-800";
-
-  return (
-    <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>
-      {/* Camera placeholder */}
-      <div className="relative aspect-video bg-zinc-950 overflow-hidden scanlines">
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage:
-              accentColor === "fuchsia"
-                ? `radial-gradient(circle at 50% 50%, oklch(0.72 0.26 305 / 0.4), transparent 70%)`
-                : `radial-gradient(circle at 50% 50%, oklch(0.66 0.26 18 / 0.3), transparent 70%)`,
-          }}
-        />
-        {analyzing && <div className="scan-line" />}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className={`size-16 rounded-full border-2 opacity-20 ${
-              accentColor === "fuchsia" ? "border-fuchsia-400" : "border-red-400"
-            }`}
-          />
-        </div>
-        {ready && (
-          <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-1">
-            <span className="size-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-mono text-red-400">REC</span>
-          </div>
-        )}
-        <div className="absolute bottom-2 right-2">
-          <span className={`text-xs font-bold tracking-widest opacity-60 ${
-            accentColor === "fuchsia" ? "text-fuchsia-300" : "text-red-300"
-          }`}>
-            {label}
-          </span>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-semibold text-zinc-300">{label}</span>
-        {!ready ? (
-          <button
-            onClick={onReady}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-              accentColor === "fuchsia"
-                ? "bg-fuchsia-600 hover:bg-fuchsia-500 text-white"
-                : "bg-red-700 hover:bg-red-600 text-white"
-            }`}
-          >
-            Ready
-          </button>
-        ) : (
-          <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-            <CheckCircle2 className="size-3.5" /> Ready
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ScoreCard({
   label,

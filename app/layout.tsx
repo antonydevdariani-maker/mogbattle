@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 import { MogBattlePrivyProvider } from "@/components/providers/privy-provider";
 import "./globals.css";
@@ -24,6 +24,19 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "MogBattle — 1v1 Face-Off Arena",
   description: "Queue. Bet. Mog. The highest-stakes 1v1 face rating arena on the internet.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MogBattle",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -37,7 +50,7 @@ export default function RootLayout({
         lang="en"
         className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark h-full antialiased`}
       >
-        <body className="min-h-full flex flex-col">{children}</body>
+        <body className="min-h-full flex flex-col pb-safe">{children}</body>
       </html>
     </MogBattlePrivyProvider>
   );

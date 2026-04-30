@@ -96,7 +96,7 @@ export async function loadBattleQueueState(accessToken: string) {
     .from("matches")
     .select("*")
     .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-    .in("status", ["waiting", "live"])
+    .in("status", ["waiting", "matched", "live"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -224,30 +224,40 @@ export async function cashOutCredits(accessToken: string, formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export async function queueForBattle(accessToken: string, betAmount: number) {
+export async function queueForBattle(accessToken: string) {
   const userId = await requirePrivyUser(accessToken);
-  if (!Number.isFinite(betAmount) || betAmount < 1) {
-    throw new Error("Invalid bet amount.");
+  const supabase = getSupabaseAdmin();
+
+  // Require min 1 MOG credit to enter
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("total_credits")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!profile || profile.total_credits < 1) {
+    throw new Error("Need at least 1 MOG coin to enter.");
   }
 
-  const supabase = getSupabaseAdmin();
-  const normalizedBet = Math.floor(betAmount);
-
+  // Check for any waiting match (not own)
   const { data: waitingMatch } = await supabase
     .from("matches")
     .select("id")
     .eq("status", "waiting")
     .is("player2_id", null)
     .neq("player1_id", userId)
-    .eq("bet_amount", normalizedBet)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
   if (waitingMatch?.id) {
+    const deadline = new Date(Date.now() + 10_000).toISOString();
     const { data: matched } = await supabase
       .from("matches")
-      .update({ player2_id: userId })
+      .update({
+        player2_id: userId,
+        status: "matched",
+        negotiation_deadline: deadline,
+      })
       .eq("id", waitingMatch.id)
       .select("id")
       .single();
@@ -259,7 +269,7 @@ export async function queueForBattle(accessToken: string, betAmount: number) {
     .from("matches")
     .insert({
       player1_id: userId,
-      bet_amount: normalizedBet,
+      bet_amount: 0,
       status: "waiting",
     })
     .select("id")
@@ -267,6 +277,79 @@ export async function queueForBattle(accessToken: string, betAmount: number) {
 
   revalidatePath("/battle");
   return { matchId: created?.id, state: "queued" as const };
+}
+
+export async function submitBetOffer(accessToken: string, matchId: string, amount: number) {
+  const userId = await requirePrivyUser(accessToken);
+  if (!Number.isFinite(amount) || amount < 1) throw new Error("Invalid bet amount.");
+
+  const supabase = getSupabaseAdmin();
+  const normalizedAmount = Math.floor(amount);
+
+  const { data: match } = await supabase.from("matches").select("*").eq("id", matchId).single();
+  if (!match || (match.player1_id !== userId && match.player2_id !== userId)) {
+    throw new Error("Not your match.");
+  }
+  if (match.status !== "matched") throw new Error("Not in negotiation phase.");
+
+  // Check deadline
+  if (match.negotiation_deadline && new Date() > new Date(match.negotiation_deadline)) {
+    await supabase.from("matches").update({ status: "cancelled" }).eq("id", matchId);
+    throw new Error("Negotiation timed out.");
+  }
+
+  const isP1 = match.player1_id === userId;
+  const updates = isP1
+    ? { player1_bet_offer: normalizedAmount }
+    : { player2_bet_offer: normalizedAmount };
+
+  const { data: updated } = await supabase
+    .from("matches")
+    .update(updates)
+    .eq("id", matchId)
+    .select("*")
+    .single();
+
+  if (!updated) throw new Error("Update failed.");
+
+  // Check if both offers match
+  const p1Offer = isP1 ? normalizedAmount : (updated.player1_bet_offer ?? null);
+  const p2Offer = isP1 ? (updated.player2_bet_offer ?? null) : normalizedAmount;
+
+  if (p1Offer !== null && p2Offer !== null && p1Offer === p2Offer) {
+    // Verify both have enough balance
+    const { data: players } = await supabase
+      .from("profiles")
+      .select("user_id,total_credits")
+      .in("user_id", [match.player1_id, match.player2_id!]);
+    const p1 = players?.find((p) => p.user_id === match.player1_id);
+    const p2 = players?.find((p) => p.user_id === match.player2_id);
+
+    if (!p1 || !p2 || p1.total_credits < p1Offer || p2.total_credits < p1Offer) {
+      throw new Error("Insufficient balance for agreed bet.");
+    }
+
+    // Deduct and go live
+    await supabase
+      .from("profiles")
+      .update({ total_credits: p1.total_credits - p1Offer })
+      .eq("user_id", match.player1_id);
+    await supabase
+      .from("profiles")
+      .update({ total_credits: p2.total_credits - p1Offer })
+      .eq("user_id", match.player2_id!);
+    await supabase
+      .from("matches")
+      .update({
+        status: "live",
+        bet_amount: p1Offer,
+        started_at: new Date().toISOString(),
+      })
+      .eq("id", matchId);
+  }
+
+  revalidatePath("/battle");
+  revalidatePath(`/match/${matchId}`);
 }
 
 export async function confirmBattleMatch(accessToken: string, matchId: string) {

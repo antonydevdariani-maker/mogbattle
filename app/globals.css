@@ -292,3 +292,28 @@
 .flicker {
   animation: flicker 4s ease-in-out infinite;
 }
+
+/* iOS safe areas */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.px-safe { 
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent iOS bounce/overscroll on body */
+html, body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scrolling for iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Min touch target size */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}

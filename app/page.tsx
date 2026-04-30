@@ -39,24 +39,15 @@ export default function Home() {
             Winner takes the pot. No excuses.
           </p>
 
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex justify-center">
             <Link
-              href="/login"
+              href="/begin"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold px-8 h-11 text-sm glow-fuchsia"
+                "bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold px-16 h-14 text-lg glow-fuchsia"
               )}
             >
-              Connect Wallet to Play
-            </Link>
-            <Link
-              href="/dashboard"
-              className={cn(
-                buttonVariants({ size: "lg", variant: "outline" }),
-                "border-zinc-700 text-zinc-300 hover:text-white px-8 h-11 text-sm"
-              )}
-            >
-              Arena
+              Begin
             </Link>
           </div>
         </div>

@@ -53,8 +53,8 @@ export function AppNav() {
   });
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto grid h-16 w-full max-w-6xl grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-3 px-4">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/80 backdrop-blur-md pt-safe">
+      <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:h-16 sm:grid-cols-[1fr_minmax(0,auto)_1fr] sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
           className="justify-self-start text-base font-bold uppercase tracking-widest"
@@ -63,8 +63,8 @@ export function AppNav() {
           MOG<span className="text-primary">BATTLE</span>
         </Link>
 
-        <div className="justify-self-center min-w-0">
-          <Dock items={dockItems} className="w-auto max-w-[min(100vw-8rem,28rem)]" />
+        <div className="flex justify-center min-w-0">
+          <Dock items={dockItems} className="w-auto max-w-[min(100vw-6rem,28rem)]" />
         </div>
 
         <div className="flex items-center justify-end gap-2 sm:gap-3">

@@ -45,7 +45,7 @@ export default function BattlePage() {
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>
             Find a Match
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">Pick your stake. Enter the queue. Mog or be mogged.</p>
+          <p className="mt-1 text-sm text-zinc-500">Enter the arena. Negotiate live. Mog or be mogged.</p>
         </div>
         <MatchmakingClient
           existingMatch={activeMatch}

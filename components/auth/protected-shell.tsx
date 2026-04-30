@@ -43,7 +43,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppNav />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 px-4 py-6">{children}</div>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6">{children}</div>
     </>
   );
 }

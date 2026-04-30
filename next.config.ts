@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     config.plugins.push(
       new webpackInstance.IgnorePlugin({ resourceRegExp: /^react-native$/ })
     );
-    return config;
+return config;
   },
 };
 
