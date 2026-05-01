@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# Claude / Cursor local worktrees & agent cache (keep repo clean)
+.claude/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
