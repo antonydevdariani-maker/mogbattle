@@ -6,6 +6,10 @@ import { useEffect, useState } from "react";
 import { getMatchForUser } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { LiveMatchClient } from "@/components/match/live-match-client";
+import {
+  useArenaMatchLeaveSetters,
+  useWarnBeforeUnloadIf,
+} from "@/components/arena/arena-match-leave-context";
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
@@ -14,6 +18,7 @@ export default function MatchRoomPage() {
   const matchId = params.matchId as string;
   const router = useRouter();
   const { authenticated, getAccessToken } = usePrivy();
+  const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
 
   useEffect(() => {
@@ -29,6 +34,18 @@ export default function MatchRoomPage() {
       setData(res as { match: MatchRow; userId: string });
     })();
   }, [authenticated, matchId, getAccessToken, router]);
+
+  const roomLeaveRisk =
+    data != null &&
+    data.match.status !== "completed" &&
+    data.match.status !== "cancelled" &&
+    (data.match.status === "matched" || data.match.status === "live");
+  useWarnBeforeUnloadIf(!!roomLeaveRisk);
+
+  useEffect(() => {
+    setMatchAtRisk(!!roomLeaveRisk);
+    return () => setMatchAtRisk(false);
+  }, [roomLeaveRisk, setMatchAtRisk]);
 
   if (!data) {
     return (

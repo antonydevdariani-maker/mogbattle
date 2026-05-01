@@ -5,11 +5,16 @@ import { useCallback, useEffect, useState } from "react";
 import { loadBattleQueueState } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { MatchmakingClient } from "@/components/battle/matchmaking-client";
+import {
+  useArenaMatchLeaveSetters,
+  useWarnBeforeUnloadIf,
+} from "@/components/arena/arena-match-leave-context";
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function BattlePage() {
   const { authenticated, getAccessToken } = usePrivy();
+  const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [activeMatch, setActiveMatch] = useState<MatchRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -29,6 +34,15 @@ export default function BattlePage() {
     const id = setInterval(pull, 3000);
     return () => clearInterval(id);
   }, [authenticated, pull]);
+
+  const battleLeaveRisk =
+    activeMatch?.status === "matched" || activeMatch?.status === "live";
+  useWarnBeforeUnloadIf(battleLeaveRisk);
+
+  useEffect(() => {
+    setMatchAtRisk(!!battleLeaveRisk);
+    return () => setMatchAtRisk(false);
+  }, [battleLeaveRisk, setMatchAtRisk]);
 
   if (!userId) {
     return (

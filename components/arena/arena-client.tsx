@@ -16,6 +16,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useAgoraVideo } from "@/components/match/agora-video";
 import type { Database } from "@/lib/types/database";
 import {
+  useArenaMatchLeaveSetters,
+  useWarnBeforeUnloadIf,
+} from "@/components/arena/arena-match-leave-context";
+import {
   Swords,
   Trophy,
   Skull,
@@ -441,6 +445,29 @@ export function ArenaClient({
     refreshBalance();
   }
 
+  const matchLeaveRisk =
+    phase !== "done" &&
+    match != null &&
+    match.status !== "completed" &&
+    match.status !== "cancelled" &&
+    (match.status === "matched" ||
+      match.status === "live" ||
+      phase === "countdown" ||
+      phase === "analyzing" ||
+      phase === "verdict");
+
+  const { setMatchAtRisk } = useArenaMatchLeaveSetters();
+  useWarnBeforeUnloadIf(phase !== "idle" && matchLeaveRisk);
+
+  useEffect(() => {
+    if (phase === "idle") {
+      setMatchAtRisk(false);
+      return;
+    }
+    setMatchAtRisk(matchLeaveRisk);
+    return () => setMatchAtRisk(false);
+  }, [phase, matchLeaveRisk, setMatchAtRisk]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   if (phase === "idle") {
@@ -507,9 +534,9 @@ export function ArenaClient({
       )}
 
       {/* Split screen — Omegle-style; mobile stacks with VS between */}
-      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-1 md:pt-2">
+      <div className="relative z-10 flex-1 grid grid-cols-1 items-stretch md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-1 md:pt-2">
         {/* LEFT — Opponent */}
-        <div className="flex flex-col gap-2 order-1">
+        <div className="flex min-h-0 flex-col gap-2 order-1 md:h-full">
           <PlayerPanel
             side="opponent"
             name={opponentName ?? "???"}
@@ -546,7 +573,7 @@ export function ArenaClient({
         </div>
 
         {/* RIGHT — You */}
-        <div className="flex flex-col gap-3 order-3">
+        <div className="flex min-h-0 flex-col gap-3 order-3 md:h-full">
           <PlayerPanel
             side="you"
             name={yourHandle}
@@ -1142,11 +1169,15 @@ function PlayerPanel({
 
   const heroKey = isYou ? (displayOffer || "empty") : `${isSearching}-${displayOffer || "dash"}`;
 
+  const showTypeHint = isYou && (phase === "queued" || phase === "negotiating");
+
   return (
-    <div className={`relative flex flex-col border-2 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}>
-      {/* Giant bet / input readout — above video */}
+    <div
+      className={`relative flex h-full min-h-[22rem] flex-col border-2 md:h-[28rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+    >
+      {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (
-        <div className="relative z-[1] border-b border-white/10 bg-gradient-to-b from-zinc-950 to-black px-2 py-3 md:py-4">
+        <div className="relative z-[1] flex min-h-[8.5rem] shrink-0 flex-col justify-center border-b border-white/10 bg-gradient-to-b from-zinc-950 to-black px-2 py-3 md:min-h-[9rem] md:py-4">
           <AnimatePresence mode="popLayout">
             <motion.div
               key={heroKey}
@@ -1160,7 +1191,7 @@ function PlayerPanel({
                 className={`font-black tabular-nums tracking-tighter ${accentCss.text} ${!heroValue && isYou ? "opacity-40" : ""}`}
                 style={{
                   fontFamily: "var(--font-ibm-plex-mono)",
-                  fontSize: "clamp(2.25rem, 8vw, 4rem)",
+                  fontSize: "clamp(2rem, 7vw, 3.5rem)",
                   lineHeight: 1,
                   textShadow: isYou
                     ? "0 0 28px rgba(168,85,247,0.85), 0 0 56px rgba(236,72,153,0.35)"
@@ -1174,15 +1205,21 @@ function PlayerPanel({
               )}
             </motion.div>
           </AnimatePresence>
-          {isYou && (phase === "queued" || phase === "negotiating") && (
-            <p className="text-center text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-pink-400 mt-2">
-              Type digits - locked to your balance
-            </p>
-          )}
+          <div className="mt-2 flex min-h-[2.5rem] items-start justify-center">
+            {showTypeHint ? (
+              <p className="text-center text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-pink-400">
+                Type digits - locked to your balance
+              </p>
+            ) : (
+              <span className="invisible text-[10px] sm:text-xs font-black uppercase tracking-[0.2em]" aria-hidden>
+                Type digits - locked to your balance
+              </span>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="relative aspect-[4/3] md:aspect-video bg-zinc-950">
+      <div className="relative min-h-[12rem] flex-1 bg-zinc-950 md:min-h-[14rem]">
         <div
           ref={videoRef}
           className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"

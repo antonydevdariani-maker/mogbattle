@@ -7,6 +7,7 @@ import { ensureProfile, loadProfileSummary } from "@/app/actions";
 import { deriveProfileUsername, getLinkedWalletAddress } from "@/lib/privy/user-display";
 import { AppNav } from "@/components/layout/app-nav";
 import { WalletSetupHud } from "@/components/wallet/wallet-setup-hud";
+import { ArenaMatchLeaveProvider } from "@/components/arena/arena-match-leave-context";
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { ready, authenticated, user, getAccessToken } = usePrivy();
@@ -47,10 +48,10 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   const showHud = credits !== null && credits === 0 && pathname !== "/wallet";
 
   return (
-    <>
+    <ArenaMatchLeaveProvider>
       <AppNav />
       <WalletSetupHud show={showHud} />
       <div className="mx-auto flex w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6">{children}</div>
-    </>
+    </ArenaMatchLeaveProvider>
   );
 }
