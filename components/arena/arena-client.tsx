@@ -267,14 +267,12 @@ export function ArenaClient({
   }
 
   function onQueue() {
-    setIsPending(true);
+    setPhase("queued");
     startTransition(async () => {
       const token = await getAccessToken();
-      if (!token) { setIsPending(false); return; }
+      if (!token) { setPhase("idle"); return; }
       await queueForBattle(token);
-      setPhase("queued");
       await poll();
-      setIsPending(false);
     });
   }
 
