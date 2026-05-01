@@ -338,8 +338,8 @@ export async function buildWithdrawTransaction(
 ): Promise<{ transactionBase64: string }> {
   const userId = await requirePrivyUser(accessToken);
   const { ownerAddress, destinationAddress, amountMc } = input;
-  if (!Number.isFinite(amountMc) || amountMc < MIN_DEPOSIT || !Number.isInteger(amountMc)) {
-    throw new Error("Enter a valid whole number of Mog Credits (at least 1).");
+  if (!Number.isFinite(amountMc) || amountMc < 2 || !Number.isInteger(amountMc)) {
+    throw new Error("Enter a valid whole number of Mog Credits (minimum 2).");
   }
 
   try {
@@ -391,8 +391,8 @@ export async function recordWithdrawalClaim(
   if (!signature) {
     throw new Error("Missing transaction signature.");
   }
-  if (!Number.isFinite(amountMc) || amountMc < MIN_DEPOSIT || !Number.isInteger(amountMc)) {
-    throw new Error("Invalid withdrawal amount.");
+  if (!Number.isFinite(amountMc) || amountMc < 2 || !Number.isInteger(amountMc)) {
+    throw new Error("Invalid withdrawal amount (minimum 2 MC).");
   }
 
   const supabase = getSupabaseAdmin();

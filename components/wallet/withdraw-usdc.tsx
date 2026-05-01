@@ -58,7 +58,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
 
   const solWallet = wallets[0] ?? null;
   const parsedAmt = parseInt(amount.replace(/,/g, ""), 10);
-  const validAmt = Number.isFinite(parsedAmt) && parsedAmt >= 1 && Number.isInteger(parsedAmt);
+  const validAmt = Number.isFinite(parsedAmt) && parsedAmt >= 2 && Number.isInteger(parsedAmt);
   const amountOk = validAmt && parsedAmt <= balance;
   const destOk = solWallet ? isValidRecipient(destination, solWallet.address) : false;
   const canReview = amountOk && destOk && solWallet;
@@ -95,7 +95,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
 
   function openSummary() {
     if (!canReview) {
-      if (!amountOk) setError("Enter an amount between 1 and your Mog Credit balance.");
+      if (!amountOk) setError("Minimum withdrawal is 2 MC. Enter an amount between 2 and your Mog Credit balance.");
       else if (!destOk) setError("Paste a valid Solana address (not your embedded Mog wallet).");
       return;
     }
@@ -167,8 +167,8 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-3 text-xs text-cyan-100/90 leading-relaxed space-y-2">
-        <p className="font-black uppercase tracking-widest text-cyan-400/90 text-[10px]">How withdrawal works</p>
+      <div className="border border-cyan-500/25 bg-cyan-500/5 p-3 text-xs text-cyan-100/90 leading-relaxed space-y-2">
+        <p className="font-black uppercase tracking-widest text-cyan-400/90 text-[10px]">Withdraw Mog Coins → USDC (Solana)</p>
         <ol className="list-decimal list-inside space-y-1.5 text-zinc-300">
           <li>
             We deduct <span className="text-white font-bold">Mog Credits</span> from your balance (1 MC = 1 USDC).
@@ -180,6 +180,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
             Paste your <span className="text-white font-bold">personal Solana wallet</span> address and choose how much to send there.
           </li>
         </ol>
+        <p className="text-zinc-500 pt-1">Withdrawal fee: <span className="text-white font-bold">0%</span> · Minimum withdrawal: <span className="text-white font-bold">2 MC</span></p>
       </div>
 
       {(!privyReady || !walletsReady) && (
@@ -284,7 +285,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
               id="withdraw-amt"
               type="text"
               inputMode="numeric"
-              placeholder={`Max ${balance.toLocaleString()} MC`}
+              placeholder={`Min 2 · Max ${balance.toLocaleString()} MC`}
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
               className="h-10 border-zinc-700 bg-zinc-900/60 font-mono text-zinc-200"

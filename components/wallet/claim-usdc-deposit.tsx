@@ -137,35 +137,62 @@ export function ClaimUsdcDeposit({ onSettled }: Props) {
       )}
 
       {solWallet && (
-        <div className="space-y-2">
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-200/90">
-            <ShieldAlert className="mt-0.5 size-4 shrink-0" />
-            <p>
-              Mainnet USDC only. If Privy cannot sponsor this transaction, you need a small amount of SOL
-              in this same wallet for fees.
-            </p>
+        <div className="space-y-3">
+          {/* Warning box */}
+          <div className="flex items-start gap-2 border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90 leading-relaxed">
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-400" />
+            <div className="space-y-1">
+              <p className="font-bold text-amber-300">⚠️ Mainnet USDC (Solana) only.</p>
+              <p>Make sure you have enough SOL in your wallet for transaction fees.</p>
+              <p className="text-amber-400 font-bold">Wrong network = lost funds. Double-check before sending.</p>
+            </div>
           </div>
-          <Label className="text-foreground" htmlFor="usdc-claim">
-            Amount of USDC you are claiming (gross)
+
+          <Label className="text-xs font-bold uppercase tracking-widest text-zinc-400" htmlFor="usdc-claim">
+            Amount of USDC sent (gross)
           </Label>
           <Input
             id="usdc-claim"
             type="text"
             inputMode="decimal"
-            placeholder="e.g. 10"
+            placeholder="e.g. 100"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="border-border bg-card font-mono text-foreground"
+            className="border-zinc-700 bg-zinc-900/60 font-mono text-zinc-200"
           />
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          <p className="text-[11px] text-zinc-600">Example: 100 USDC → You receive 80 Mog Coins after 20% fee</p>
+
+          {/* Live fee breakdown */}
+          {valid && gross > 0 && (
+            <div className="border border-white/10 bg-zinc-900/50 p-3 space-y-1.5 text-xs">
+              <p className="font-bold uppercase tracking-widest text-zinc-500 text-[10px] mb-2">Fee Breakdown</p>
+              <div className="flex justify-between text-zinc-400">
+                <span>Gross sent</span>
+                <span className="font-mono text-white">{gross.toLocaleString()} USDC</span>
+              </div>
+              <div className="flex justify-between text-zinc-400">
+                <span>Platform fee (20%)</span>
+                <span className="font-mono text-red-400">−{feeUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC</span>
+              </div>
+              <div className="border-t border-white/10 pt-1.5 flex justify-between font-bold">
+                <span className="text-zinc-300">Mog Coins you will receive</span>
+                <span className="font-mono text-fuchsia-400">{netMc.toLocaleString()} MC</span>
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-400">{error}</p>}
           <Button
             type="button"
             onClick={openSummary}
             disabled={!valid || netMc < 1}
-            className="w-full bg-primary font-semibold text-primary-foreground"
+            className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 font-black uppercase tracking-widest text-white"
           >
-            <Sparkles className="mr-2 size-4" />
-            Claim deposit & convert to Mog Credits
+            {pending ? (
+              <><Loader2 className="mr-2 size-4 animate-spin" /> Processing…</>
+            ) : (
+              <><Sparkles className="mr-2 size-4" /> I Have Sent — Credit My Account</>
+            )}
           </Button>
         </div>
       )}

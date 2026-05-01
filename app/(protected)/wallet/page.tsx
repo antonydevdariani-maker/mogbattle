@@ -137,9 +137,14 @@ function WalletPageInner() {
         <div className="p-5">
           {section === "deposit" ? (
             <div className="space-y-3">
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Send <span className="text-fuchsia-400 font-bold">USDC (Solana)</span> to your address above, then claim below. 20% platform fee applies.
-              </p>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-fuchsia-400 uppercase tracking-widest">Deposit USDC (Solana)</p>
+                <p className="text-xs text-zinc-400 leading-relaxed">Send USDC on the Solana network to the address or QR code above.</p>
+                <ul className="text-xs text-zinc-500 space-y-0.5 list-disc list-inside leading-relaxed">
+                  <li>A 20% platform fee will be automatically deducted.</li>
+                  <li>You will receive <span className="text-fuchsia-400 font-bold">80%</span> of the sent amount as <span className="text-fuchsia-400 font-bold">Mog Coins (MC)</span>.</li>
+                </ul>
+              </div>
               <ClaimUsdcDeposit onSettled={refresh} />
             </div>
           ) : (
@@ -152,47 +157,68 @@ function WalletPageInner() {
       {transactions.length > 0 && (
         <div className="border border-white/10 bg-zinc-950">
           <div className="border-b border-white/10 px-5 py-3 flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">History</p>
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Transaction History</p>
             <span className="text-xs text-zinc-700">{transactions.length} entries</span>
           </div>
+          {/* Header row */}
+          <div className="grid grid-cols-[auto_1fr_auto] gap-2 px-5 py-2 border-b border-white/5 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+            <span>Type</span>
+            <span>Details</span>
+            <span className="text-right">Amount</span>
+          </div>
           <div className="divide-y divide-white/5">
-            {transactions.map((tx) => (
-              <div
-                key={tx.id}
-                role={tx.type === "withdraw" ? "button" : undefined}
-                tabIndex={tx.type === "withdraw" ? 0 : undefined}
-                onClick={tx.type === "withdraw" ? () => setSection("withdraw") : undefined}
-                onKeyDown={
-                  tx.type === "withdraw"
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSection("withdraw");
+            {transactions.map((tx) => {
+              const date = new Date(tx.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+              const grossUsdc = tx.type === "deposit" ? (tx.amount / 0.8) : null;
+              const feeUsdc = grossUsdc !== null ? (grossUsdc * 0.2) : null;
+              return (
+                <div
+                  key={tx.id}
+                  role={tx.type === "withdraw" ? "button" : undefined}
+                  tabIndex={tx.type === "withdraw" ? 0 : undefined}
+                  onClick={tx.type === "withdraw" ? () => setSection("withdraw") : undefined}
+                  onKeyDown={
+                    tx.type === "withdraw"
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSection("withdraw");
+                          }
                         }
-                      }
-                    : undefined
-                }
-                className={`flex items-center justify-between gap-2 px-5 py-3 ${
-                  tx.type === "withdraw"
-                    ? "cursor-pointer hover:bg-red-500/5 transition-colors"
-                    : ""
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-black uppercase px-2 py-0.5 border ${
-                    tx.type === "deposit"
-                      ? "border-green-500/50 text-green-400 bg-green-500/5"
-                      : "border-red-500/50 text-red-400 bg-red-500/5"
-                  }`}>
-                    {tx.type === "deposit" ? "IN" : "OUT"}
-                  </span>
-                  <p className="font-mono text-xs text-zinc-600 truncate max-w-[120px]">{tx.tx_signature ?? "—"}</p>
+                      : undefined
+                  }
+                  className={`px-5 py-3 ${tx.type === "withdraw" ? "cursor-pointer hover:bg-red-500/5 transition-colors" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`shrink-0 text-xs font-black uppercase px-2 py-0.5 border ${
+                        tx.type === "deposit"
+                          ? "border-green-500/50 text-green-400 bg-green-500/5"
+                          : "border-red-500/50 text-red-400 bg-red-500/5"
+                      }`}>
+                        {tx.type === "deposit" ? "IN" : "OUT"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-widest">{date}</p>
+                        {tx.type === "deposit" && grossUsdc !== null && feeUsdc !== null && (
+                          <p className="text-[10px] text-zinc-600 mt-0.5">
+                            {grossUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC gross
+                            <span className="text-zinc-700"> · </span>
+                            {feeUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} fee (20%)
+                          </p>
+                        )}
+                        {tx.tx_signature && (
+                          <p className="font-mono text-[10px] text-zinc-700 truncate max-w-[140px] mt-0.5">{tx.tx_signature}</p>
+                        )}
+                      </div>
+                    </div>
+                    <p className={`shrink-0 text-sm font-black tabular-nums ${tx.type === "deposit" ? "text-green-400" : "text-red-400"}`}>
+                      {tx.type === "deposit" ? "+" : "-"}{tx.amount.toLocaleString()} MC
+                    </p>
+                  </div>
                 </div>
-                <p className={`text-sm font-black tabular-nums ${tx.type === "deposit" ? "text-green-400" : "text-red-400"}`}>
-                  {tx.type === "deposit" ? "+" : "-"}{tx.amount.toLocaleString()} MC
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
