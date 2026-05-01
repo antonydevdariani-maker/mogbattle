@@ -489,7 +489,7 @@ function IdleScreen({
   balance: number;
 }) {
   return (
-    <div className="flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
+    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
       {/* Neon title */}
       <div className="text-center space-y-3">
         <motion.div
@@ -562,7 +562,7 @@ function IdleScreen({
 
 function QueueScreen({ queueSecs, balance }: { queueSecs: number; balance: number }) {
   return (
-    <div className="flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
+    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
       <div className="text-center space-y-6">
         <div className="relative mx-auto size-32">
           {[0, 1, 2].map((i) => (
