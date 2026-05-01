@@ -58,7 +58,7 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack, joined } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -468,13 +468,13 @@ export function LiveMatchClient({
                 {myDisplayResult?.verdict && (
                   <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2">
                     <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider mb-1">AI on you</p>
-                    <p className="text-xs text-zinc-300 italic">"{myDisplayResult.verdict}"</p>
+                    <p className="text-xs text-zinc-300 italic">{`\u201C${myDisplayResult.verdict}\u201D`}</p>
                   </div>
                 )}
                 {oppDisplayResult?.verdict && (
                   <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
                     <p className="text-[10px] text-red-500 uppercase tracking-wider mb-1">AI on opponent</p>
-                    <p className="text-xs text-zinc-300 italic">"{oppDisplayResult.verdict}"</p>
+                    <p className="text-xs text-zinc-300 italic">{`\u201C${oppDisplayResult.verdict}\u201D`}</p>
                   </div>
                 )}
               </div>
