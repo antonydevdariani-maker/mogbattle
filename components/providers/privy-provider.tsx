@@ -8,7 +8,7 @@ export function MogBattlePrivyProvider({ children }: { children: React.ReactNode
   if (!appId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black p-6 text-center text-red-300">
-        Missing NEXT_PUBLIC_PRIVY_APP_ID in .env.local
+        Missing NEXT_PUBLIC_PRIVY_APP_ID (got: {String(appId)})
       </div>
     );
   }
