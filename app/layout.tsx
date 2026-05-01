@@ -45,13 +45,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <MogBattlePrivyProvider>
-      <html
-        lang="en"
-        className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col pb-safe">{children}</body>
-      </html>
-    </MogBattlePrivyProvider>
+    <html
+      lang="en"
+      className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col pb-safe">
+        <MogBattlePrivyProvider>{children}</MogBattlePrivyProvider>
+      </body>
+    </html>
   );
 }

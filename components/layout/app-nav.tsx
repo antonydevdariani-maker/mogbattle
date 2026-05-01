@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, LogOut, Swords, Wallet, Zap, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { LayoutDashboard, LogOut, Wallet, Zap, ArrowDownLeft, ArrowUpRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
 import { loadProfileSummary } from "@/app/actions";
@@ -12,7 +12,7 @@ import { loadProfileSummary } from "@/app/actions";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
-  { href: "/battle", label: "Battle", icon: Swords },
+  { href: "/arena", label: "Arena", icon: Shield },
 ];
 
 export function AppNav() {
@@ -52,8 +52,8 @@ export function AppNav() {
 
   const dockItems = navItems.map((item) => {
     const inBattleFlow =
-      item.href === "/battle" &&
-      (pathname.startsWith("/battle") || pathname.startsWith("/match"));
+      (item.href === "/arena" || item.href === "/battle") &&
+      (pathname.startsWith("/arena") || pathname.startsWith("/battle") || pathname.startsWith("/match"));
     const active =
       inBattleFlow ||
       pathname === item.href ||
