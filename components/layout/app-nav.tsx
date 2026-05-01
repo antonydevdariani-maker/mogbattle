@@ -14,6 +14,7 @@ import {
   Shield,
   User,
   Crown,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/leaderboard", label: "Ranks", icon: Crown },
   { href: "/arena", label: "Arena", icon: Shield },
+  { href: "/admin", label: "Admin", icon: FlaskConical },
 ];
 
 export function AppNav() {

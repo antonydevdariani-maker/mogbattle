@@ -21,7 +21,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Phase = "idle" | "countdown" | "analyzing" | "verdict" | "done";
 
-type AiResult = { psl: number; rating: number; verdict: string } | null;
+type AiResult = { psl: number; rating: number; verdict: string; failos?: string; strengths?: string } | null;
 
 async function judgeFace(imageDataUrl: string): Promise<AiResult> {
   try {
@@ -480,15 +480,27 @@ export function LiveMatchClient({
             {(myDisplayResult?.verdict || oppDisplayResult?.verdict) && (
               <div className="grid grid-cols-2 gap-2">
                 {myDisplayResult?.verdict && (
-                  <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2">
-                    <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider mb-1">AI on you</p>
+                  <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2 space-y-1">
+                    <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider">AI on you</p>
                     <p className="text-xs text-zinc-300 italic">{`\u201C${myDisplayResult.verdict}\u201D`}</p>
+                    {myDisplayResult.strengths && myDisplayResult.strengths !== "n/a" && (
+                      <p className="text-[10px] text-green-400">+ {myDisplayResult.strengths}</p>
+                    )}
+                    {myDisplayResult.failos && myDisplayResult.failos !== "none" && myDisplayResult.failos !== "n/a" && (
+                      <p className="text-[10px] text-red-400">- {myDisplayResult.failos}</p>
+                    )}
                   </div>
                 )}
                 {oppDisplayResult?.verdict && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
-                    <p className="text-[10px] text-red-500 uppercase tracking-wider mb-1">AI on opponent</p>
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 space-y-1">
+                    <p className="text-[10px] text-red-500 uppercase tracking-wider">AI on opponent</p>
                     <p className="text-xs text-zinc-300 italic">{`\u201C${oppDisplayResult.verdict}\u201D`}</p>
+                    {oppDisplayResult.strengths && oppDisplayResult.strengths !== "n/a" && (
+                      <p className="text-[10px] text-green-400">+ {oppDisplayResult.strengths}</p>
+                    )}
+                    {oppDisplayResult.failos && oppDisplayResult.failos !== "none" && oppDisplayResult.failos !== "n/a" && (
+                      <p className="text-[10px] text-red-400">- {oppDisplayResult.failos}</p>
+                    )}
                   </div>
                 )}
               </div>
