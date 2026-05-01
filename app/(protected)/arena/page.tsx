@@ -37,7 +37,7 @@ export default function ArenaPage() {
 
   if (!ready || !userId) {
     return (
-      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="relative size-12">
             {[0, 1].map((i) => (

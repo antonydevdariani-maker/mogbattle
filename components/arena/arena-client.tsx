@@ -83,10 +83,12 @@ export function ArenaClient({
   const [scoreP1, setScoreP1] = useState<number | null>(initialMatch?.ai_score_p1 ?? null);
   const [scoreP2, setScoreP2] = useState<number | null>(initialMatch?.ai_score_p2 ?? null);
 
+  const [queueTimedOut, setQueueTimedOut] = useState(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const oppTypingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOppOffer = useRef<number | null>(null);
   const analysisRunning = useRef(false);
+  const queueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -203,9 +205,13 @@ export function ArenaClient({
   }, [phase, match?.negotiation_deadline]);
 
   useEffect(() => {
-    if (phase !== "queued") { setQueueSecs(0); return; }
+    if (phase !== "queued") { setQueueSecs(0); setQueueTimedOut(false); return; }
     const t = setInterval(() => setQueueSecs((s) => s + 1), 1000);
-    return () => clearInterval(t);
+    queueTimeoutRef.current = setTimeout(() => setQueueTimedOut(true), 30_000);
+    return () => {
+      clearInterval(t);
+      if (queueTimeoutRef.current) clearTimeout(queueTimeoutRef.current);
+    };
   }, [phase]);
 
   // Keyboard number input during negotiation
@@ -375,6 +381,7 @@ export function ArenaClient({
             score={isP1 ? oppScore : myScore}
             isSearching={isQueued}
             queueSecs={queueSecs}
+            queueTimedOut={queueTimedOut}
           />
           {/* Opponent metrics during analysis (mobile: below their panel) */}
           {showAnalysis && (
@@ -408,6 +415,18 @@ export function ArenaClient({
             isReady={myReady}
             score={isP1 ? myScore : oppScore}
           />
+
+          {/* Timeout: try again */}
+          {isQueued && queueTimedOut && (
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => { setQueueTimedOut(false); setQueueSecs(0); onQueue(); }}
+              className="w-full py-4 border-2 border-red-500 bg-red-500/10 text-red-300 font-black uppercase tracking-widest text-sm hover:bg-red-500/20 transition-colors"
+            >
+              Try Again
+            </motion.button>
+          )}
 
           {/* Your controls during negotiation */}
           {phase === "negotiating" && (
@@ -689,6 +708,7 @@ function PlayerPanel({
   score,
   isSearching = false,
   queueSecs = 0,
+  queueTimedOut = false,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -701,6 +721,7 @@ function PlayerPanel({
   score: number | null;
   isSearching?: boolean;
   queueSecs?: number;
+  queueTimedOut?: boolean;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
@@ -733,37 +754,49 @@ function PlayerPanel({
         {!showVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             {isSearching ? (
-              /* Searching animation */
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative size-20">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className={`absolute inset-0 border-2 ${accentCss.border}`}
-                      animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.7, 0] }}
-                      transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.45, ease: "easeOut" }}
-                    />
-                  ))}
-                  <div className={`relative size-full border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
-                    <span className="text-2xl">👤</span>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <p className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>
-                    Scanning…
-                  </p>
-                  <p className="text-zinc-600 text-xs tabular-nums mt-1">{queueSecs}s</p>
-                </div>
-                <div className="flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-500"}`}
-                      animate={{ opacity: [0.2, 1, 0.2] }}
-                      transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
-                    />
-                  ))}
-                </div>
+              /* Searching / timed-out */
+              <div className="flex flex-col items-center gap-4 px-4 text-center">
+                {queueTimedOut ? (
+                  <>
+                    <div className="border-2 border-red-500/60 bg-red-500/10 size-20 flex items-center justify-center">
+                      <span className="text-3xl">😤</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-widest text-red-400">No prey found</p>
+                      <p className="text-xs text-zinc-600 mt-1">Arena is empty. Try again later.</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative size-20">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          className={`absolute inset-0 border-2 ${accentCss.border}`}
+                          animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.7, 0] }}
+                          transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.45, ease: "easeOut" }}
+                        />
+                      ))}
+                      <div className={`relative size-full border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
+                        <span className="text-2xl">👤</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>Scanning…</p>
+                      <p className="text-zinc-600 text-xs tabular-nums mt-1">{queueSecs}s</p>
+                    </div>
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-500"}`}
+                          animate={{ opacity: [0.2, 1, 0.2] }}
+                          transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <>
