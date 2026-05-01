@@ -2,11 +2,11 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
-import { useCallback, useEffect, useState } from "react";
-import { cashOutCredits, loadWalletData } from "@/app/actions";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadWalletData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { WalletForm } from "@/components/wallet/wallet-form";
 import { ClaimUsdcDeposit } from "@/components/wallet/claim-usdc-deposit";
+import { WithdrawUsdcPanel } from "@/components/wallet/withdraw-usdc";
 import { QRCodeSVG } from "qrcode.react";
 import { Zap, Copy, Check, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -25,8 +25,21 @@ function WalletPageInner() {
   const [section, setSection] = useState<"deposit" | "withdraw">(
     actionParam === "withdraw" ? "withdraw" : "deposit"
   );
+  const walletTabsRef = useRef<HTMLDivElement>(null);
 
   const address = wallets[0]?.address;
+
+  useEffect(() => {
+    setSection(actionParam === "withdraw" ? "withdraw" : "deposit");
+  }, [actionParam]);
+
+  useEffect(() => {
+    if (section !== "withdraw") return;
+    const id = requestAnimationFrame(() => {
+      walletTabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [section]);
 
   const refresh = useCallback(async () => {
     const token = await getAccessToken();
@@ -99,8 +112,8 @@ function WalletPageInner() {
         </div>
       </div>
 
-      {/* Deposit / Withdraw tabs */}
-      <div className="border border-white/10 bg-zinc-950">
+      {/* Deposit / Withdraw tabs — scroll target for withdraw tab / OUT history rows */}
+      <div ref={walletTabsRef} id="wallet-withdraw" className="scroll-mt-24 border border-white/10 bg-zinc-950">
         <div className="grid grid-cols-2 divide-x divide-white/10 border-b border-white/10">
           <button
             onClick={() => setSection("deposit")}
@@ -130,21 +143,7 @@ function WalletPageInner() {
               <ClaimUsdcDeposit onSettled={refresh} />
             </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Withdraw Mog Credits to USDC. Simulated — does not move USDC on-chain yet.
-              </p>
-              <WalletForm
-                onSubmitAction={async (fd) => {
-                  const token = await getAccessToken();
-                  if (!token) throw new Error("Not signed in");
-                  await cashOutCredits(token, fd);
-                  await refresh();
-                }}
-                cta="Withdraw"
-                variant="cashout"
-              />
-            </div>
+            <WithdrawUsdcPanel balance={balance} onSettled={refresh} />
           )}
         </div>
       </div>
@@ -158,7 +157,27 @@ function WalletPageInner() {
           </div>
           <div className="divide-y divide-white/5">
             {transactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between gap-2 px-5 py-3">
+              <div
+                key={tx.id}
+                role={tx.type === "withdraw" ? "button" : undefined}
+                tabIndex={tx.type === "withdraw" ? 0 : undefined}
+                onClick={tx.type === "withdraw" ? () => setSection("withdraw") : undefined}
+                onKeyDown={
+                  tx.type === "withdraw"
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSection("withdraw");
+                        }
+                      }
+                    : undefined
+                }
+                className={`flex items-center justify-between gap-2 px-5 py-3 ${
+                  tx.type === "withdraw"
+                    ? "cursor-pointer hover:bg-red-500/5 transition-colors"
+                    : ""
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <span className={`text-xs font-black uppercase px-2 py-0.5 border ${
                     tx.type === "deposit"

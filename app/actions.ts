@@ -37,11 +37,83 @@ export async function ensureProfile(
   } else {
     const patch: Record<string, string | null> = {};
     if (opts?.walletAddress) patch.wallet_address = opts.walletAddress;
-    if (opts?.username) patch.username = opts.username;
+    // Never overwrite `username` here — users set it in /profile. (Derived Privy labels are insert-only.)
     if (Object.keys(patch).length) {
       await supabase.from("profiles").update(patch).eq("user_id", userId);
     }
   }
+}
+
+const USERNAME_MIN = 2;
+const USERNAME_MAX = 32;
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+export async function updateProfileUsername(accessToken: string, rawUsername: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const username = rawUsername.trim();
+  if (username.length < USERNAME_MIN || username.length > USERNAME_MAX) {
+    throw new Error(`Username must be ${USERNAME_MIN}–${USERNAME_MAX} characters.`);
+  }
+  if (!/^[a-zA-Z0-9_\-\s]+$/.test(username)) {
+    throw new Error("Use letters, numbers, spaces, hyphen, or underscore only.");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from("profiles").update({ username }).eq("user_id", userId);
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("That username is already taken.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/leaderboard");
+}
+
+export async function uploadProfileAvatar(accessToken: string, formData: FormData) {
+  const userId = await requirePrivyUser(accessToken);
+  const file = formData.get("avatar");
+  if (!file || !(file instanceof Blob) || file.size === 0) {
+    throw new Error("Choose an image file.");
+  }
+  if (file.size > AVATAR_MAX_BYTES) {
+    throw new Error("Image must be 2MB or smaller.");
+  }
+  const mime = (file as File).type || "application/octet-stream";
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime)) {
+    throw new Error("Use JPG, PNG, WebP, or GIF.");
+  }
+
+  const ext =
+    mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
+  const path = `${userId}/avatar.${ext}`;
+  const buf = Buffer.from(await file.arrayBuffer());
+
+  const supabase = getSupabaseAdmin();
+  const { error: upErr } = await supabase.storage.from("avatars").upload(path, buf, {
+    contentType: mime,
+    upsert: true,
+  });
+  if (upErr) {
+    throw new Error(
+      upErr.message.includes("Bucket not found")
+        ? "Avatar storage is not configured. Add the Supabase `avatars` bucket (see supabase/storage-avatars.sql)."
+        : upErr.message
+    );
+  }
+
+  const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { error: dbErr } = await supabase
+    .from("profiles")
+    .update({ avatar_url: pub.publicUrl })
+    .eq("user_id", userId);
+  if (dbErr) {
+    throw new Error(dbErr.message);
+  }
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/leaderboard");
 }
 
 export async function loadProfileSummary(accessToken: string) {
@@ -71,6 +143,48 @@ export async function loadDashboardData(accessToken: string) {
       .eq("status", "completed")
       .order("ended_at", { ascending: false })
       .limit(5),
+  ]);
+  return { profile, matches: matches ?? [], userId };
+}
+
+/** Top players by ELO (tie-break: more wins first). */
+export async function loadLeaderboard(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, username, avatar_url, elo, wins, matches_played")
+    .order("elo", { ascending: false })
+    .order("wins", { ascending: false })
+    .limit(100);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return {
+    rows: (data ?? []) as {
+      user_id: string;
+      username: string | null;
+      elo: number;
+      wins: number;
+      matches_played: number;
+    }[],
+    yourUserId: userId,
+  };
+}
+
+/** Full profile + more match history for the profile page. */
+export async function loadProfilePageData(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const [{ data: profile }, { data: matches }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
+    supabase
+      .from("matches")
+      .select("*")
+      .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+      .eq("status", "completed")
+      .order("ended_at", { ascending: false })
+      .limit(20),
   ]);
   return { profile, matches: matches ?? [], userId };
 }
@@ -195,29 +309,102 @@ export async function recordUsdcDepositClaim(
   revalidatePath("/dashboard");
 }
 
-export async function cashOutCredits(accessToken: string, formData: FormData) {
+export async function buildWithdrawTransaction(
+  accessToken: string,
+  input: { ownerAddress: string; destinationAddress: string; amountMc: number }
+): Promise<{ transactionBase64: string }> {
   const userId = await requirePrivyUser(accessToken);
-  const amount = Number(formData.get("amount"));
-  if (!Number.isFinite(amount) || amount < MIN_DEPOSIT) {
-    throw new Error("Enter a valid cash out amount.");
+  const { ownerAddress, destinationAddress, amountMc } = input;
+  if (!Number.isFinite(amountMc) || amountMc < MIN_DEPOSIT || !Number.isInteger(amountMc)) {
+    throw new Error("Enter a valid whole number of Mog Credits (at least 1).");
   }
 
-  const normalized = Math.floor(amount);
+  try {
+    const { PublicKey } = await import("@solana/web3.js");
+    const o = new PublicKey(ownerAddress.trim());
+    const d = new PublicKey(destinationAddress.trim());
+    if (o.equals(d)) {
+      throw new Error("Destination must be a different wallet.");
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("Destination")) throw e;
+    throw new Error("Enter a valid Solana address for your personal wallet.");
+  }
+
   const supabase = getSupabaseAdmin();
   const { data: profile } = await supabase.from("profiles").select("total_credits").eq("user_id", userId).maybeSingle();
 
   const current = Number(profile?.total_credits ?? 0);
-  if (current < normalized) {
+  if (current < amountMc) {
+    throw new Error("Insufficient Mog Credits for this withdrawal.");
+  }
+
+  const { buildUsdcWithdrawTransferTxBytes } = await import("@/lib/solana/build-usdc-withdraw-tx");
+  const { Connection, PublicKey } = await import("@solana/web3.js");
+  const rpc = process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+  const connection = new Connection(rpc, "confirmed");
+  const owner = new PublicKey(ownerAddress.trim());
+  const recipient = new PublicKey(destinationAddress.trim());
+  const { transactionBytes } = await buildUsdcWithdrawTransferTxBytes({
+    owner,
+    recipient,
+    amountMc,
+    connection,
+  });
+  return { transactionBase64: Buffer.from(transactionBytes).toString("base64") };
+}
+
+/** After user signs SPL USDC send to their personal wallet, verify chain and deduct Mog Credits. */
+export async function recordWithdrawalClaim(
+  accessToken: string,
+  input: { signature: string; ownerAddress: string; destinationAddress: string; amountMc: number }
+) {
+  const userId = await requirePrivyUser(accessToken);
+  const signature = input.signature?.trim() ?? "";
+  const ownerAddress = input.ownerAddress?.trim() ?? "";
+  const destinationAddress = input.destinationAddress?.trim() ?? "";
+  const amountMc = input.amountMc;
+
+  if (!signature) {
+    throw new Error("Missing transaction signature.");
+  }
+  if (!Number.isFinite(amountMc) || amountMc < MIN_DEPOSIT || !Number.isInteger(amountMc)) {
+    throw new Error("Invalid withdrawal amount.");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: dup } = await supabase.from("transactions").select("id").eq("tx_signature", signature).maybeSingle();
+  if (dup) {
+    throw new Error("This transaction was already recorded.");
+  }
+
+  const { verifyUsdcWithdrawTransaction } = await import("@/lib/solana/verify-withdraw-tx");
+  const v = await verifyUsdcWithdrawTransaction({
+    signature,
+    ownerAddress,
+    recipientAddress: destinationAddress,
+    amountMc,
+  });
+  if (!v.ok) {
+    throw new Error(v.reason);
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("total_credits").eq("user_id", userId).maybeSingle();
+  const current = Number(profile?.total_credits ?? 0);
+  if (current < amountMc) {
     throw new Error("Insufficient Mog Credits.");
   }
 
-  await supabase.from("profiles").update({ total_credits: current - normalized }).eq("user_id", userId);
+  await supabase
+    .from("profiles")
+    .update({ total_credits: current - amountMc, wallet_address: ownerAddress })
+    .eq("user_id", userId);
   await supabase.from("transactions").insert({
     user_id: userId,
     type: "withdraw",
-    amount: normalized,
+    amount: amountMc,
     status: "completed",
-    tx_signature: `wdr_${crypto.randomUUID().slice(0, 12)}`,
+    tx_signature: signature,
   });
 
   revalidatePath("/wallet");

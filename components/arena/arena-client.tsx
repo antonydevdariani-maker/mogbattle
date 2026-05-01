@@ -156,10 +156,12 @@ export function ArenaClient({
     ? myScore >= oppScore
     : false;
 
+  /** Camera + mic: from queue / matchmaking through end (Agora publishes both tracks). */
   const videoEnabled =
-    ["live", "countdown", "analyzing", "verdict", "done"].includes(phase) && !!match?.id;
+    !!match?.id &&
+    ["queued", "negotiating", "live", "countdown", "analyzing", "verdict", "done"].includes(phase);
 
-  const { localVideoTrack, remoteVideoTrack } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, mediaError } = useAgoraVideo({
     channelName: match?.id ?? "",
     uid: isP1 ? 1 : 2,
     enabled: videoEnabled,
@@ -506,6 +508,7 @@ export function ArenaClient({
       <ArenaTopBar
         balance={balance}
         findRemain={isQueued && !queueTimedOut ? findRemain : null}
+        mediaError={mediaError}
       />
 
       {!queueTimedOut && phase === "queued" && (
@@ -558,8 +561,8 @@ export function ArenaClient({
           )}
         </div>
 
-        {/* CENTER — VS + status */}
-        <div className="order-2 flex flex-col items-center justify-start gap-3 py-2 md:py-6">
+        {/* CENTER — VS + status (VS vertically centered between panels on desktop) */}
+        <div className="order-2 flex min-h-0 flex-col items-center justify-center gap-3 py-2 md:min-h-0 md:self-stretch md:py-2">
           <GlowingVS large={isQueued && !queueTimedOut} />
           <div className="hidden md:flex w-full flex-col items-center">
             <CenterColumn
@@ -734,9 +737,18 @@ function IdleScreen({
   );
 }
 
-function ArenaTopBar({ balance, findRemain }: { balance: number; findRemain: number | null }) {
+function ArenaTopBar({
+  balance,
+  findRemain,
+  mediaError,
+}: {
+  balance: number;
+  findRemain: number | null;
+  mediaError: string | null;
+}) {
   return (
-    <div className="relative z-10 flex items-center gap-2 border-b border-white/10 bg-black/90 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-2.5">
+    <div className="relative z-10 border-b border-white/10 bg-black/90 backdrop-blur-md">
+      <div className="flex items-center gap-2 px-2 py-2 sm:px-4 sm:py-2.5">
       <span
         className="shrink-0 text-sm sm:text-base md:text-lg font-black tracking-tight text-white uppercase"
         style={{
@@ -773,6 +785,15 @@ function ArenaTopBar({ balance, findRemain }: { balance: number; findRemain: num
         <span className="font-black tabular-nums text-white text-[10px] sm:text-xs">{balance.toLocaleString()}</span>
         <span className="hidden sm:inline text-[9px] font-black uppercase text-zinc-500">MC</span>
       </div>
+      </div>
+      {mediaError && (
+        <div
+          className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-[11px] font-bold text-amber-200"
+          role="alert"
+        >
+          {mediaError}
+        </div>
+      )}
     </div>
   );
 }
@@ -1249,7 +1270,9 @@ function PlayerPanel({
                   <div className={`text-4xl opacity-25 ${accentCss.text}`}>▮</div>
                 </motion.div>
                 {isYou && isSearching && (
-                  <p className="text-xs text-zinc-500 uppercase tracking-widest">Your cam loads after match</p>
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest text-center px-2">
+                    Allow camera &amp; mic — you&apos;ll see the match channel once connected
+                  </p>
                 )}
                 <div className="flex gap-1">
                   {[0, 1, 2].map((i) => (
@@ -1279,14 +1302,14 @@ function PlayerPanel({
                   </p>
                 )}
                 {phase === "negotiating" && (
-                  <p className="text-xs text-zinc-600 uppercase tracking-widest px-4 text-center">
-                    Video channel opens when bet locks
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest px-4 text-center">
+                    Cam &amp; mic live — settle the pot
                   </p>
                 )}
                 {phase === "live" && !videoTrack && (
                   <div className="flex items-center gap-1.5 text-xs text-zinc-600">
                     <WifiOff className="size-3.5" />
-                    <span>Connecting camera…</span>
+                    <span>Connecting camera &amp; mic…</span>
                   </div>
                 )}
               </>

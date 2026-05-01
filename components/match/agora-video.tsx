@@ -27,10 +27,12 @@ export function useAgoraVideo({
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<IRemoteAudioTrack | null>(null);
   const [localReady, setLocalReady] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled || !channelName) return;
 
+    setMediaError(null);
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
 
@@ -46,14 +48,21 @@ export function useAgoraVideo({
 
     client.on("user-unpublished", (user, mediaType) => {
       if (mediaType === "video") setRemoteVideoTrack(null);
-      if (mediaType === "audio") setRemoteAudioTrack(null);
+      if (mediaType === "audio") {
+        try {
+          user.audioTrack?.stop();
+        } catch {
+          /* ignore */
+        }
+        setRemoteAudioTrack(null);
+      }
     });
 
     async function join() {
       try {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
-          { encoderConfig: "speech_standard" },
-          { encoderConfig: "480p_1" }
+          { encoderConfig: "music_standard" },
+          { encoderConfig: "480p_1", facingMode: "user" }
         );
         localAudioRef.current = audioTrack;
         localVideoRef.current = videoTrack;
@@ -62,12 +71,26 @@ export function useAgoraVideo({
         await client.join(APP_ID, channelName, null, uid);
         await client.publish([audioTrack, videoTrack]);
         setJoined(true);
+        setMediaError(null);
       } catch (e) {
         console.error("Agora join error:", e);
+        const msg =
+          e instanceof Error
+            ? e.message
+            : typeof e === "string"
+              ? e
+              : "Could not access camera or microphone.";
+        setMediaError(
+          /Permission|NotAllowed|denied|NotReadable/i.test(msg)
+            ? "Allow camera and microphone for this site to use the arena."
+            : msg
+        );
+        setLocalReady(false);
+        setJoined(false);
       }
     }
 
-    join();
+    void join();
 
     return () => {
       localVideoRef.current?.stop();
@@ -79,6 +102,7 @@ export function useAgoraVideo({
       setJoined(false);
       setRemoteVideoTrack(null);
       setRemoteAudioTrack(null);
+      setMediaError(null);
     };
   }, [enabled, channelName, uid]);
 
@@ -87,6 +111,7 @@ export function useAgoraVideo({
     remoteVideoTrack,
     remoteAudioTrack,
     joined,
+    mediaError,
   };
 }
 

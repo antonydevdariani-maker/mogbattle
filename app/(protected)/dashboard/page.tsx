@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, ArrowRight } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, ArrowRight, User, Crown } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -45,6 +45,23 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-5">
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/profile"
+          className="inline-flex items-center gap-2 border border-white/10 bg-zinc-950 px-3 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-zinc-400 hover:border-fuchsia-500/40 hover:text-fuchsia-300 transition-colors"
+        >
+          <User className="size-3.5" />
+          Profile
+        </Link>
+        <Link
+          href="/leaderboard"
+          className="inline-flex items-center gap-2 border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-200/90 hover:bg-amber-500/15 transition-colors"
+        >
+          <Crown className="size-3.5 text-amber-400" />
+          Leaderboard
+        </Link>
+      </div>
+
       {/* Hero identity card */}
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />

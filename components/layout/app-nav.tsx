@@ -4,7 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, LogOut, Wallet, Zap, ArrowDownLeft, ArrowUpRight, Shield } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  Wallet,
+  Zap,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Shield,
+  User,
+  Crown,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
 import { loadProfileSummary } from "@/app/actions";
@@ -15,6 +25,8 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/profile", label: "Profile", icon: User },
+  { href: "/leaderboard", label: "Ranks", icon: Crown },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/arena", label: "Arena", icon: Shield },
 ];
@@ -101,7 +113,7 @@ export function AppNav() {
       <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:h-16 sm:grid-cols-[1fr_minmax(0,auto)_1fr] sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
-          className="justify-self-start text-base font-black uppercase tracking-widest"
+          className="justify-self-start text-sm sm:text-base font-black uppercase tracking-widest"
           style={{ fontFamily: "var(--font-heading)" }}
           onClick={(e) => {
             if (!matchAtRisk) return;

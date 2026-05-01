@@ -17,6 +17,12 @@ export function usdcToRaw(amount: number): bigint {
   return BigInt(Math.floor(amount * 10 ** USDC_DECIMALS + 1e-9));
 }
 
+/** Whole Mog Credits → USDC raw units (1 MC = $1 USDC). */
+export function mcToUsdcRaw(amountMc: number): bigint {
+  if (!Number.isFinite(amountMc) || amountMc < 0 || !Number.isInteger(amountMc)) return BigInt(0);
+  return BigInt(amountMc) * BigInt(10 ** USDC_DECIMALS);
+}
+
 export function feeFromGrossUsdc(gross: number): bigint {
   return usdcToRaw(gross * PLATFORM_FEE_FRACTION);
 }
