@@ -16,6 +16,7 @@ export default function ArenaPage() {
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   const init = useCallback(async () => {
     const token = await getAccessToken();
@@ -29,6 +30,7 @@ export default function ArenaPage() {
     setUserId(state.userId);
     setBalance(profile?.total_credits ?? 0);
     setUsername(profile?.username ?? null);
+    setWalletAddress(profile?.wallet_address ?? null);
     setReady(true);
   }, [getAccessToken]);
 
@@ -64,6 +66,7 @@ export default function ArenaPage() {
       initialOpponentName={opponentName}
       userId={userId}
       displayName={username}
+      walletAddress={walletAddress}
     />
   );
 }

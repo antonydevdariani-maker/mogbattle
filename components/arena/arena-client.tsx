@@ -50,6 +50,25 @@ const METRICS = [
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function formatQueueHandle(username: string | null, wallet: string | null): string {
+  const w = wallet?.trim();
+  if (w && w.length >= 8) {
+    const core = w.startsWith("0x") ? w.slice(2) : w;
+    if (core.length >= 8) {
+      return `${core.slice(0, 4).toUpperCase()}…${core.slice(-4).toUpperCase()}`;
+    }
+  }
+  return username?.trim() || "MOGGER";
+}
+
+function queueMonogram(username: string | null, wallet: string | null): string {
+  const u = username?.trim();
+  if (u && u.length >= 2) return u.slice(0, 2).toUpperCase();
+  const w = (wallet ?? "").replace(/^0x/i, "");
+  if (w.length >= 2) return w.slice(0, 2).toUpperCase();
+  return "MG";
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export function ArenaClient({
@@ -58,12 +77,14 @@ export function ArenaClient({
   initialOpponentName,
   userId,
   displayName,
+  walletAddress,
 }: {
   initialBalance: number;
   initialMatch: MatchRow | null;
   initialOpponentName: string | null;
   userId: string;
   displayName: string | null;
+  walletAddress: string | null;
 }) {
   const { getAccessToken } = usePrivy();
   const router = useRouter();
@@ -430,7 +451,8 @@ export function ArenaClient({
   const isQueued = phase === "queued";
   const showAnalysis = ["analyzing", "verdict"].includes(phase);
   const isDone = phase === "done";
-  const yourName = displayName?.trim() || "MOGGER";
+  const yourHandle = formatQueueHandle(displayName, walletAddress);
+  const yourMonogram = queueMonogram(displayName, walletAddress);
   const findRemain = Math.max(0, 30 - queueSecs);
 
   return (
@@ -458,28 +480,31 @@ export function ArenaClient({
       <ArenaTopBar balance={balance} />
 
       {isQueued && !queueTimedOut && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 mx-2 mt-2 border border-cyan-500/40 bg-cyan-500/5 px-4 py-2 text-center"
-        >
-          <p
-            className="text-sm font-black uppercase tracking-[0.2em] text-cyan-300"
-            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        <div className="relative z-10 flex w-full justify-center px-4 pt-5 pb-2">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center"
           >
-            Finding opponent…{" "}
-            <span className="tabular-nums text-white">{findRemain}s</span>
-          </p>
-        </motion.div>
+            <p
+              className="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-[0.12em] text-cyan-300 drop-shadow-[0_0_24px_rgba(34,211,238,0.55)]"
+              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            >
+              Finding opponent...{" "}
+              <span className="tabular-nums text-white tracking-normal">{findRemain}s</span>
+            </p>
+          </motion.div>
+        </div>
       )}
 
       {/* Split screen — Omegle-style; mobile stacks with VS between */}
-      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-3">
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-1 md:pt-2">
         {/* LEFT — Opponent */}
         <div className="flex flex-col gap-2 order-1">
           <PlayerPanel
             side="opponent"
             name={opponentName ?? "???"}
+            footerOverride={isQueued && !queueTimedOut ? "???" : null}
             videoTrack={remoteVideoTrack}
             hasVideo={videoEnabled}
             displayOffer={displayOppOffer}
@@ -499,7 +524,7 @@ export function ArenaClient({
 
         {/* CENTER — VS + status */}
         <div className="order-2 flex flex-col items-center justify-start gap-3 py-2 md:py-6">
-          <GlowingVS />
+          <GlowingVS large={isQueued && !queueTimedOut} />
           <div className="md:hidden w-full max-w-xs text-center space-y-2">
             {phase === "negotiating" && (
               <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">
@@ -524,7 +549,8 @@ export function ArenaClient({
         <div className="flex flex-col gap-3 order-3">
           <PlayerPanel
             side="you"
-            name={yourName}
+            name={yourHandle}
+            queueMonogram={yourMonogram}
             videoTrack={localVideoTrack}
             hasVideo={videoEnabled}
             displayOffer={displayMyOffer}
@@ -536,8 +562,9 @@ export function ArenaClient({
             queueTimedOut={queueTimedOut}
           />
 
-          {phase === "negotiating" && (
+          {(phase === "queued" || phase === "negotiating") && !queueTimedOut && (
             <BetControls
+              phaseMode={phase === "queued" ? "queued" : "negotiating"}
               myOffer={myOfferStr}
               balance={balance}
               onOfferChange={onOfferChange}
@@ -720,7 +747,7 @@ function ArenaTopBar({ balance }: { balance: number }) {
   );
 }
 
-function GlowingVS() {
+function GlowingVS({ large = false }: { large?: boolean }) {
   return (
     <motion.div
       animate={{
@@ -731,7 +758,7 @@ function GlowingVS() {
         ],
       }}
       transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-      className="text-5xl md:text-6xl font-black text-white select-none"
+      className={`font-black text-white select-none ${large ? "text-6xl sm:text-7xl md:text-8xl" : "text-5xl md:text-6xl"}`}
       style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
     >
       VS
@@ -760,14 +787,17 @@ function MatchmakingTimeoutOverlay({
         className="w-full max-w-md border-2 border-red-500/50 bg-zinc-950/95 p-8 text-center space-y-5"
         style={{ boxShadow: "0 0 60px rgba(239,68,68,0.25), inset 0 0 40px rgba(168,85,247,0.06)" }}
       >
-        <div className="space-y-1">
+        <div className="space-y-2">
           <h2
-            className="text-2xl md:text-3xl font-black uppercase text-red-300"
-            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            className="text-3xl md:text-5xl font-black uppercase text-red-300 leading-tight"
+            style={{
+              fontFamily: "var(--font-ibm-plex-mono)",
+              textShadow: "0 0 28px rgba(248,113,113,0.5)",
+            }}
           >
             No opponent found
           </h2>
-          <p className="text-sm text-zinc-500 uppercase tracking-widest">Please try again</p>
+          <p className="text-sm text-zinc-500 uppercase tracking-widest">Please try again later</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <button
@@ -775,14 +805,14 @@ function MatchmakingTimeoutOverlay({
             onClick={onTryAgain}
             className="py-3.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
           >
-            Try again
+            TRY AGAIN
           </button>
           <button
             type="button"
             onClick={() => void onBackToArena()}
             className="py-3.5 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-sm hover:bg-cyan-500/15 transition-colors"
           >
-            Back to Arena
+            BACK TO ARENA
           </button>
         </div>
       </motion.div>
@@ -795,6 +825,8 @@ function MatchmakingTimeoutOverlay({
 function PlayerPanel({
   side,
   name,
+  footerOverride,
+  queueMonogram,
   videoTrack,
   hasVideo,
   displayOffer,
@@ -807,6 +839,8 @@ function PlayerPanel({
 }: {
   side: "you" | "opponent";
   name: string;
+  footerOverride?: string | null;
+  queueMonogram?: string;
   videoTrack: ICameraVideoTrack | IRemoteVideoTrack | null;
   hasVideo: boolean;
   displayOffer: string;
@@ -820,8 +854,20 @@ function PlayerPanel({
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
   const accentCss = isYou
-    ? { border: "border-fuchsia-500", glow: "shadow-[0_0_36px_rgba(168,85,247,0.45)]", text: "text-fuchsia-300", bg: "bg-fuchsia-500/10" }
-    : { border: "border-cyan-500", glow: "shadow-[0_0_36px_rgba(6,182,212,0.45)]", text: "text-cyan-300", bg: "bg-cyan-500/10" };
+    ? {
+        border: "border-fuchsia-500",
+        glow: "shadow-[0_0_40px_rgba(217,70,239,0.5)]",
+        text: "text-fuchsia-300",
+        bg: "bg-fuchsia-500/10",
+      }
+    : {
+        border: "border-cyan-400",
+        glow: "shadow-[0_0_40px_rgba(34,211,238,0.45)]",
+        text: "text-cyan-300",
+        bg: "bg-cyan-500/10",
+      };
+  const footerText = footerOverride ?? name;
+  const circleLetters = queueMonogram ?? name.slice(0, 2);
 
   useEffect(() => {
     if (!videoTrack || !videoRef.current) return;
@@ -877,8 +923,8 @@ function PlayerPanel({
             </motion.div>
           </AnimatePresence>
           {isYou && (phase === "queued" || phase === "negotiating") && (
-            <p className="text-center text-[10px] font-bold uppercase tracking-widest text-pink-400/80 mt-2">
-              Type digits · locked to your balance
+            <p className="text-center text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-pink-400 mt-2">
+              Type digits - locked to your balance
             </p>
           )}
         </div>
@@ -898,19 +944,21 @@ function PlayerPanel({
                   <motion.p
                     animate={{ opacity: [0.45, 1, 0.45] }}
                     transition={{ duration: 1.8, repeat: Infinity }}
-                    className="text-sm font-black uppercase tracking-[0.25em] text-cyan-200"
+                    className="text-xs sm:text-sm font-black uppercase tracking-[0.35em] text-cyan-200"
                   >
-                    Waiting for opponent…
+                    WAITING FOR OPPONENT...
                   </motion.p>
                 )}
-                <div
-                  className={`relative w-24 h-32 md:w-28 md:h-36 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}
+                <motion.div
+                  animate={{ opacity: [0.65, 1, 0.65] }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                  className={`relative w-28 h-36 md:w-32 md:h-40 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}
                   style={{
                     clipPath: "polygon(15% 0%, 85% 0%, 100% 12%, 100% 88%, 85% 100%, 15% 100%, 0% 88%, 0% 12%)",
                   }}
                 >
-                  <div className={`text-4xl opacity-30 ${accentCss.text}`}>▮</div>
-                </div>
+                  <div className={`text-4xl opacity-25 ${accentCss.text}`}>▮</div>
+                </motion.div>
                 {isYou && isSearching && (
                   <p className="text-xs text-zinc-500 uppercase tracking-widest">Your cam loads after match</p>
                 )}
@@ -927,11 +975,17 @@ function PlayerPanel({
               </div>
             ) : (
               <>
-                <div className={`size-20 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center rounded-full`}>
-                  <span className={`text-sm font-black uppercase ${accentCss.text}`}>{name.slice(0, 2)}</span>
-                </div>
+                <motion.div
+                  animate={phase === "queued" && isYou ? { boxShadow: ["0 0 20px rgba(217,70,239,0.35)", "0 0 36px rgba(217,70,239,0.65)", "0 0 20px rgba(217,70,239,0.35)"] } : {}}
+                  transition={{ duration: 2.5, repeat: phase === "queued" && isYou ? Infinity : 0 }}
+                  className={`size-28 md:size-32 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center rounded-full`}
+                >
+                  <span className={`text-xl md:text-2xl font-black uppercase ${accentCss.text}`} style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+                    {circleLetters}
+                  </span>
+                </motion.div>
                 {phase === "queued" && isYou && (
-                  <p className="text-xs text-fuchsia-400/80 font-bold uppercase tracking-widest px-4 text-center animate-pulse">
+                  <p className="text-[10px] sm:text-xs text-fuchsia-300 font-black uppercase tracking-[0.28em] px-4 text-center">
                     In queue — warm up your bet
                   </p>
                 )}
@@ -1011,7 +1065,12 @@ function PlayerPanel({
       </div>
 
       <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black`}>
-        <span className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>{name}</span>
+        <span
+          className={`text-[10px] sm:text-xs font-black uppercase tracking-widest truncate max-w-[85%] ${accentCss.text}`}
+          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        >
+          {footerText}
+        </span>
         {isReady && phase !== "idle" && (
           <span className="flex items-center gap-1 text-xs text-green-400 font-bold">
             <CheckCircle2 className="size-3" /> Ready
@@ -1141,6 +1200,7 @@ function CenterColumn({
 // ─── Bet Controls ─────────────────────────────────────────────────────────────
 
 function BetControls({
+  phaseMode,
   myOffer,
   balance,
   onOfferChange,
@@ -1150,6 +1210,7 @@ function BetControls({
   displayOppOffer,
   timeLeft,
 }: {
+  phaseMode: "queued" | "negotiating";
   myOffer: string;
   balance: number;
   onOfferChange: (val: string) => void;
@@ -1162,28 +1223,37 @@ function BetControls({
   const myNum = parseInt(displayMyOffer, 10) || 0;
   const oppNum = parseInt(displayOppOffer, 10) || 0;
   const overBalance = myNum > balance;
-  const currentBetLabel = myNum > 0 ? myNum : 10;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border border-fuchsia-500/30 bg-black p-3 space-y-3 md:max-w-md md:ml-auto"
+      className="border-2 border-fuchsia-500/40 bg-black/95 p-4 space-y-3 md:max-w-lg md:ml-auto shadow-[0_0_32px_rgba(168,85,247,0.15)]"
     >
       <p
-        className="text-center text-sm font-black uppercase tracking-widest text-cyan-300"
-        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        className="text-center text-xl sm:text-2xl font-black uppercase tracking-tight text-white"
+        style={{
+          fontFamily: "var(--font-ibm-plex-mono)",
+          textShadow: "0 0 18px rgba(34,211,238,0.45)",
+        }}
       >
-        Current Bet: {currentBetLabel} MOGCOINS
+        Current bet: {myNum} MC
       </p>
-      <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">Your Bet</p>
 
-      <p
-        className={`text-center text-xs font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`}
-        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-      >
-        Lock bet in · {timeLeft}s
-      </p>
+      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-fuchsia-400 text-center">Your bet</p>
+
+      {phaseMode === "negotiating" ? (
+        <p
+          className={`text-center text-xs font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`}
+          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        >
+          Lock bet in · {timeLeft}s
+        </p>
+      ) : (
+        <p className="text-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+          Offer sends to server once matched
+        </p>
+      )}
 
       {/* Input */}
       <input
@@ -1201,27 +1271,31 @@ function BetControls({
         <p className="text-xs text-red-400 text-center font-bold">⚠ Exceeds balance ({balance} MC)</p>
       )}
 
-      {/* Quick bets */}
-      <div className="grid grid-cols-3 gap-1.5">
-        {[1, 5, 10].map((n) => (
-          <button
-            key={n}
-            onClick={() => onQuickBet(n)}
-            disabled={balance < n}
-            className="border border-zinc-700 bg-zinc-900 hover:border-fuchsia-500/50 hover:bg-fuchsia-500/10 py-2 text-xs font-black uppercase text-zinc-300 transition-colors disabled:opacity-30"
-          >
-            {n} MC
-          </button>
+      {/* Quick bets — 1 MC • 5 MC • 10 MC */}
+      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2">
+        {[1, 5, 10].map((n, i) => (
+          <span key={n} className="flex items-center gap-1">
+            {i > 0 && <span className="text-fuchsia-500 font-black px-0.5 select-none">•</span>}
+            <button
+              type="button"
+              onClick={() => onQuickBet(n)}
+              disabled={balance < n}
+              className="border border-zinc-700 bg-zinc-900 hover:border-fuchsia-500/60 hover:bg-fuchsia-500/15 px-3 py-2 text-[11px] font-black uppercase text-zinc-200 transition-colors disabled:opacity-30"
+            >
+              {n} MC
+            </button>
+          </span>
         ))}
       </div>
 
       {/* Max bet */}
       <button
+        type="button"
         onClick={onMaxBet}
         disabled={balance < 1}
-        className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-widest text-sm transition-colors shadow-[3px_3px_0_rgba(255,100,0,0.5)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 disabled:opacity-30 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
+        className="w-full py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black uppercase tracking-[0.2em] text-sm transition-all shadow-[4px_4px_0_rgba(250,204,21,0.45)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 disabled:opacity-30 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
       >
-        🔥 MAX BET ({balance} MC)
+        Max bet · {balance} MC
       </button>
 
       {/* Offer hint */}
@@ -1234,15 +1308,15 @@ function BetControls({
         </p>
       )}
 
-      <div className="flex items-center justify-between border-t border-white/10 pt-2 mt-1">
-        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Balance</span>
-        <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+      <div className="flex items-center justify-between border-t border-fuchsia-500/20 pt-3 mt-1">
+        <span className="text-xs text-zinc-500 uppercase font-black tracking-widest">Your balance</span>
+        <span className="text-base font-black tabular-nums text-cyan-300" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
           {balance.toLocaleString()} MC
         </span>
       </div>
 
-      <p className="text-xs text-center text-zinc-600 uppercase tracking-widest">
-        Type numbers on keyboard to bet fast
+      <p className="text-[10px] text-center text-zinc-600 uppercase tracking-widest">
+        Keyboard digits · capped at balance
       </p>
     </motion.div>
   );
