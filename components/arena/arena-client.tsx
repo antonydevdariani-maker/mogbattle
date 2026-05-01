@@ -17,7 +17,6 @@ import { useAgoraVideo } from "@/components/match/agora-video";
 import type { Database } from "@/lib/types/database";
 import {
   Swords,
-  Flame,
   Trophy,
   Skull,
   Zap,
@@ -477,24 +476,34 @@ export function ArenaClient({
         }}
       />
 
-      <ArenaTopBar balance={balance} />
+      <ArenaTopBar
+        balance={balance}
+        findRemain={isQueued && !queueTimedOut ? findRemain : null}
+      />
 
-      {isQueued && !queueTimedOut && (
-        <div className="relative z-10 flex w-full justify-center px-4 pt-5 pb-2">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
-          >
-            <p
-              className="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-[0.12em] text-cyan-300 drop-shadow-[0_0_24px_rgba(34,211,238,0.55)]"
-              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-            >
-              Finding opponent...{" "}
-              <span className="tabular-nums text-white tracking-normal">{findRemain}s</span>
-            </p>
-          </motion.div>
-        </div>
+      {!queueTimedOut && phase === "queued" && (
+        <CompactYourBetStrip
+          myOffer={myOfferStr}
+          balance={balance}
+          onOfferChange={onOfferChange}
+          onQuickBet={setQuickBet}
+          onMaxBet={setMaxBet}
+          displayMyOffer={displayMyOffer}
+        />
+      )}
+
+      {!queueTimedOut && phase === "negotiating" && match && (
+        <ThePotNegotiationStrip
+          match={match}
+          timeLeft={timeLeft}
+          myOffer={myOfferStr}
+          balance={balance}
+          onOfferChange={onOfferChange}
+          onQuickBet={setQuickBet}
+          onMaxBet={setMaxBet}
+          displayMyOffer={displayMyOffer}
+          displayOppOffer={displayOppOffer}
+        />
       )}
 
       {/* Split screen — Omegle-style; mobile stacks with VS between */}
@@ -525,19 +534,10 @@ export function ArenaClient({
         {/* CENTER — VS + status */}
         <div className="order-2 flex flex-col items-center justify-start gap-3 py-2 md:py-6">
           <GlowingVS large={isQueued && !queueTimedOut} />
-          <div className="md:hidden w-full max-w-xs text-center space-y-2">
-            {phase === "negotiating" && (
-              <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">
-                Bet · {timeLeft}s
-              </p>
-            )}
-          </div>
           <div className="hidden md:flex w-full flex-col items-center">
             <CenterColumn
               phase={phase}
               countdown={countdown}
-              match={match}
-              timeLeft={timeLeft}
               metricScores={metricScores}
               revealedMetrics={revealedMetrics}
               isP1={isP1}
@@ -561,20 +561,6 @@ export function ArenaClient({
             isSearching={false}
             queueTimedOut={queueTimedOut}
           />
-
-          {(phase === "queued" || phase === "negotiating") && !queueTimedOut && (
-            <BetControls
-              phaseMode={phase === "queued" ? "queued" : "negotiating"}
-              myOffer={myOfferStr}
-              balance={balance}
-              onOfferChange={onOfferChange}
-              onQuickBet={setQuickBet}
-              onMaxBet={setMaxBet}
-              displayMyOffer={displayMyOffer}
-              displayOppOffer={displayOppOffer}
-              timeLeft={timeLeft}
-            />
-          )}
 
           {/* Ready button during live */}
           {phase === "live" && !myReady && (
@@ -721,29 +707,295 @@ function IdleScreen({
   );
 }
 
-function ArenaTopBar({ balance }: { balance: number }) {
+function ArenaTopBar({ balance, findRemain }: { balance: number; findRemain: number | null }) {
   return (
-    <div className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/90 backdrop-blur-md px-4 py-3">
-      <motion.span
-        className="text-lg md:text-xl font-black tracking-tight text-white uppercase"
+    <div className="relative z-10 flex items-center gap-2 border-b border-white/10 bg-black/90 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-2.5">
+      <span
+        className="shrink-0 text-sm sm:text-base md:text-lg font-black tracking-tight text-white uppercase"
         style={{
           fontFamily: "var(--font-ibm-plex-mono)",
-          textShadow: "0 0 24px rgba(168,85,247,0.9), 0 0 48px rgba(236,72,153,0.35)",
+          textShadow: "0 0 20px rgba(168,85,247,0.85)",
         }}
       >
-        MOGBATTLE
-      </motion.span>
+        OMOGGER
+      </span>
+      <div className="min-w-0 flex-1 flex justify-center px-1">
+        {findRemain !== null && (
+          <motion.span
+            key={findRemain}
+            initial={{ opacity: 0.7 }}
+            animate={{ opacity: 1 }}
+            className="truncate text-center text-[10px] sm:text-sm md:text-base font-black uppercase tracking-wide text-cyan-300"
+            style={{
+              fontFamily: "var(--font-ibm-plex-mono)",
+              textShadow: "0 0 14px rgba(34,211,238,0.55)",
+            }}
+          >
+            Finding opponent...{" "}
+            <span className="tabular-nums text-white">{findRemain}s</span>
+          </motion.span>
+        )}
+      </div>
       <div
-        className="flex items-center gap-2 rounded-none border border-fuchsia-500/35 bg-fuchsia-500/10 px-3 py-1.5"
+        className="shrink-0 flex items-center gap-1 rounded border border-fuchsia-500/30 bg-fuchsia-500/5 px-1.5 py-0.5 sm:px-2 sm:py-1"
         style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
       >
-        <span className="text-base" aria-hidden>
+        <span className="text-xs sm:text-sm" aria-hidden>
           💰
         </span>
-        <span className="font-black tabular-nums text-white text-sm md:text-base">{balance.toLocaleString()}</span>
-        <span className="text-[10px] font-black uppercase tracking-widest text-pink-300/90">MOGCOINS</span>
+        <span className="font-black tabular-nums text-white text-[10px] sm:text-xs">{balance.toLocaleString()}</span>
+        <span className="hidden sm:inline text-[9px] font-black uppercase text-zinc-500">MC</span>
       </div>
     </div>
+  );
+}
+
+function CompactYourBetStrip({
+  myOffer,
+  balance,
+  onOfferChange,
+  onQuickBet,
+  onMaxBet,
+  displayMyOffer,
+}: {
+  myOffer: string;
+  balance: number;
+  onOfferChange: (val: string) => void;
+  onQuickBet: (n: number) => void;
+  onMaxBet: () => void;
+  displayMyOffer: string;
+}) {
+  const myNum = parseInt(displayMyOffer, 10) || 0;
+  const overBalance = myNum > balance;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative z-10 mx-auto flex w-full max-w-md flex-col items-stretch gap-2 px-3 py-3 sm:max-w-lg"
+    >
+      <div className="border border-fuchsia-500/35 bg-black/90 px-3 py-2.5 shadow-[0_0_24px_rgba(168,85,247,0.12)]">
+        <p
+          className="text-center text-[11px] font-black uppercase tracking-[0.35em] text-fuchsia-300"
+          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        >
+          Your bet
+        </p>
+        <p
+          className="text-center text-xl font-black tabular-nums text-white sm:text-2xl"
+          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 16px rgba(34,211,238,0.35)" }}
+        >
+          {myNum} MC
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+          {[1, 5, 10].map((n, i) => (
+            <span key={n} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-fuchsia-600 select-none">•</span>}
+              <button
+                type="button"
+                onClick={() => onQuickBet(n)}
+                disabled={balance < n}
+                className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-fuchsia-500/50 disabled:opacity-30"
+              >
+                {n} MC
+              </button>
+            </span>
+          ))}
+          <span className="text-fuchsia-600 select-none">•</span>
+          <button
+            type="button"
+            onClick={onMaxBet}
+            disabled={balance < 1}
+            className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 hover:bg-orange-500/25 disabled:opacity-30"
+          >
+            Max
+          </button>
+        </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={myOffer}
+          onChange={(e) => onOfferChange(e.target.value)}
+          placeholder="0"
+          className="mt-2 w-full border border-fuchsia-500/30 bg-zinc-950 py-1.5 text-center text-sm font-black text-white placeholder-zinc-700 focus:border-fuchsia-400 focus:outline-none tabular-nums"
+          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+        />
+        {overBalance && (
+          <p className="mt-1 text-center text-[10px] font-bold text-red-400">Max {balance} MC</p>
+        )}
+        <p className="mt-1.5 text-center text-[10px] text-zinc-500">
+          Balance <span className="font-black text-cyan-300 tabular-nums">{balance} MC</span>
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: number }) {
+  return (
+    <div className="relative flex h-24 w-full items-center justify-center overflow-hidden sm:h-28">
+      <motion.span
+        className="absolute left-[8%] font-black tabular-nums text-cyan-300 sm:left-[12%] sm:text-lg"
+        style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 12px rgba(34,211,238,0.8)" }}
+        initial={{ x: 0, opacity: 1, scale: 1 }}
+        animate={{ x: "28vw", opacity: 0, scale: 0.4 }}
+        transition={{ duration: 0.85, ease: "easeInOut" }}
+      >
+        {perPlayer} MC
+      </motion.span>
+      <motion.span
+        className="absolute right-[8%] font-black tabular-nums text-fuchsia-300 sm:right-[12%] sm:text-lg"
+        style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 12px rgba(217,70,239,0.8)" }}
+        initial={{ x: 0, opacity: 1, scale: 1 }}
+        animate={{ x: "-28vw", opacity: 0, scale: 0.4 }}
+        transition={{ duration: 0.85, ease: "easeInOut" }}
+      >
+        {perPlayer} MC
+      </motion.span>
+      <motion.div
+        className="relative z-10 text-center font-black tabular-nums text-amber-300 sm:text-3xl"
+        style={{
+          fontFamily: "var(--font-ibm-plex-mono)",
+          textShadow: "0 0 28px rgba(251,191,36,0.9), 0 0 48px rgba(250,204,21,0.4)",
+        }}
+        initial={{ opacity: 0, scale: 0.2 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.75, type: "spring", stiffness: 380, damping: 22 }}
+      >
+        {potTotal} MC
+      </motion.div>
+    </div>
+  );
+}
+
+function ThePotNegotiationStrip({
+  match,
+  timeLeft,
+  myOffer,
+  balance,
+  onOfferChange,
+  onQuickBet,
+  onMaxBet,
+  displayMyOffer,
+  displayOppOffer,
+}: {
+  match: MatchRow;
+  timeLeft: number;
+  myOffer: string;
+  balance: number;
+  onOfferChange: (val: string) => void;
+  onQuickBet: (n: number) => void;
+  onMaxBet: () => void;
+  displayMyOffer: string;
+  displayOppOffer: string;
+}) {
+  const p1 = match.player1_bet_offer ?? null;
+  const p2 = match.player2_bet_offer ?? null;
+  const myNum = parseInt(displayMyOffer, 10) || 0;
+  const oppNum = parseInt(displayOppOffer, 10) || 0;
+  const agreed = p1 !== null && p2 !== null && p1 === p2 && p1 > 0;
+  const perPlayer = agreed ? p1 : null;
+  const potTotal = agreed ? p1 * 2 : null;
+  const overBalance = myNum > balance;
+
+  const [mergeKey, setMergeKey] = useState(0);
+  const prevAgreed = useRef(false);
+  useEffect(() => {
+    if (agreed && !prevAgreed.current) setMergeKey((k) => k + 1);
+    prevAgreed.current = agreed;
+  }, [agreed]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative z-10 mx-auto w-full max-w-md px-3 py-3 sm:max-w-lg"
+    >
+      <div className="border-2 border-amber-500/45 bg-black/95 px-3 py-3 shadow-[0_0_32px_rgba(245,158,11,0.12)]">
+        <h2
+          className="text-center text-lg font-black uppercase tracking-[0.2em] text-amber-300 sm:text-xl"
+          style={{
+            fontFamily: "var(--font-ibm-plex-mono)",
+            textShadow: "0 0 18px rgba(251,191,36,0.55)",
+          }}
+        >
+          The pot
+        </h2>
+        <p
+          className={`mt-1 text-center text-[10px] font-black uppercase tracking-widest ${timeLeft <= 3 ? "text-red-400" : "text-zinc-500"}`}
+        >
+          {agreed ? "Bets merged — heading live" : `Negotiate · ${timeLeft}s left`}
+        </p>
+
+        {!agreed && (
+          <>
+            <div className="mt-2 flex justify-center gap-6 text-[11px] font-mono sm:text-xs">
+              <span className="text-cyan-300">You {myNum || "—"}</span>
+              <span className="text-fuchsia-300">Opp {oppNum || "—"}</span>
+            </div>
+            {p1 !== null && p2 !== null && p1 !== p2 && (
+              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-yellow-500">
+                Same amount both sides to fill the pot
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              {[1, 5, 10].map((n, i) => (
+                <span key={n} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-amber-700/80 select-none">•</span>}
+                  <button
+                    type="button"
+                    onClick={() => onQuickBet(n)}
+                    disabled={balance < n}
+                    className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-amber-500/40 disabled:opacity-30"
+                  >
+                    {n} MC
+                  </button>
+                </span>
+              ))}
+              <span className="text-amber-700/80 select-none">•</span>
+              <button
+                type="button"
+                onClick={onMaxBet}
+                disabled={balance < 1}
+                className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 disabled:opacity-30"
+              >
+                Max
+              </button>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={myOffer}
+              onChange={(e) => onOfferChange(e.target.value)}
+              placeholder="0"
+              className="mt-2 w-full border border-amber-500/30 bg-zinc-950 py-1.5 text-center text-sm font-black text-white focus:border-amber-400 focus:outline-none tabular-nums"
+              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            />
+            {overBalance && (
+              <p className="mt-1 text-center text-[10px] font-bold text-red-400">Capped at {balance} MC</p>
+            )}
+          </>
+        )}
+
+        {agreed && perPlayer !== null && potTotal !== null && (
+          <div className="mt-2">
+            <PotMergeBurst key={mergeKey} perPlayer={perPlayer} potTotal={potTotal} />
+            <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/90">
+              Winner takes {potTotal} MC
+            </p>
+          </div>
+        )}
+
+        <div className="mt-3 h-1 w-full overflow-hidden rounded bg-zinc-900">
+          <motion.div
+            className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-amber-500"}`}
+            animate={{ width: `${(timeLeft / 10) * 100}%` }}
+            transition={{ duration: 0.2 }}
+          />
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1091,74 +1343,18 @@ function PlayerPanel({
 function CenterColumn({
   phase,
   countdown,
-  match,
-  timeLeft,
   metricScores,
   revealedMetrics,
   isP1,
 }: {
   phase: ArenaPhase;
   countdown: number;
-  match: MatchRow | null;
-  timeLeft: number;
   metricScores: { p1: number; p2: number }[];
   revealedMetrics: number[];
   isP1: boolean;
 }) {
-  const p1Offer = match?.player1_bet_offer ?? null;
-  const p2Offer = match?.player2_bet_offer ?? null;
-  const bothOffered = p1Offer !== null && p2Offer !== null;
-  const offersMatch = bothOffered && p1Offer === p2Offer;
-
   return (
     <div className="flex flex-col items-center justify-start gap-4 pt-2 w-full">
-      {/* Queued: searching pulse */}
-      {phase === "queued" && (
-        <div className="flex flex-col items-center gap-2">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="size-1.5 rounded-full bg-fuchsia-500"
-              animate={{ opacity: [0.2, 1, 0.2] }}
-              transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Negotiating: bet status */}
-      {phase === "negotiating" && (
-        <div className="flex flex-col items-center gap-2 w-full">
-          <div className="w-px flex-1 bg-gradient-to-b from-transparent via-fuchsia-500/30 to-transparent" style={{ height: 40 }} />
-          {offersMatch ? (
-            <div className="border border-green-500/50 bg-green-500/10 px-3 py-2 text-center">
-              <p className="text-xs text-green-400 font-black uppercase">AGREED</p>
-              <p className="text-lg font-black text-green-300 tabular-nums">{p1Offer} MC</p>
-            </div>
-          ) : bothOffered ? (
-            <div className="border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-center">
-              <p className="text-xs text-yellow-500 font-black uppercase">Mismatch</p>
-            </div>
-          ) : (
-            <div className="border border-zinc-800 px-3 py-2 text-center">
-              <Flame className="size-4 text-orange-400 mx-auto mb-1" />
-              <p className="text-xs text-zinc-600 uppercase tracking-widest">Bet</p>
-            </div>
-          )}
-
-          {/* Timer bar */}
-          <div className="w-full space-y-1">
-            <div className="h-1.5 w-full bg-zinc-900 overflow-hidden">
-              <motion.div
-                className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-fuchsia-500"}`}
-                animate={{ width: `${(timeLeft / 10) * 100}%` }}
-                transition={{ duration: 0.2 }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Countdown */}
       {phase === "countdown" && (
         <AnimatePresence mode="wait">
@@ -1194,131 +1390,6 @@ function CenterColumn({
       {/* Decorative line */}
       <div className="w-px flex-1 bg-gradient-to-b from-fuchsia-500/20 to-transparent" />
     </div>
-  );
-}
-
-// ─── Bet Controls ─────────────────────────────────────────────────────────────
-
-function BetControls({
-  phaseMode,
-  myOffer,
-  balance,
-  onOfferChange,
-  onQuickBet,
-  onMaxBet,
-  displayMyOffer,
-  displayOppOffer,
-  timeLeft,
-}: {
-  phaseMode: "queued" | "negotiating";
-  myOffer: string;
-  balance: number;
-  onOfferChange: (val: string) => void;
-  onQuickBet: (n: number) => void;
-  onMaxBet: () => void;
-  displayMyOffer: string;
-  displayOppOffer: string;
-  timeLeft: number;
-}) {
-  const myNum = parseInt(displayMyOffer, 10) || 0;
-  const oppNum = parseInt(displayOppOffer, 10) || 0;
-  const overBalance = myNum > balance;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border-2 border-fuchsia-500/40 bg-black/95 p-4 space-y-3 md:max-w-lg md:ml-auto shadow-[0_0_32px_rgba(168,85,247,0.15)]"
-    >
-      <p
-        className="text-center text-xl sm:text-2xl font-black uppercase tracking-tight text-white"
-        style={{
-          fontFamily: "var(--font-ibm-plex-mono)",
-          textShadow: "0 0 18px rgba(34,211,238,0.45)",
-        }}
-      >
-        Current bet: {myNum} MC
-      </p>
-
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-fuchsia-400 text-center">Your bet</p>
-
-      {phaseMode === "negotiating" ? (
-        <p
-          className={`text-center text-xs font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        >
-          Lock bet in · {timeLeft}s
-        </p>
-      ) : (
-        <p className="text-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-          Offer sends to server once matched
-        </p>
-      )}
-
-      {/* Input */}
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={myOffer}
-        onChange={(e) => onOfferChange(e.target.value)}
-        placeholder="0"
-        className="w-full border border-fuchsia-500/40 bg-zinc-950 px-3 py-3 text-center text-2xl font-black text-white placeholder-zinc-800 focus:border-fuchsia-400 focus:outline-none tabular-nums"
-        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-      />
-
-      {overBalance && (
-        <p className="text-xs text-red-400 text-center font-bold">⚠ Exceeds balance ({balance} MC)</p>
-      )}
-
-      {/* Quick bets — 1 MC • 5 MC • 10 MC */}
-      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2">
-        {[1, 5, 10].map((n, i) => (
-          <span key={n} className="flex items-center gap-1">
-            {i > 0 && <span className="text-fuchsia-500 font-black px-0.5 select-none">•</span>}
-            <button
-              type="button"
-              onClick={() => onQuickBet(n)}
-              disabled={balance < n}
-              className="border border-zinc-700 bg-zinc-900 hover:border-fuchsia-500/60 hover:bg-fuchsia-500/15 px-3 py-2 text-[11px] font-black uppercase text-zinc-200 transition-colors disabled:opacity-30"
-            >
-              {n} MC
-            </button>
-          </span>
-        ))}
-      </div>
-
-      {/* Max bet */}
-      <button
-        type="button"
-        onClick={onMaxBet}
-        disabled={balance < 1}
-        className="w-full py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black uppercase tracking-[0.2em] text-sm transition-all shadow-[4px_4px_0_rgba(250,204,21,0.45)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 disabled:opacity-30 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
-      >
-        Max bet · {balance} MC
-      </button>
-
-      {/* Offer hint */}
-      {displayOppOffer && oppNum > 0 && (
-        <p className="text-xs text-center text-cyan-400 font-mono">
-          Opponent offered: <span className="font-black">{displayOppOffer} MC</span>
-          {myNum === oppNum && myNum > 0 && (
-            <span className="ml-2 text-green-400 font-black">✓ MATCH!</span>
-          )}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between border-t border-fuchsia-500/20 pt-3 mt-1">
-        <span className="text-xs text-zinc-500 uppercase font-black tracking-widest">Your balance</span>
-        <span className="text-base font-black tabular-nums text-cyan-300" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-          {balance.toLocaleString()} MC
-        </span>
-      </div>
-
-      <p className="text-[10px] text-center text-zinc-600 uppercase tracking-widest">
-        Keyboard digits · capped at balance
-      </p>
-    </motion.div>
   );
 }
 

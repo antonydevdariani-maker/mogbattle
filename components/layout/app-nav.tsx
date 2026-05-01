@@ -84,7 +84,7 @@ export function AppNav() {
           className="justify-self-start text-base font-black uppercase tracking-widest"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          MOG<span className="text-fuchsia-400">BATTLE</span>
+          OMOG<span className="text-fuchsia-400">GER</span>
         </Link>
 
         {/* Dock + wallet dropdown */}
