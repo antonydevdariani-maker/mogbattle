@@ -337,10 +337,7 @@ export function ArenaClient({
     return <IdleScreen onQueue={onQueue} isPending={isPending} balance={balance} />;
   }
 
-  if (phase === "queued") {
-    return <QueueScreen queueSecs={queueSecs} balance={balance} />;
-  }
-
+  const isQueued = phase === "queued";
   const showAnalysis = ["analyzing", "verdict"].includes(phase);
   const isDone = phase === "done";
 
@@ -365,7 +362,7 @@ export function ArenaClient({
       />
 
       {/* Split screen */}
-      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-2 px-1 md:px-0">
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_100px_1fr] gap-2 px-1 md:px-0">
         {/* LEFT — Opponent */}
         <div className="flex flex-col gap-2">
           <PlayerPanel
@@ -378,6 +375,8 @@ export function ArenaClient({
             phase={phase}
             isReady={oppReady}
             score={isP1 ? oppScore : myScore}
+            isSearching={isQueued}
+            queueSecs={queueSecs}
           />
           {/* Opponent metrics during analysis (mobile: below their panel) */}
           {showAnalysis && (
@@ -624,7 +623,7 @@ function TopBar({
 }) {
   const phaseLabel: Record<ArenaPhase, string> = {
     idle: "LOBBY",
-    queued: "SEARCHING",
+    queued: "HUNTING OPPONENT",
     negotiating: "NEGOTIATE BET",
     live: "LIVE · FACE SCAN READY",
     countdown: "AI INITIALIZING",
@@ -690,6 +689,8 @@ function PlayerPanel({
   phase,
   isReady,
   score,
+  isSearching = false,
+  queueSecs = 0,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -700,6 +701,8 @@ function PlayerPanel({
   phase: ArenaPhase;
   isReady: boolean;
   score: number | null;
+  isSearching?: boolean;
+  queueSecs?: number;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
@@ -731,19 +734,56 @@ function PlayerPanel({
         {/* Placeholder */}
         {!showVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <div className={`size-16 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
-              <span className={`text-xs font-black uppercase ${accentCss.text}`}>{name.slice(0, 3)}</span>
-            </div>
-            {phase === "negotiating" && (
-              <p className="text-xs text-zinc-600 uppercase tracking-widest px-4 text-center">
-                Camera starts after bet agreed
-              </p>
-            )}
-            {phase === "live" && !videoTrack && (
-              <div className="flex items-center gap-1.5 text-xs text-zinc-600">
-                <WifiOff className="size-3.5" />
-                <span>Connecting camera…</span>
+            {isSearching ? (
+              /* Searching animation */
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative size-20">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className={`absolute inset-0 border-2 ${accentCss.border}`}
+                      animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.7, 0] }}
+                      transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.45, ease: "easeOut" }}
+                    />
+                  ))}
+                  <div className={`relative size-full border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
+                    <span className="text-2xl">👤</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>
+                    Scanning…
+                  </p>
+                  <p className="text-zinc-600 text-xs tabular-nums mt-1">{queueSecs}s</p>
+                </div>
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-500"}`}
+                      animate={{ opacity: [0.2, 1, 0.2] }}
+                      transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
+                    />
+                  ))}
+                </div>
               </div>
+            ) : (
+              <>
+                <div className={`size-16 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
+                  <span className={`text-xs font-black uppercase ${accentCss.text}`}>{name.slice(0, 3)}</span>
+                </div>
+                {phase === "negotiating" && (
+                  <p className="text-xs text-zinc-600 uppercase tracking-widest px-4 text-center">
+                    Camera starts after bet agreed
+                  </p>
+                )}
+                {phase === "live" && !videoTrack && (
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-600">
+                    <WifiOff className="size-3.5" />
+                    <span>Connecting camera…</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -900,6 +940,20 @@ function CenterColumn({
       >
         VS
       </motion.div>
+
+      {/* Queued: searching pulse */}
+      {phase === "queued" && (
+        <div className="flex flex-col items-center gap-2">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="size-1.5 rounded-full bg-fuchsia-500"
+              animate={{ opacity: [0.2, 1, 0.2] }}
+              transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Negotiating: bet status */}
       {phase === "negotiating" && (
