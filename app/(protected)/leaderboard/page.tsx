@@ -3,38 +3,46 @@
 import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
-import { loadLeaderboard } from "@/app/actions";
-import { ArrowLeft, Crown, Medal, User } from "lucide-react";
+import { loadCreditsLeaderboard, loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
+import {
+  ELO_GRAPH_MAX,
+  ELO_TIER_BANDS,
+  eloToPercentOnGraph,
+  segmentWidthPercent,
+  tierForElo,
+} from "@/lib/leaderboard/elo-tiers";
+import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
 
-type Row = {
-  user_id: string;
-  username: string | null;
-  avatar_url: string | null;
-  elo: number;
-  wins: number;
-  matches_played: number;
-};
+type Board = "elo" | "credits";
 
 export default function LeaderboardPage() {
   const { authenticated, getAccessToken } = usePrivy();
-  const [rows, setRows] = useState<Row[]>([]);
+  const [board, setBoard] = useState<Board>("elo");
+  const [rows, setRows] = useState<LeaderboardProfileRow[]>([]);
   const [yourUserId, setYourUserId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authenticated) return;
+    let cancelled = false;
     (async () => {
       try {
         const token = await getAccessToken();
         if (!token) return;
-        const data = await loadLeaderboard(token);
-        setRows(data.rows as Row[]);
+        const data =
+          board === "elo" ? await loadLeaderboard(token) : await loadCreditsLeaderboard(token);
+        if (cancelled) return;
+        setRows(data.rows);
         setYourUserId(data.yourUserId);
+        setErr(null);
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, [authenticated, getAccessToken]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated, getAccessToken, board]);
 
   const yourRank = useMemo(() => {
     if (!yourUserId) return null;
@@ -42,71 +50,84 @@ export default function LeaderboardPage() {
     return i === -1 ? null : i + 1;
   }, [rows, yourUserId]);
 
+  const yourElo = useMemo(() => {
+    if (!yourUserId || board !== "elo") return null;
+    return rows.find((r) => r.user_id === yourUserId)?.elo ?? null;
+  }, [rows, yourUserId, board]);
+
+  const yourCredits = useMemo(() => {
+    if (!yourUserId || board !== "credits") return null;
+    const v = rows.find((r) => r.user_id === yourUserId)?.total_credits;
+    return v != null ? Number(v) : null;
+  }, [rows, yourUserId, board]);
+
   if (err) {
     return <p className="text-red-400 text-sm">{err}</p>;
   }
 
-  const top = rows[0];
-
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-500/90 mb-1">Rankings</p>
           <h1
-            className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-2"
+            className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight flex flex-wrap items-center gap-2"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            <Crown className="size-8 text-amber-400 shrink-0" />
-            ELO leaderboard
+            <Crown className="size-7 sm:size-8 text-amber-400 shrink-0" />
+            {board === "elo" ? "ELO leaderboard" : "Mog points leaderboard"}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Highest ELO sits at #1. Tie-break: more wins ranks higher.
+            {board === "elo"
+              ? "Highest ELO is #1. Tie-break: more wins."
+              : "Most Mog Credits (MC) in the bank. Tie-break: higher ELO."}
           </p>
         </div>
         <Link
           href="/profile"
-          className="inline-flex items-center gap-2 border border-white/15 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:border-white/30"
+          className="inline-flex items-center gap-2 border border-white/15 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:border-white/30 shrink-0"
         >
           <User className="size-3.5" />
           Profile
         </Link>
       </div>
 
-      {top && (
-        <div className="relative overflow-hidden border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-zinc-950 to-zinc-950 p-5">
-          <div className="absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/20 blur-2xl" aria-hidden />
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400/90 mb-2">#1 — Top mogger</p>
-          <div className="flex items-center gap-4">
-            <div className="size-16 shrink-0 overflow-hidden border-2 border-amber-500/40 bg-zinc-900">
-              {top.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={top.avatar_url} alt="" className="size-full object-cover" />
-              ) : (
-                <div className="flex size-full items-center justify-center">
-                  <User className="size-8 text-amber-500/50" />
-                </div>
-              )}
-            </div>
-            <p
-              className="text-2xl font-black text-white uppercase"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {top.username ?? "Anonymous"}
-            </p>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm">
-            <span className="font-black tabular-nums text-amber-300">{top.elo} ELO</span>
-            <span className="text-zinc-500">
-              <span className="text-green-400 font-bold">{top.wins}W</span>
-              {" · "}
-              <span className="text-zinc-400">{top.matches_played - top.wins}L</span>
-              {" · "}
-              <span className="text-zinc-600">{top.matches_played} played</span>
-            </span>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setBoard("elo")}
+          className={`border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+            board === "elo"
+              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+              : "border-white/10 bg-zinc-950 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+          }`}
+        >
+          ELO leaderboard
+        </button>
+        <button
+          type="button"
+          onClick={() => setBoard("credits")}
+          className={`inline-flex items-center gap-2 border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
+            board === "credits"
+              ? "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-200"
+              : "border-white/10 bg-zinc-950 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+          }`}
+        >
+          <Zap className="size-3.5 text-fuchsia-400" />
+          Mog points leaderboard
+        </button>
+      </div>
+
+      {board === "elo" && <EloTierGraph yourElo={yourElo} />}
+
+      {board === "credits" && yourCredits !== null && (
+        <div className="border border-fuchsia-500/25 bg-fuchsia-500/5 px-4 py-2 text-center text-[10px] font-bold text-fuchsia-200/90">
+          Your balance:{" "}
+          <span className="tabular-nums text-white">{yourCredits.toLocaleString()}</span> MC
         </div>
       )}
+
+      <TopThreePodium rows={rows} board={board} />
 
       {yourRank !== null && (
         <div className="flex items-center justify-between gap-3 border border-fuchsia-500/30 bg-fuchsia-500/5 px-4 py-3 text-sm">
@@ -116,7 +137,7 @@ export default function LeaderboardPage() {
       )}
       {yourRank === null && rows.length > 0 && yourUserId && (
         <div className="border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-xs text-zinc-500 text-center">
-          You’re not in the top {rows.length} yet. Keep grinding the arena.
+          You’re not in the top {rows.length} yet. Keep grinding.
         </div>
       )}
 
@@ -135,6 +156,7 @@ export default function LeaderboardPage() {
             const rank = i + 1;
             const isYou = r.user_id === yourUserId;
             const isTop3 = rank <= 3;
+            const mc = Number(r.total_credits);
             return (
               <div
                 key={r.user_id}
@@ -178,16 +200,36 @@ export default function LeaderboardPage() {
                   </p>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played
+                    {board === "credits" && (
+                      <span className="text-zinc-700"> · {r.elo} elo</span>
+                    )}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p
-                    className={`font-black tabular-nums ${rank === 1 ? "text-amber-300 text-lg" : "text-white"}`}
-                    style={{ fontFamily: "var(--font-heading)" }}
-                  >
-                    {r.elo}
-                  </p>
-                  <p className="text-[9px] font-bold uppercase text-zinc-600">ELO</p>
+                  {board === "elo" ? (
+                    <>
+                      <p
+                        className={`font-black tabular-nums ${rank === 1 ? "text-amber-300 text-lg" : "text-white"}`}
+                        style={{ fontFamily: "var(--font-heading)" }}
+                      >
+                        {r.elo}
+                      </p>
+                      <p className="text-[9px] font-bold uppercase text-zinc-600">ELO</p>
+                      <p className="text-[9px] font-black uppercase tracking-tight text-fuchsia-500/80 max-w-[4.5rem] truncate ml-auto">
+                        {tierForElo(r.elo).abbr}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p
+                        className={`font-black tabular-nums ${rank === 1 ? "text-fuchsia-300 text-lg" : "text-fuchsia-200/90"}`}
+                        style={{ fontFamily: "var(--font-heading)" }}
+                      >
+                        {mc.toLocaleString()}
+                      </p>
+                      <p className="text-[9px] font-bold uppercase text-zinc-600">MC</p>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -202,6 +244,123 @@ export default function LeaderboardPage() {
         <ArrowLeft className="size-3.5" />
         Dashboard
       </Link>
+    </div>
+  );
+}
+
+function TopThreePodium({ rows, board }: { rows: LeaderboardProfileRow[]; board: Board }) {
+  const first = rows[0];
+  const second = rows[1];
+  const third = rows[2];
+  if (!first) return null;
+
+  const items: { row: LeaderboardProfileRow | undefined; place: 1 | 2 | 3; pillarMinH: string }[] = [
+    { row: second, place: 2, pillarMinH: "min-h-[6.5rem] sm:min-h-[8rem]" },
+    { row: first, place: 1, pillarMinH: "min-h-[9rem] sm:min-h-[11rem]" },
+    { row: third, place: 3, pillarMinH: "min-h-[5.5rem] sm:min-h-[6.5rem]" },
+  ];
+
+  return (
+    <div className="border border-white/10 bg-zinc-950 p-4 sm:p-6">
+      <p className="text-center text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mb-1">Podium</p>
+      <p className="text-center text-[9px] text-zinc-600 uppercase tracking-widest mb-4">Top 3</p>
+      <div className="flex items-end justify-center gap-1.5 sm:gap-3 max-w-md mx-auto">
+        {items.map(({ row, place, pillarMinH }) => (
+          <div
+            key={place}
+            className={`flex min-w-0 flex-1 flex-col items-center ${!row ? "opacity-40" : ""}`}
+          >
+            <div className="mb-2 flex w-full flex-col items-center text-center min-h-[4.25rem]">
+              {row ? (
+                <>
+                  <div className="mx-auto mb-1 size-11 sm:size-14 overflow-hidden border-2 border-white/20 bg-zinc-900 shadow-lg">
+                    {row.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={row.avatar_url} alt="" className="size-full object-cover" />
+                    ) : (
+                      <div className="flex size-full items-center justify-center">
+                        <User className="size-5 sm:size-6 text-zinc-600" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="w-full truncate px-0.5 text-[10px] sm:text-xs font-black uppercase text-white">
+                    {row.username ?? "Mogger"}
+                  </p>
+                  <p className="text-[10px] font-black tabular-nums text-amber-200/95">
+                    {board === "elo" ? `${row.elo} ELO` : `${Number(row.total_credits).toLocaleString()} MC`}
+                  </p>
+                </>
+              ) : (
+                <span className="text-[10px] text-zinc-600 pt-8">—</span>
+              )}
+            </div>
+            <div
+              className={`flex w-full flex-col items-center rounded-t-lg border border-b-0 pt-3 ${pillarMinH} ${
+                place === 1
+                  ? "border-amber-500/55 bg-gradient-to-b from-amber-500/30 via-amber-600/10 to-zinc-950 shadow-[0_-8px_32px_rgba(245,158,11,0.12)]"
+                  : place === 2
+                    ? "border-zinc-400/45 bg-gradient-to-b from-zinc-400/20 to-zinc-950"
+                    : "border-orange-700/45 bg-gradient-to-b from-orange-800/25 to-zinc-950"
+              }`}
+            >
+              <span
+                className="text-xl sm:text-2xl font-black tabular-nums text-white"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {place}
+              </span>
+              {place === 1 && <Crown className="mt-0.5 size-5 text-amber-300 drop-shadow-md" />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EloTierGraph({ yourElo }: { yourElo: number | null }) {
+  return (
+    <div className="border border-white/10 bg-zinc-950/90 p-4 space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">ELO ladder</p>
+        {yourElo !== null && (
+          <p className="text-[10px] font-bold text-fuchsia-400/90">
+            You: <span className="tabular-nums text-white">{yourElo}</span>
+            <span className="text-zinc-500 font-black uppercase ml-2">{tierForElo(yourElo).abbr}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="relative pt-3">
+        {yourElo !== null && (
+          <div
+            className="pointer-events-none absolute top-0 z-10 flex flex-col items-center -translate-x-1/2"
+            style={{ left: `${eloToPercentOnGraph(yourElo)}%` }}
+            title={`Your ELO: ${yourElo}`}
+          >
+            <div className="size-0 border-x-[5px] border-x-transparent border-t-[6px] border-t-fuchsia-400 drop-shadow-[0_0_6px_rgba(217,70,239,0.9)]" />
+          </div>
+        )}
+        <div className="flex h-8 w-full overflow-hidden rounded-md border border-white/15 shadow-inner">
+          {ELO_TIER_BANDS.map((band, i) => (
+            <div
+              key={band.abbr}
+              title={`${band.full}: ${band.min}–${band.max >= ELO_GRAPH_MAX ? `${band.min}+` : band.max}`}
+              className={`${band.barClass} flex min-w-0 items-center justify-center border-r border-black/30 last:border-r-0 px-0.5`}
+              style={{ width: `${segmentWidthPercent(i)}%` }}
+            >
+              <span className="truncate text-center text-[7px] font-black uppercase tracking-tight text-white drop-shadow-sm sm:text-[8px]">
+                {band.abbr}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-[10px] leading-relaxed text-zinc-500">
+        <span className="text-zinc-400 font-bold">Scale 0–{ELO_GRAPH_MAX}.</span> Sub 5 ≤450 · LTN 451–799 · MTN 800–999 ·
+        HTN 1000–1199 · Chad lite 1200–1599 · Chad 1600–1799 · Adam lite 1800+.
+      </p>
     </div>
   );
 }

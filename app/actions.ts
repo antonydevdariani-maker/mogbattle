@@ -148,12 +148,22 @@ export async function loadDashboardData(accessToken: string) {
 }
 
 /** Top players by ELO (tie-break: more wins first). */
+export type LeaderboardProfileRow = {
+  user_id: string;
+  username: string | null;
+  avatar_url: string | null;
+  elo: number;
+  wins: number;
+  matches_played: number;
+  total_credits: number;
+};
+
 export async function loadLeaderboard(accessToken: string) {
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, username, avatar_url, elo, wins, matches_played")
+    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits")
     .order("elo", { ascending: false })
     .order("wins", { ascending: false })
     .limit(100);
@@ -161,13 +171,26 @@ export async function loadLeaderboard(accessToken: string) {
     throw new Error(error.message);
   }
   return {
-    rows: (data ?? []) as {
-      user_id: string;
-      username: string | null;
-      elo: number;
-      wins: number;
-      matches_played: number;
-    }[],
+    rows: (data ?? []) as LeaderboardProfileRow[],
+    yourUserId: userId,
+  };
+}
+
+/** Richest moggers by Mog Credits balance. */
+export async function loadCreditsLeaderboard(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits")
+    .order("total_credits", { ascending: false })
+    .order("elo", { ascending: false })
+    .limit(100);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return {
+    rows: (data ?? []) as LeaderboardProfileRow[],
     yourUserId: userId,
   };
 }
