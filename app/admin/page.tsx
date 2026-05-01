@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Loader2, Upload, Camera, RotateCcw, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,11 +59,16 @@ export default function AdminPage() {
     if (file) loadFile(file);
   }
 
+  useEffect(() => {
+    if (camActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [camActive]);
+
   async function startCam() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setCamActive(true);
       setPreview(null);
       setResult(null);
