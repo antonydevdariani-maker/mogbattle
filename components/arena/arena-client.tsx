@@ -10,6 +10,7 @@ import {
   finalizeMatchResult,
   loadBattleQueueState,
   loadProfileSummary,
+  cancelWaitingMatch,
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { useAgoraVideo } from "@/components/match/agora-video";
@@ -22,7 +23,6 @@ import {
   Zap,
   Loader2,
   CheckCircle2,
-  Timer,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -57,11 +57,13 @@ export function ArenaClient({
   initialMatch,
   initialOpponentName,
   userId,
+  displayName,
 }: {
   initialBalance: number;
   initialMatch: MatchRow | null;
   initialOpponentName: string | null;
   userId: string;
+  displayName: string | null;
 }) {
   const { getAccessToken } = usePrivy();
   const router = useRouter();
@@ -74,6 +76,7 @@ export function ArenaClient({
   const [myOfferStr, setMyOfferStr] = useState("");
   const [timeLeft, setTimeLeft] = useState(10);
   const [queueSecs, setQueueSecs] = useState(0);
+  const [queueSession, setQueueSession] = useState(0);
   const [oppTyping, setOppTyping] = useState(false);
   const [myReady, setMyReady] = useState(false);
   const [oppReady, setOppReady] = useState(false);
@@ -89,6 +92,9 @@ export function ArenaClient({
   const prevOppOffer = useRef<number | null>(null);
   const analysisRunning = useRef(false);
   const queueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const matchmakingIntentRef = useRef(false);
+  const timedOutBattleRef = useRef(false);
+  const queueTimedOutRef = useRef(false);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -153,7 +159,15 @@ export function ArenaClient({
     setOpponentName(s.opponentName);
     setPhase((prev) => {
       if (["countdown", "analyzing", "verdict", "done"].includes(prev)) return prev;
-      return derivePhase(newMatch);
+      const derived = derivePhase(newMatch);
+      if (newMatch) {
+        timedOutBattleRef.current = false;
+        matchmakingIntentRef.current = false;
+        return derived;
+      }
+      if (timedOutBattleRef.current) return "queued";
+      if (matchmakingIntentRef.current) return "queued";
+      return derived;
     });
   }, [getAccessToken, derivePhase]);
 
@@ -205,18 +219,53 @@ export function ArenaClient({
   }, [phase, match?.negotiation_deadline]);
 
   useEffect(() => {
-    if (phase !== "queued") { setQueueSecs(0); setQueueTimedOut(false); return; }
-    const t = setInterval(() => setQueueSecs((s) => s + 1), 1000);
+    queueTimedOutRef.current = queueTimedOut;
+  }, [queueTimedOut]);
+
+  useEffect(() => {
+    if (phase !== "queued") {
+      setQueueSecs(0);
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+        queueTimeoutRef.current = null;
+      }
+      return;
+    }
+    setQueueTimedOut(false);
+    setQueueSecs(0);
+    const t = setInterval(() => {
+      setQueueSecs((s) => (queueTimedOutRef.current ? s : s + 1));
+    }, 1000);
     queueTimeoutRef.current = setTimeout(() => setQueueTimedOut(true), 30_000);
     return () => {
       clearInterval(t);
-      if (queueTimeoutRef.current) clearTimeout(queueTimeoutRef.current);
+      if (queueTimeoutRef.current) {
+        clearTimeout(queueTimeoutRef.current);
+        queueTimeoutRef.current = null;
+      }
     };
-  }, [phase]);
+  }, [phase, queueSession]);
 
-  // Keyboard number input during negotiation
   useEffect(() => {
-    if (phase !== "negotiating") return;
+    if (!queueTimedOut || phase !== "queued") return;
+    matchmakingIntentRef.current = false;
+    timedOutBattleRef.current = true;
+    startTransition(async () => {
+      const token = await getAccessToken();
+      if (token) {
+        try {
+          await cancelWaitingMatch(token);
+        } catch {
+          /* ignore */
+        }
+      }
+      setMatch(null);
+    });
+  }, [queueTimedOut, phase, getAccessToken]);
+
+  // Keyboard number input while searching / negotiating
+  useEffect(() => {
+    if (phase !== "negotiating" && phase !== "queued") return;
     function onKey(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (/^\d$/.test(e.key)) {
@@ -237,14 +286,14 @@ export function ArenaClient({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, match?.id, balance]);
+  }, [phase, match?.id, balance, match?.status]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   function scheduleOfferSubmit(val: string) {
     if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
     const amount = parseInt(val, 10);
-    if (!amount || amount < 1 || !match?.id) return;
+    if (!amount || amount < 1 || !match?.id || match.status !== "matched") return;
     const capped = Math.min(amount, balance);
     submitTimerRef.current = setTimeout(async () => {
       const token = await getAccessToken();
@@ -273,13 +322,48 @@ export function ArenaClient({
   }
 
   function onQueue() {
+    matchmakingIntentRef.current = true;
+    timedOutBattleRef.current = false;
+    setQueueTimedOut(false);
+    setQueueSecs(0);
+    setQueueSession((s) => s + 1);
     setPhase("queued");
+    setIsPending(true);
     startTransition(async () => {
-      const token = await getAccessToken();
-      if (!token) { setPhase("idle"); return; }
-      await queueForBattle(token);
-      await poll();
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          matchmakingIntentRef.current = false;
+          setPhase("idle");
+          return;
+        }
+        await queueForBattle(token);
+        await poll();
+      } catch {
+        matchmakingIntentRef.current = false;
+        setPhase("idle");
+      } finally {
+        setIsPending(false);
+      }
     });
+  }
+
+  async function backToArenaLanding() {
+    timedOutBattleRef.current = false;
+    matchmakingIntentRef.current = false;
+    setQueueTimedOut(false);
+    setQueueSecs(0);
+    const token = await getAccessToken();
+    if (token) {
+      try {
+        await cancelWaitingMatch(token);
+      } catch {
+        /* ignore */
+      }
+    }
+    setMatch(null);
+    setPhase("idle");
+    await refreshBalance();
   }
 
   async function startAnalysis() {
@@ -322,6 +406,8 @@ export function ArenaClient({
   }
 
   function resetArena() {
+    matchmakingIntentRef.current = false;
+    timedOutBattleRef.current = false;
     setMatch(null);
     setPhase("idle");
     setMyOfferStr("");
@@ -344,31 +430,53 @@ export function ArenaClient({
   const isQueued = phase === "queued";
   const showAnalysis = ["analyzing", "verdict"].includes(phase);
   const isDone = phase === "done";
+  const yourName = displayName?.trim() || "MOGGER";
+  const findRemain = Math.max(0, 30 - queueSecs);
 
   return (
-    <div className="relative w-full flex flex-col gap-2 pb-4" style={{ minHeight: "calc(100dvh - 3.5rem)" }}>
-      {/* Scanline overlay */}
+    <div
+      className="relative w-full flex flex-col gap-0 pb-4 bg-[#030308]"
+      style={{ minHeight: "calc(100dvh - 3.5rem)" }}
+    >
+      {/* Grid + scanline */}
       <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.03]"
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(168,85,247,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.25) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.04]"
         style={{
           backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, #fff 2px, #fff 4px)",
           backgroundSize: "100% 4px",
         }}
       />
 
-      {/* Top bar */}
-      <TopBar
-        phase={phase}
-        timeLeft={timeLeft}
-        balance={balance}
-        betAmount={match?.bet_amount ?? 0}
-        opponentName={opponentName}
-      />
+      <ArenaTopBar balance={balance} />
 
-      {/* Split screen */}
-      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_100px_1fr] gap-2 px-1 md:px-0">
+      {isQueued && !queueTimedOut && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 mx-2 mt-2 border border-cyan-500/40 bg-cyan-500/5 px-4 py-2 text-center"
+        >
+          <p
+            className="text-sm font-black uppercase tracking-[0.2em] text-cyan-300"
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            Finding opponent…{" "}
+            <span className="tabular-nums text-white">{findRemain}s</span>
+          </p>
+        </motion.div>
+      )}
+
+      {/* Split screen — Omegle-style; mobile stacks with VS between */}
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-3">
         {/* LEFT — Opponent */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 order-1">
           <PlayerPanel
             side="opponent"
             name={opponentName ?? "???"}
@@ -379,11 +487,9 @@ export function ArenaClient({
             phase={phase}
             isReady={oppReady}
             score={isP1 ? oppScore : myScore}
-            isSearching={isQueued}
-            queueSecs={queueSecs}
+            isSearching={isQueued && !queueTimedOut}
             queueTimedOut={queueTimedOut}
           />
-          {/* Opponent metrics during analysis (mobile: below their panel) */}
           {showAnalysis && (
             <div className="md:hidden">
               <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p2" isP1={isP1} />
@@ -391,22 +497,34 @@ export function ArenaClient({
           )}
         </div>
 
-        {/* CENTER */}
-        <CenterColumn
-          phase={phase}
-          countdown={countdown}
-          match={match}
-          timeLeft={timeLeft}
-          metricScores={metricScores}
-          revealedMetrics={revealedMetrics}
-          isP1={isP1}
-        />
+        {/* CENTER — VS + status */}
+        <div className="order-2 flex flex-col items-center justify-start gap-3 py-2 md:py-6">
+          <GlowingVS />
+          <div className="md:hidden w-full max-w-xs text-center space-y-2">
+            {phase === "negotiating" && (
+              <p className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">
+                Bet · {timeLeft}s
+              </p>
+            )}
+          </div>
+          <div className="hidden md:flex w-full flex-col items-center">
+            <CenterColumn
+              phase={phase}
+              countdown={countdown}
+              match={match}
+              timeLeft={timeLeft}
+              metricScores={metricScores}
+              revealedMetrics={revealedMetrics}
+              isP1={isP1}
+            />
+          </div>
+        </div>
 
         {/* RIGHT — You */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3 order-3">
           <PlayerPanel
             side="you"
-            name="YOU"
+            name={yourName}
             videoTrack={localVideoTrack}
             hasVideo={videoEnabled}
             displayOffer={displayMyOffer}
@@ -414,21 +532,10 @@ export function ArenaClient({
             phase={phase}
             isReady={myReady}
             score={isP1 ? myScore : oppScore}
+            isSearching={false}
+            queueTimedOut={queueTimedOut}
           />
 
-          {/* Timeout: try again */}
-          {isQueued && queueTimedOut && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => { setQueueTimedOut(false); setQueueSecs(0); onQueue(); }}
-              className="w-full py-4 border-2 border-red-500 bg-red-500/10 text-red-300 font-black uppercase tracking-widest text-sm hover:bg-red-500/20 transition-colors"
-            >
-              Try Again
-            </motion.button>
-          )}
-
-          {/* Your controls during negotiation */}
           {phase === "negotiating" && (
             <BetControls
               myOffer={myOfferStr}
@@ -475,6 +582,19 @@ export function ArenaClient({
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isQueued && queueTimedOut && (
+          <MatchmakingTimeoutOverlay
+            onTryAgain={() => {
+              timedOutBattleRef.current = false;
+              setQueueTimedOut(false);
+              onQueue();
+            }}
+            onBackToArena={backToArenaLanding}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Done overlay */}
       <AnimatePresence>
@@ -574,123 +694,99 @@ function IdleScreen({
   );
 }
 
-// ─── Queue Screen ─────────────────────────────────────────────────────────────
-
-function QueueScreen({ queueSecs, balance }: { queueSecs: number; balance: number }) {
+function ArenaTopBar({ balance }: { balance: number }) {
   return (
-    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
-      <div className="text-center space-y-6">
-        <div className="relative mx-auto size-32">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="absolute inset-0 border-2 border-fuchsia-500"
-              animate={{ scale: [1, 1.8 + i * 0.4], opacity: [0.8, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.5, ease: "easeOut" }}
-            />
-          ))}
-          <div className="relative size-full border-2 border-fuchsia-500 bg-fuchsia-500/10 flex items-center justify-center">
-            <Swords className="size-12 text-fuchsia-300" />
-          </div>
-        </div>
-        <div>
-          <p
-            className="text-3xl font-black text-white uppercase tracking-wide"
-            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-          >
-            Hunting prey…
-          </p>
-          <p className="mt-2 text-cyan-400 font-mono tabular-nums text-lg">{queueSecs}s</p>
-          <p className="mt-1 text-zinc-600 text-xs uppercase tracking-widest">Scanning arena for opponent</p>
-        </div>
-        <div className="flex justify-center gap-1.5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <motion.div
-              key={i}
-              className="size-2 bg-fuchsia-500"
-              animate={{ opacity: [0.2, 1, 0.2] }}
-              transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 border border-zinc-800 bg-zinc-950 px-4 py-2">
-        <Zap className="size-3.5 text-fuchsia-400" />
-        <span className="text-sm font-black text-white tabular-nums">{balance.toLocaleString()}</span>
-        <span className="text-xs text-zinc-600 uppercase">MC</span>
+    <div className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/90 backdrop-blur-md px-4 py-3">
+      <motion.span
+        className="text-lg md:text-xl font-black tracking-tight text-white uppercase"
+        style={{
+          fontFamily: "var(--font-ibm-plex-mono)",
+          textShadow: "0 0 24px rgba(168,85,247,0.9), 0 0 48px rgba(236,72,153,0.35)",
+        }}
+      >
+        MOGBATTLE
+      </motion.span>
+      <div
+        className="flex items-center gap-2 rounded-none border border-fuchsia-500/35 bg-fuchsia-500/10 px-3 py-1.5"
+        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+      >
+        <span className="text-base" aria-hidden>
+          💰
+        </span>
+        <span className="font-black tabular-nums text-white text-sm md:text-base">{balance.toLocaleString()}</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-pink-300/90">MOGCOINS</span>
       </div>
     </div>
   );
 }
 
-// ─── Top Bar ──────────────────────────────────────────────────────────────────
-
-function TopBar({
-  phase,
-  timeLeft,
-  balance,
-  betAmount,
-  opponentName,
-}: {
-  phase: ArenaPhase;
-  timeLeft: number;
-  balance: number;
-  betAmount: number;
-  opponentName: string | null;
-}) {
-  const phaseLabel: Record<ArenaPhase, string> = {
-    idle: "LOBBY",
-    queued: "HUNTING OPPONENT",
-    negotiating: "NEGOTIATE BET",
-    live: "LIVE · FACE SCAN READY",
-    countdown: "AI INITIALIZING",
-    analyzing: "ANALYZING FACES",
-    verdict: "COMPUTING VERDICT",
-    done: "BATTLE COMPLETE",
-  };
-
-  const isNeg = phase === "negotiating";
-
+function GlowingVS() {
   return (
-    <div className="relative z-10 flex items-center justify-between border-b border-white/10 bg-black/80 backdrop-blur px-3 py-2 md:px-4">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <motion.span
-            className="size-2 rounded-full bg-red-500"
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
-          <span className="text-xs font-black uppercase tracking-widest text-zinc-400">{phaseLabel[phase]}</span>
-        </div>
-        {opponentName && (
-          <span className="hidden sm:block text-xs text-zinc-600 font-mono">vs {opponentName}</span>
-        )}
-      </div>
+    <motion.div
+      animate={{
+        textShadow: [
+          "0 0 20px rgba(168,85,247,0.9), 0 0 40px rgba(6,182,212,0.6)",
+          "0 0 32px rgba(236,72,153,1), 0 0 64px rgba(168,85,247,0.5)",
+          "0 0 20px rgba(168,85,247,0.9), 0 0 40px rgba(6,182,212,0.6)",
+        ],
+      }}
+      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+      className="text-5xl md:text-6xl font-black text-white select-none"
+      style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+    >
+      VS
+    </motion.div>
+  );
+}
 
-      <div className="flex items-center gap-3">
-        {isNeg && (
-          <div className={`flex items-center gap-1.5 border px-3 py-1 ${timeLeft <= 3 ? "border-red-500/60 bg-red-500/10" : "border-yellow-500/40 bg-yellow-500/5"}`}>
-            <Timer className={`size-3.5 ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`} />
-            <span className={`font-black tabular-nums text-sm ${timeLeft <= 3 ? "text-red-300" : "text-yellow-300"}`} style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-              {timeLeft}s
-            </span>
-          </div>
-        )}
-        {betAmount > 0 && (
-          <div className="hidden sm:flex items-center gap-1.5 border border-orange-500/40 bg-orange-500/5 px-3 py-1">
-            <Flame className="size-3.5 text-orange-400" />
-            <span className="font-black text-orange-300 text-sm tabular-nums">{betAmount} MC</span>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1">
-          <Zap className="size-3.5 text-fuchsia-400" />
-          <span className="font-black text-white text-sm tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-            {balance.toLocaleString()}
-          </span>
-          <span className="text-xs text-zinc-600 uppercase font-bold">MC</span>
+function MatchmakingTimeoutOverlay({
+  onTryAgain,
+  onBackToArena,
+}: {
+  onTryAgain: () => void;
+  onBackToArena: () => void | Promise<void>;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md px-4"
+    >
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 320, damping: 24 }}
+        className="w-full max-w-md border-2 border-red-500/50 bg-zinc-950/95 p-8 text-center space-y-5"
+        style={{ boxShadow: "0 0 60px rgba(239,68,68,0.25), inset 0 0 40px rgba(168,85,247,0.06)" }}
+      >
+        <div className="space-y-1">
+          <h2
+            className="text-2xl md:text-3xl font-black uppercase text-red-300"
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            No opponent found
+          </h2>
+          <p className="text-sm text-zinc-500 uppercase tracking-widest">Please try again</p>
         </div>
-      </div>
-    </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onTryAgain}
+            className="py-3.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={() => void onBackToArena()}
+            className="py-3.5 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-sm hover:bg-cyan-500/15 transition-colors"
+          >
+            Back to Arena
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -707,7 +803,6 @@ function PlayerPanel({
   isReady,
   score,
   isSearching = false,
-  queueSecs = 0,
   queueTimedOut = false,
 }: {
   side: "you" | "opponent";
@@ -720,15 +815,13 @@ function PlayerPanel({
   isReady: boolean;
   score: number | null;
   isSearching?: boolean;
-  queueSecs?: number;
   queueTimedOut?: boolean;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
-  const accent = isYou ? "fuchsia" : "cyan";
   const accentCss = isYou
-    ? { border: "border-fuchsia-500", glow: "shadow-[0_0_30px_rgba(168,85,247,0.4)]", text: "text-fuchsia-300", bg: "bg-fuchsia-500/10" }
-    : { border: "border-cyan-500", glow: "shadow-[0_0_30px_rgba(6,182,212,0.4)]", text: "text-cyan-300", bg: "bg-cyan-500/10" };
+    ? { border: "border-fuchsia-500", glow: "shadow-[0_0_36px_rgba(168,85,247,0.45)]", text: "text-fuchsia-300", bg: "bg-fuchsia-500/10" }
+    : { border: "border-cyan-500", glow: "shadow-[0_0_36px_rgba(6,182,212,0.45)]", text: "text-cyan-300", bg: "bg-cyan-500/10" };
 
   useEffect(() => {
     if (!videoTrack || !videoRef.current) return;
@@ -737,75 +830,114 @@ function PlayerPanel({
   }, [videoTrack]);
 
   const showVideo = hasVideo && videoTrack;
-  const showOffer = displayOffer && ["negotiating", "live", "countdown", "analyzing", "verdict", "done"].includes(phase);
   const showScore = score !== null && ["verdict", "done"].includes(phase);
 
+  const heroPhases = ["queued", "negotiating", "live", "countdown", "analyzing", "verdict", "done"] as const;
+  const showHeroNumber = heroPhases.includes(phase as (typeof heroPhases)[number]);
+
+  const heroValue =
+    isYou
+      ? displayOffer || (phase === "queued" || phase === "negotiating" ? "" : "")
+      : isSearching && !queueTimedOut
+        ? "—"
+        : displayOffer || (phase === "negotiating" ? "—" : "");
+
+  const heroKey = isYou ? (displayOffer || "empty") : `${isSearching}-${displayOffer || "dash"}`;
+
   return (
-    <div className={`relative flex flex-col border ${accentCss.border} ${accentCss.glow} bg-black overflow-hidden`}>
-      {/* Video feed */}
+    <div className={`relative flex flex-col border-2 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}>
+      {/* Giant bet / input readout — above video */}
+      {showHeroNumber && (
+        <div className="relative z-[1] border-b border-white/10 bg-gradient-to-b from-zinc-950 to-black px-2 py-3 md:py-4">
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={heroKey}
+              initial={{ scale: 0.88, opacity: 0.5 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 520, damping: 28 }}
+              className="flex items-baseline justify-center gap-1"
+            >
+              <span
+                className={`font-black tabular-nums tracking-tighter ${accentCss.text} ${!heroValue && isYou ? "opacity-40" : ""}`}
+                style={{
+                  fontFamily: "var(--font-ibm-plex-mono)",
+                  fontSize: "clamp(2.25rem, 8vw, 4rem)",
+                  lineHeight: 1,
+                  textShadow: isYou
+                    ? "0 0 28px rgba(168,85,247,0.85), 0 0 56px rgba(236,72,153,0.35)"
+                    : "0 0 28px rgba(6,182,212,0.85), 0 0 48px rgba(168,85,247,0.25)",
+                }}
+              >
+                {heroValue || (isYou ? "0" : "—")}
+              </span>
+              {(phase === "queued" || phase === "negotiating" || !!displayOffer) && (
+                <span className={`text-sm font-black uppercase ${accentCss.text} opacity-50`}>MC</span>
+              )}
+            </motion.div>
+          </AnimatePresence>
+          {isYou && (phase === "queued" || phase === "negotiating") && (
+            <p className="text-center text-[10px] font-bold uppercase tracking-widest text-pink-400/80 mt-2">
+              Type digits · locked to your balance
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="relative aspect-[4/3] md:aspect-video bg-zinc-950">
-        {/* Video container */}
         <div
           ref={videoRef}
           className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
         />
 
-        {/* Placeholder */}
         {!showVideo && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            {isSearching ? (
-              /* Searching / timed-out */
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-950 to-black">
+            {isSearching && !queueTimedOut ? (
               <div className="flex flex-col items-center gap-4 px-4 text-center">
-                {queueTimedOut ? (
-                  <>
-                    <div className="border-2 border-red-500/60 bg-red-500/10 size-20 flex items-center justify-center">
-                      <span className="text-3xl">😤</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-widest text-red-400">No prey found</p>
-                      <p className="text-xs text-zinc-600 mt-1">Arena is empty. Try again later.</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="relative size-20">
-                      {[0, 1, 2].map((i) => (
-                        <motion.div
-                          key={i}
-                          className={`absolute inset-0 border-2 ${accentCss.border}`}
-                          animate={{ scale: [1, 1.6 + i * 0.3], opacity: [0.7, 0] }}
-                          transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.45, ease: "easeOut" }}
-                        />
-                      ))}
-                      <div className={`relative size-full border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
-                        <span className="text-2xl">👤</span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <p className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>Scanning…</p>
-                      <p className="text-zinc-600 text-xs tabular-nums mt-1">{queueSecs}s</p>
-                    </div>
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map((i) => (
-                        <motion.div
-                          key={i}
-                          className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-500"}`}
-                          animate={{ opacity: [0.2, 1, 0.2] }}
-                          transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.2 }}
-                        />
-                      ))}
-                    </div>
-                  </>
+                {!isYou && (
+                  <motion.p
+                    animate={{ opacity: [0.45, 1, 0.45] }}
+                    transition={{ duration: 1.8, repeat: Infinity }}
+                    className="text-sm font-black uppercase tracking-[0.25em] text-cyan-200"
+                  >
+                    Waiting for opponent…
+                  </motion.p>
                 )}
+                <div
+                  className={`relative w-24 h-32 md:w-28 md:h-36 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}
+                  style={{
+                    clipPath: "polygon(15% 0%, 85% 0%, 100% 12%, 100% 88%, 85% 100%, 15% 100%, 0% 88%, 0% 12%)",
+                  }}
+                >
+                  <div className={`text-4xl opacity-30 ${accentCss.text}`}>▮</div>
+                </div>
+                {isYou && isSearching && (
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest">Your cam loads after match</p>
+                )}
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-400"}`}
+                      animate={{ opacity: [0.2, 1, 0.2], scale: [1, 1.2, 1] }}
+                      transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }}
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
               <>
-                <div className={`size-16 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center`}>
-                  <span className={`text-xs font-black uppercase ${accentCss.text}`}>{name.slice(0, 3)}</span>
+                <div className={`size-20 border-2 ${accentCss.border} ${accentCss.bg} flex items-center justify-center rounded-full`}>
+                  <span className={`text-sm font-black uppercase ${accentCss.text}`}>{name.slice(0, 2)}</span>
                 </div>
+                {phase === "queued" && isYou && (
+                  <p className="text-xs text-fuchsia-400/80 font-bold uppercase tracking-widest px-4 text-center animate-pulse">
+                    In queue — warm up your bet
+                  </p>
+                )}
                 {phase === "negotiating" && (
                   <p className="text-xs text-zinc-600 uppercase tracking-widest px-4 text-center">
-                    Camera starts after bet agreed
+                    Video channel opens when bet locks
                   </p>
                 )}
                 {phase === "live" && !videoTrack && (
@@ -819,7 +951,6 @@ function PlayerPanel({
           </div>
         )}
 
-        {/* LIVE badge */}
         {showVideo && (
           <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/70 px-2 py-0.5">
             <motion.span
@@ -831,7 +962,6 @@ function PlayerPanel({
           </div>
         )}
 
-        {/* Typing indicator */}
         <AnimatePresence>
           {isTyping && (
             <motion.div
@@ -853,7 +983,6 @@ function PlayerPanel({
           )}
         </AnimatePresence>
 
-        {/* Score overlay */}
         <AnimatePresence>
           {showScore && (
             <motion.div
@@ -881,7 +1010,6 @@ function PlayerPanel({
         </AnimatePresence>
       </div>
 
-      {/* Name bar */}
       <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black`}>
         <span className={`text-xs font-black uppercase tracking-widest ${accentCss.text}`}>{name}</span>
         {isReady && phase !== "idle" && (
@@ -895,37 +1023,6 @@ function PlayerPanel({
           </span>
         )}
       </div>
-
-      {/* Floating MOG number */}
-      <AnimatePresence mode="popLayout">
-        {showOffer && displayOffer && (
-          <motion.div
-            key={displayOffer}
-            initial={{ scale: 0.6, opacity: 0, y: 10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 22 }}
-            className={`absolute top-3 ${isYou ? "right-3" : "left-3"} z-20 pointer-events-none`}
-          >
-            <div
-              className={`border ${accentCss.border} ${accentCss.bg} px-3 py-1.5`}
-              style={{
-                boxShadow: isYou
-                  ? "0 0 20px rgba(168,85,247,0.6), inset 0 0 10px rgba(168,85,247,0.1)"
-                  : "0 0 20px rgba(6,182,212,0.6), inset 0 0 10px rgba(6,182,212,0.1)",
-              }}
-            >
-              <span
-                className={`text-2xl font-black tabular-nums ${accentCss.text}`}
-                style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-              >
-                {displayOffer}
-              </span>
-              <span className={`text-xs ml-1 ${accentCss.text} opacity-60`}>MC</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -955,23 +1052,7 @@ function CenterColumn({
   const offersMatch = bothOffered && p1Offer === p2Offer;
 
   return (
-    <div className="hidden md:flex flex-col items-center justify-start gap-4 pt-6">
-      {/* VS */}
-      <motion.div
-        animate={{
-          textShadow: [
-            "0 0 20px rgba(168,85,247,0.8)",
-            "0 0 40px rgba(168,85,247,1)",
-            "0 0 20px rgba(168,85,247,0.8)",
-          ],
-        }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-        className="text-3xl font-black text-white tracking-widest"
-        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-      >
-        VS
-      </motion.div>
-
+    <div className="flex flex-col items-center justify-start gap-4 pt-2 w-full">
       {/* Queued: searching pulse */}
       {phase === "queued" && (
         <div className="flex flex-col items-center gap-2">
@@ -1081,14 +1162,28 @@ function BetControls({
   const myNum = parseInt(displayMyOffer, 10) || 0;
   const oppNum = parseInt(displayOppOffer, 10) || 0;
   const overBalance = myNum > balance;
+  const currentBetLabel = myNum > 0 ? myNum : 10;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border border-fuchsia-500/30 bg-black p-3 space-y-3"
+      className="border border-fuchsia-500/30 bg-black p-3 space-y-3 md:max-w-md md:ml-auto"
     >
+      <p
+        className="text-center text-sm font-black uppercase tracking-widest text-cyan-300"
+        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+      >
+        Current Bet: {currentBetLabel} MOGCOINS
+      </p>
       <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">Your Bet</p>
+
+      <p
+        className={`text-center text-xs font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`}
+        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+      >
+        Lock bet in · {timeLeft}s
+      </p>
 
       {/* Input */}
       <input
@@ -1139,6 +1234,13 @@ function BetControls({
         </p>
       )}
 
+      <div className="flex items-center justify-between border-t border-white/10 pt-2 mt-1">
+        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Balance</span>
+        <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+          {balance.toLocaleString()} MC
+        </span>
+      </div>
+
       <p className="text-xs text-center text-zinc-600 uppercase tracking-widest">
         Type numbers on keyboard to bet fast
       </p>
@@ -1179,7 +1281,6 @@ function MetricsList({
             );
           }
           const myS = isP1 ? scores.p1 : scores.p2;
-          const oppS = isP1 ? scores.p2 : scores.p1;
           const showScore = side === "both" ? true : side === "p1" ? true : true;
           return (
             <motion.div

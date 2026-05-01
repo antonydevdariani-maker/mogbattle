@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { finalizeMatchResult } from "@/app/actions";
-import { Loader2, CheckCircle2, Swords, Trophy, Skull } from "lucide-react";
-import { useAgoraVideo, LocalVideoBox, RemoteVideoBox } from "@/components/match/agora-video";
+import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
+import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 
 const METRICS = [
   "Jawline Definition",
@@ -20,6 +20,22 @@ const METRICS = [
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Phase = "idle" | "countdown" | "analyzing" | "verdict" | "done";
+
+type AiResult = { psl: number; rating: number; verdict: string } | null;
+
+async function judgeFace(imageDataUrl: string): Promise<AiResult> {
+  try {
+    const res = await fetch("/api/judge-face", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imageDataUrl }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export function LiveMatchClient({
   matchId,
@@ -48,6 +64,9 @@ export function LiveMatchClient({
     enabled: !isCompleted,
   });
 
+  const localVideoRef = useRef<VideoBoxHandle>(null);
+  const remoteVideoRef = useRef<VideoBoxHandle>(null);
+
   const [myReady, setMyReady] = useState(isCompleted);
   const [oppReady, setOppReady] = useState(isCompleted);
   const [phase, setPhase] = useState<Phase>(isCompleted ? "done" : "idle");
@@ -58,6 +77,9 @@ export function LiveMatchClient({
   );
   const [scoreP1, setScoreP1] = useState<number | null>(initialAiP1);
   const [scoreP2, setScoreP2] = useState<number | null>(initialAiP2);
+  const [myAiResult, setMyAiResult] = useState<AiResult>(null);
+  const [oppAiResult, setOppAiResult] = useState<AiResult>(null);
+  const [testMode, setTestMode] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const { getAccessToken } = usePrivy();
@@ -73,7 +95,6 @@ export function LiveMatchClient({
 
   const bothReady = myReady && oppReady;
 
-  // Restore existing completed match scores
   useEffect(() => {
     if (isCompleted && initialAiP1 !== null && initialAiP2 !== null) {
       setMetricScores(
@@ -85,18 +106,26 @@ export function LiveMatchClient({
     }
   }, [isCompleted, initialAiP1, initialAiP2]);
 
-  async function startAnalysis() {
-    // Countdown
+  async function startAnalysis(isTest = false) {
     setPhase("countdown");
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
       await delay(900);
     }
 
-    // Analysis phase
     setPhase("analyzing");
     setRevealedMetrics([]);
     setMetricScores([]);
+
+    // Capture frames for AI judgment
+    const myFrame = localVideoRef.current?.captureFrame() ?? null;
+    const oppFrame = isTest ? myFrame : (remoteVideoRef.current?.captureFrame() ?? null);
+
+    // Fire AI calls in parallel while metrics animate
+    const [myResultPromise, oppResultPromise] = [
+      myFrame ? judgeFace(myFrame) : Promise.resolve(null),
+      oppFrame ? judgeFace(oppFrame) : Promise.resolve(null),
+    ];
 
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
@@ -107,31 +136,46 @@ export function LiveMatchClient({
       setRevealedMetrics((prev) => [...prev, i]);
     }
 
-    // Verdict pause
+    // Wait for AI results
+    const [myResult, oppResult] = await Promise.all([myResultPromise, oppResultPromise]);
+    setMyAiResult(myResult);
+    setOppAiResult(oppResult);
+
     await delay(1200);
     setPhase("verdict");
 
     await delay(2500);
 
-    // Compute final scores
-    const p1Total = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
-    const p2Total = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-    setScoreP1(p1Total);
-    setScoreP2(p2Total);
+    // Use AI PSL scores if available, else fallback to metric average
+    const p1Total = myResult?.psl
+      ? Number(myResult.psl.toFixed(2))
+      : Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length / 10).toFixed(2));
+    const p2Total = oppResult?.psl
+      ? Number(oppResult.psl.toFixed(2))
+      : Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length / 10).toFixed(2));
+
+    setScoreP1(isPlayer1 ? p1Total : p2Total);
+    setScoreP2(isPlayer1 ? p2Total : p1Total);
 
     await delay(800);
     setPhase("done");
 
-    // Only p1 triggers the server write to avoid double-finalize race
-    if (isPlayer1) {
+    if (!isTest && isPlayer1) {
       startTransition(async () => {
         const token = await getAccessToken();
         if (!token) return;
-        await finalizeMatchResult(token, { matchId, aiScoreP1: p1Total, aiScoreP2: p2Total });
+        await finalizeMatchResult(token, {
+          matchId,
+          aiScoreP1: isPlayer1 ? p1Total : p2Total,
+          aiScoreP2: isPlayer1 ? p2Total : p1Total,
+        });
         router.refresh();
       });
     }
   }
+
+  const myDisplayResult = isPlayer1 ? myAiResult : oppAiResult;
+  const oppDisplayResult = isPlayer1 ? oppAiResult : myAiResult;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-5">
@@ -145,53 +189,84 @@ export function LiveMatchClient({
             {betAmount.toLocaleString()} MC staked · pot {(betAmount * 2).toLocaleString()} MC
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5">
-          <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
-          <span className="text-xs font-semibold text-red-300 uppercase tracking-wider">Live</span>
+        <div className="flex items-center gap-3">
+          {/* Test button */}
+          {!isCompleted && phase === "idle" && (
+            <button
+              onClick={() => {
+                setTestMode(true);
+                setMyReady(true);
+                setOppReady(true);
+                setTimeout(() => startAnalysis(true), 100);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/20 transition-colors"
+            >
+              <FlaskConical className="size-3.5" />
+              TEST (free)
+            </button>
+          )}
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5">
+            <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
+            <span className="text-xs font-semibold text-red-300 uppercase tracking-wider">
+              {testMode ? "TEST" : "Live"}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Camera feeds */}
+      {/* Camera feeds with side score panels */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-0">
-          <LocalVideoBox
-            track={localVideoTrack}
-            label="YOU"
-            accentColor="fuchsia"
-          />
-          <div className="flex items-center justify-between px-1 py-2">
-            <span className="text-sm font-semibold text-zinc-300">YOU</span>
-            {!myReady ? (
-              <button
-                onClick={() => setMyReady(true)}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all"
-              >
-                Ready
-              </button>
-            ) : (
-              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                <CheckCircle2 className="size-3.5" /> Ready
-              </span>
-            )}
+        {/* YOUR side */}
+        <div className="flex gap-2">
+          {/* Score panel — left of your cam */}
+          <ScoreSidePanel result={myDisplayResult} color="fuchsia" phase={phase} />
+          <div className="flex-1 space-y-0">
+            <LocalVideoBox
+              ref={localVideoRef}
+              track={localVideoTrack}
+              label="YOU"
+              accentColor="fuchsia"
+            />
+            <div className="flex items-center justify-between px-1 py-2">
+              <span className="text-sm font-semibold text-zinc-300">YOU</span>
+              {!myReady ? (
+                <button
+                  onClick={() => setMyReady(true)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all"
+                >
+                  Ready
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                  <CheckCircle2 className="size-3.5" /> Ready
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-0">
-          <RemoteVideoBox
-            track={remoteVideoTrack}
-            label="OPPONENT"
-            accentColor="red"
-          />
-          <div className="flex items-center justify-between px-1 py-2">
-            <span className="text-sm font-semibold text-zinc-300">OPPONENT</span>
-            {oppReady ? (
-              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                <CheckCircle2 className="size-3.5" /> Ready
-              </span>
-            ) : (
-              <span className="text-xs text-zinc-600">Waiting...</span>
-            )}
+        {/* OPPONENT side */}
+        <div className="flex gap-2">
+          <div className="flex-1 space-y-0">
+            <RemoteVideoBox
+              ref={remoteVideoRef}
+              track={remoteVideoTrack}
+              label="OPPONENT"
+              accentColor="red"
+            />
+            <div className="flex items-center justify-between px-1 py-2">
+              <span className="text-sm font-semibold text-zinc-300">OPPONENT</span>
+              {oppReady ? (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                  <CheckCircle2 className="size-3.5" /> Ready
+                </span>
+              ) : (
+                <span className="text-xs text-zinc-600">Waiting...</span>
+              )}
+            </div>
           </div>
+          {/* Score panel — right of opp cam */}
+          <ScoreSidePanel result={oppDisplayResult} color="red" phase={phase} />
         </div>
       </div>
 
@@ -205,7 +280,7 @@ export function LiveMatchClient({
             exit={{ opacity: 0, y: -8 }}
           >
             <button
-              onClick={startAnalysis}
+              onClick={() => startAnalysis(false)}
               className="w-full bg-red-600 hover:bg-red-500 py-4 text-base font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
             >
               <Swords className="size-5" />
@@ -362,6 +437,11 @@ export function LiveMatchClient({
                 : "border-red-500/30 bg-zinc-950"
             } p-6 space-y-5`}
           >
+            {testMode && (
+              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-center">
+                <p className="text-xs font-semibold text-yellow-300">TEST MODE — no MC deducted</p>
+              </div>
+            )}
 
             <div className="relative text-center space-y-2">
               <div className="flex justify-center mb-4">
@@ -382,6 +462,24 @@ export function LiveMatchClient({
               </p>
             </div>
 
+            {/* AI verdict quotes */}
+            {(myDisplayResult?.verdict || oppDisplayResult?.verdict) && (
+              <div className="grid grid-cols-2 gap-2">
+                {myDisplayResult?.verdict && (
+                  <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2">
+                    <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider mb-1">AI on you</p>
+                    <p className="text-xs text-zinc-300 italic">"{myDisplayResult.verdict}"</p>
+                  </div>
+                )}
+                {oppDisplayResult?.verdict && (
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
+                    <p className="text-[10px] text-red-500 uppercase tracking-wider mb-1">AI on opponent</p>
+                    <p className="text-xs text-zinc-300 italic">"{oppDisplayResult.verdict}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Score comparison */}
             <div className="relative grid grid-cols-2 gap-2 sm:gap-3">
               <ScoreCard
@@ -389,35 +487,41 @@ export function LiveMatchClient({
                 score={myScore}
                 won={iWon}
                 color={iWon ? "fuchsia" : "zinc"}
+                psl={myDisplayResult?.psl ?? null}
+                rating={myDisplayResult?.rating ?? null}
               />
               <ScoreCard
                 label="OPPONENT"
                 score={oppScore}
                 won={!iWon}
                 color={!iWon ? "fuchsia" : "zinc"}
+                psl={oppDisplayResult?.psl ?? null}
+                rating={oppDisplayResult?.rating ?? null}
               />
             </div>
 
-            {/* P&L */}
-            <div className={`relative rounded-xl border px-4 py-3 text-center ${
-              iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
-            }`}>
-              <p className={`text-2xl font-black tabular-nums ${iWon ? "text-green-300" : "text-red-400"}`}
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
-              </p>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                {iWon ? "deposited to your wallet" : "taken by winner"}
-              </p>
-            </div>
+            {/* P&L — hidden in test mode */}
+            {!testMode && (
+              <div className={`relative rounded-xl border px-4 py-3 text-center ${
+                iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
+              }`}>
+                <p className={`text-2xl font-black tabular-nums ${iWon ? "text-green-300" : "text-red-400"}`}
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  {iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
+                </p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {iWon ? "deposited to your wallet" : "taken by winner"}
+                </p>
+              </div>
+            )}
 
             <div className="relative flex gap-3">
               <button
                 onClick={() => router.push("/battle")}
                 className="flex-1 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 py-3 text-sm font-bold text-white transition-colors"
               >
-                Rematch
+                {testMode ? "Battle for real" : "Rematch"}
               </button>
               <button
                 onClick={() => router.push("/dashboard")}
@@ -433,17 +537,98 @@ export function LiveMatchClient({
   );
 }
 
+// Side panel shown next to camera feed
+function ScoreSidePanel({
+  result,
+  color,
+  phase,
+}: {
+  result: AiResult;
+  color: "fuchsia" | "red";
+  phase: Phase;
+}) {
+  const colorMap = {
+    fuchsia: {
+      border: "border-fuchsia-500/30",
+      bg: "bg-fuchsia-500/5",
+      text: "text-fuchsia-300",
+      label: "text-fuchsia-500",
+    },
+    red: {
+      border: "border-red-500/30",
+      bg: "bg-red-500/5",
+      text: "text-red-300",
+      label: "text-red-500",
+    },
+  }[color];
+
+  const showScores = phase === "done" && result && result.psl > 0;
+
+  return (
+    <div className={`flex flex-col items-center justify-center w-14 shrink-0 rounded-xl border ${colorMap.border} ${colorMap.bg} py-3 gap-3`}>
+      {showScores ? (
+        <>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`text-xl font-black tabular-nums ${colorMap.text}`}
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {result!.psl.toFixed(1)}
+            </motion.span>
+          </div>
+          <div className="w-6 h-px bg-zinc-700" />
+          <div className="flex flex-col items-center gap-0.5">
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG</span>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.15 }}
+              className={`text-xl font-black tabular-nums ${colorMap.text}`}
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {result!.rating.toFixed(1)}
+            </motion.span>
+            <span className="text-[9px] text-zinc-600">/10</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
+            <span className="text-lg font-black text-zinc-700">—</span>
+          </div>
+          <div className="w-6 h-px bg-zinc-800" />
+          <div className="flex flex-col items-center gap-0.5">
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG</span>
+            <span className="text-lg font-black text-zinc-700">—</span>
+            <span className="text-[9px] text-zinc-800">/10</span>
+          </div>
+          {(phase === "analyzing" || phase === "verdict") && (
+            <Loader2 className={`size-3 animate-spin ${colorMap.text} opacity-50`} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 function ScoreCard({
   label,
   score,
   won,
   color,
+  psl,
+  rating,
 }: {
   label: string;
   score: number | null;
   won: boolean;
   color: "fuchsia" | "zinc";
+  psl: number | null;
+  rating: number | null;
 }) {
   return (
     <div className={`rounded-xl border p-4 text-center ${
@@ -458,6 +643,12 @@ function ScoreCard({
       >
         {score !== null ? score.toFixed(1) : "—"}
       </p>
+      {psl !== null && psl > 0 && (
+        <div className="mt-2 flex justify-center gap-3 text-[10px] text-zinc-500">
+          <span>PSL <span className="text-zinc-300 font-semibold">{psl.toFixed(1)}</span></span>
+          <span>RTG <span className="text-zinc-300 font-semibold">{rating?.toFixed(1)}/10</span></span>
+        </div>
+      )}
       {won && <p className="text-xs text-fuchsia-500 mt-1 font-medium">WINNER</p>}
     </div>
   );

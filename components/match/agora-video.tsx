@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import AgoraRTC, {
   type IAgoraRTCClient,
   type ICameraVideoTrack,
@@ -90,18 +90,19 @@ export function useAgoraVideo({
   };
 }
 
-export function LocalVideoBox({
-  track,
-  label,
-  accentColor,
-  overlay,
-}: {
+export type VideoBoxHandle = { captureFrame: () => string | null };
+
+export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   track: ICameraVideoTrack | null;
   label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}) {
+}>(function LocalVideoBox({ track, label, accentColor, overlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    captureFrame: () => captureFrameFromContainer(containerRef.current),
+  }));
 
   useEffect(() => {
     if (!track || !containerRef.current) return;
@@ -112,20 +113,19 @@ export function LocalVideoBox({
   return (
     <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
   );
-}
+});
 
-export function RemoteVideoBox({
-  track,
-  label,
-  accentColor,
-  overlay,
-}: {
+export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   track: IRemoteVideoTrack | null;
   label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}) {
+}>(function RemoteVideoBox({ track, label, accentColor, overlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    captureFrame: () => captureFrameFromContainer(containerRef.current),
+  }));
 
   useEffect(() => {
     if (!track || !containerRef.current) return;
@@ -136,6 +136,18 @@ export function RemoteVideoBox({
   return (
     <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
   );
+});
+
+function captureFrameFromContainer(container: HTMLDivElement | null): string | null {
+  const video = container?.querySelector("video");
+  if (!video || !video.videoWidth) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 480;
+  canvas.height = 270;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(video, 0, 0, 480, 270);
+  return canvas.toDataURL("image/jpeg", 0.7);
 }
 
 function VideoShell({

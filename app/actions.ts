@@ -262,6 +262,7 @@ export async function queueForBattle(accessToken: string) {
       .select("id")
       .single();
     revalidatePath("/battle");
+    revalidatePath("/arena");
     return { matchId: matched?.id, state: "found" as const };
   }
 
@@ -276,7 +277,22 @@ export async function queueForBattle(accessToken: string) {
     .single();
 
   revalidatePath("/battle");
+  revalidatePath("/arena");
   return { matchId: created?.id, state: "queued" as const };
+}
+
+/** Cancel a solo waiting row so the user can leave matchmaking without blocking re-queue. */
+export async function cancelWaitingMatch(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  await supabase
+    .from("matches")
+    .update({ status: "cancelled" })
+    .eq("player1_id", userId)
+    .eq("status", "waiting")
+    .is("player2_id", null);
+  revalidatePath("/battle");
+  revalidatePath("/arena");
 }
 
 export async function submitBetOffer(accessToken: string, matchId: string, amount: number) {
