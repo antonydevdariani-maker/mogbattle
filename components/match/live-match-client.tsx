@@ -178,19 +178,18 @@ export function LiveMatchClient({
   const oppDisplayResult = isPlayer1 ? oppAiResult : myAiResult;
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-5">
+    <div className="w-full max-w-4xl mx-auto space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>
-            Live Match Room
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-bold text-white truncate" style={{ fontFamily: "var(--font-heading)" }}>
+            Live Match
           </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
             {betAmount.toLocaleString()} MC staked · pot {(betAmount * 2).toLocaleString()} MC
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Test button */}
+        <div className="flex items-center gap-2 shrink-0">
           {!isCompleted && phase === "idle" && (
             <button
               onClick={() => {
@@ -199,13 +198,14 @@ export function LiveMatchClient({
                 setOppReady(true);
                 setTimeout(() => startAnalysis(true), 100);
               }}
-              className="flex items-center gap-1.5 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/20 transition-colors"
+              className="flex items-center gap-1.5 border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/20 transition-colors min-h-[40px]"
             >
               <FlaskConical className="size-3.5" />
-              TEST (free)
+              <span className="hidden sm:inline">TEST (free)</span>
+              <span className="sm:hidden">TEST</span>
             </button>
           )}
-          <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5">
+          <div className="flex items-center gap-1.5 border border-red-500/30 bg-red-500/10 px-3 py-2 min-h-[40px]">
             <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />
             <span className="text-xs font-semibold text-red-300 uppercase tracking-wider">
               {testMode ? "TEST" : "Live"}
@@ -214,59 +214,73 @@ export function LiveMatchClient({
         </div>
       </div>
 
-      {/* Camera feeds with side score panels */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Camera feeds — side by side on desktop, stacked on mobile */}
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
         {/* YOUR side */}
-        <div className="flex gap-2">
-          {/* Score panel — left of your cam */}
-          <ScoreSidePanel result={myDisplayResult} color="fuchsia" phase={phase} />
-          <div className="flex-1 space-y-0">
-            <LocalVideoBox
-              ref={localVideoRef}
-              track={localVideoTrack}
-              label="YOU"
-              accentColor="fuchsia"
-            />
-            <div className="flex items-center justify-between px-1 py-2">
+        <div className="space-y-2">
+          <LocalVideoBox
+            ref={localVideoRef}
+            track={localVideoTrack}
+            label="YOU"
+            accentColor="fuchsia"
+          />
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-zinc-300">YOU</span>
-              {!myReady ? (
-                <button
-                  onClick={() => setMyReady(true)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all"
-                >
-                  Ready
-                </button>
-              ) : (
-                <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                  <CheckCircle2 className="size-3.5" /> Ready
+              {/* Inline score on mobile after done */}
+              {phase === "done" && myDisplayResult && (
+                <span className="text-xs font-mono text-fuchsia-400 sm:hidden">
+                  PSL {myDisplayResult.psl.toFixed(1)}
                 </span>
               )}
             </div>
+            {!myReady ? (
+              <button
+                onClick={() => setMyReady(true)}
+                className="px-4 py-2 text-sm font-bold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all min-h-[40px] min-w-[80px]"
+              >
+                Ready
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                <CheckCircle2 className="size-3.5" /> Ready
+              </span>
+            )}
+          </div>
+          {/* Score panel desktop only */}
+          <div className="hidden sm:block">
+            <ScoreSidePanel result={myDisplayResult} color="fuchsia" phase={phase} horizontal />
           </div>
         </div>
 
         {/* OPPONENT side */}
-        <div className="flex gap-2">
-          <div className="flex-1 space-y-0">
-            <RemoteVideoBox
-              ref={remoteVideoRef}
-              track={remoteVideoTrack}
-              label="OPPONENT"
-              accentColor="red"
-            />
-            <div className="flex items-center justify-between px-1 py-2">
+        <div className="space-y-2">
+          <RemoteVideoBox
+            ref={remoteVideoRef}
+            track={remoteVideoTrack}
+            label="OPPONENT"
+            accentColor="red"
+          />
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-zinc-300">OPPONENT</span>
-              {oppReady ? (
-                <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                  <CheckCircle2 className="size-3.5" /> Ready
+              {phase === "done" && oppDisplayResult && (
+                <span className="text-xs font-mono text-red-400 sm:hidden">
+                  PSL {oppDisplayResult.psl.toFixed(1)}
                 </span>
-              ) : (
-                <span className="text-xs text-zinc-600">Waiting...</span>
               )}
             </div>
+            {oppReady ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                <CheckCircle2 className="size-3.5" /> Ready
+              </span>
+            ) : (
+              <span className="text-xs text-zinc-600">Waiting...</span>
+            )}
           </div>
-          {/* Score panel — right of opp cam */}
-          <ScoreSidePanel result={oppDisplayResult} color="red" phase={phase} />
+          <div className="hidden sm:block">
+            <ScoreSidePanel result={oppDisplayResult} color="red" phase={phase} horizontal />
+          </div>
         </div>
       </div>
 
@@ -281,9 +295,9 @@ export function LiveMatchClient({
           >
             <button
               onClick={() => startAnalysis(false)}
-              className="w-full bg-red-600 hover:bg-red-500 py-4 text-base font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
+              className="w-full bg-red-600 hover:bg-red-500 py-4 sm:py-5 text-base sm:text-lg font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 min-h-[56px]"
             >
-              <Swords className="size-5" />
+              <Swords className="size-5 sm:size-6" />
               Begin AI Judgment
             </button>
           </motion.div>
@@ -519,13 +533,13 @@ export function LiveMatchClient({
             <div className="relative flex gap-3">
               <button
                 onClick={() => router.push("/battle")}
-                className="flex-1 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 py-3 text-sm font-bold text-white transition-colors"
+                className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
               >
                 {testMode ? "Battle for real" : "Rematch"}
               </button>
               <button
                 onClick={() => router.push("/dashboard")}
-                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-3 text-sm font-medium text-zinc-300 transition-colors"
+                className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
               >
                 Dashboard
               </button>
@@ -537,15 +551,17 @@ export function LiveMatchClient({
   );
 }
 
-// Side panel shown next to camera feed
+// Score panel shown below camera on desktop
 function ScoreSidePanel({
   result,
   color,
   phase,
+  horizontal = false,
 }: {
   result: AiResult;
   color: "fuchsia" | "red";
   phase: Phase;
+  horizontal?: boolean;
 }) {
   const colorMap = {
     fuchsia: {
@@ -565,47 +581,40 @@ function ScoreSidePanel({
   const showScores = phase === "done" && result && result.psl > 0;
 
   return (
-    <div className={`flex flex-col items-center justify-center w-14 shrink-0 rounded-xl border ${colorMap.border} ${colorMap.bg} py-3 gap-3`}>
+    <div className={`flex items-center justify-center gap-4 border ${colorMap.border} ${colorMap.bg} px-4 py-2`}>
       {showScores ? (
         <>
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`text-xl font-black tabular-nums ${colorMap.text}`}
+              className={`text-lg font-black tabular-nums ${colorMap.text}`}
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {result!.psl.toFixed(1)}
             </motion.span>
           </div>
-          <div className="w-6 h-px bg-zinc-700" />
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG</span>
+          <div className="h-4 w-px bg-zinc-700" />
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG</span>
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.15 }}
-              className={`text-xl font-black tabular-nums ${colorMap.text}`}
+              className={`text-lg font-black tabular-nums ${colorMap.text}`}
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {result!.rating.toFixed(1)}
             </motion.span>
-            <span className="text-[9px] text-zinc-600">/10</span>
+            <span className="text-[10px] text-zinc-600">/10</span>
           </div>
         </>
       ) : (
         <>
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
-            <span className="text-lg font-black text-zinc-700">—</span>
-          </div>
-          <div className="w-6 h-px bg-zinc-800" />
-          <div className="flex flex-col items-center gap-0.5">
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG</span>
-            <span className="text-lg font-black text-zinc-700">—</span>
-            <span className="text-[9px] text-zinc-800">/10</span>
-          </div>
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL —</span>
+          <div className="h-4 w-px bg-zinc-800" />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>RTG —</span>
           {(phase === "analyzing" || phase === "verdict") && (
             <Loader2 className={`size-3 animate-spin ${colorMap.text} opacity-50`} />
           )}

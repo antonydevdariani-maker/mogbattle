@@ -108,12 +108,14 @@ export function AppNav() {
     };
   });
 
+  if (matchAtRisk) return null;
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black pt-safe">
-      <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:h-16 sm:grid-cols-[1fr_minmax(0,auto)_1fr] sm:gap-3 sm:px-4">
+      <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
-          className="justify-self-start text-sm sm:text-base font-black uppercase tracking-widest"
+          className="justify-self-start text-sm font-black uppercase tracking-widest"
           style={{ fontFamily: "var(--font-heading)" }}
           onClick={(e) => {
             if (!matchAtRisk) return;
@@ -121,12 +123,13 @@ export function AppNav() {
             tryNavigate("/dashboard");
           }}
         >
-          OMOG<span className="text-fuchsia-400">GER</span>
+          <span className="sm:hidden">OMG</span>
+          <span className="hidden sm:inline">OMOG<span className="text-fuchsia-400">GER</span></span>
         </Link>
 
-        {/* Dock + wallet dropdown */}
-        <div className="relative flex justify-center min-w-0" ref={menuRef}>
-          <Dock items={dockItems} className="w-auto max-w-[min(100vw-6rem,28rem)]" />
+        {/* Dock + wallet dropdown — always centered */}
+        <div className="relative flex justify-center" ref={menuRef}>
+          <Dock items={dockItems} className="w-auto" />
 
           {/* Wallet quick menu */}
           {walletMenuOpen && (

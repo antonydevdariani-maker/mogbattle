@@ -36,7 +36,7 @@ const DockIconButton = React.forwardRef<HTMLButtonElement, DockIconButtonProps>(
         onClick={onClick}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "relative group rounded-xl p-2 sm:p-3 transition-colors",
+          "relative group rounded-xl p-2.5 sm:p-3 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center",
           "hover:bg-secondary/80",
           active &&
             "bg-primary/15 text-primary shadow-[0_0_20px_color-mix(in_srgb,var(--primary)_25%,transparent)] ring-1 ring-primary/40",
@@ -44,7 +44,7 @@ const DockIconButton = React.forwardRef<HTMLButtonElement, DockIconButtonProps>(
           className
         )}
       >
-        <Icon className="size-4 sm:size-5" />
+        <Icon className="size-5" />
         <span
           className={cn(
             "pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2",

@@ -598,7 +598,7 @@ export function ArenaClient({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => { setMyReady(true); setOppReady(true); }}
-              className="w-full py-4 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-base shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              className="w-full py-5 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
             >
               ⚔️ Begin AI Judgment
             </motion.button>
@@ -609,10 +609,10 @@ export function ArenaClient({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={startAnalysis}
-              className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest text-base shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              className="w-full py-5 bg-red-600 text-white font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
             >
               <span className="flex items-center justify-center gap-2">
-                <Swords className="size-5" /> SCAN FACES
+                <Swords className="size-5 sm:size-6" /> SCAN FACES
               </span>
             </motion.button>
           )}
@@ -708,7 +708,7 @@ function IdleScreen({
         onClick={onQueue}
         disabled={isPending || balance < 1}
         whileTap={{ scale: 0.97 }}
-        className="group relative flex items-center justify-center gap-3 w-72 h-16 bg-fuchsia-500 text-black font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
+        className="group relative flex items-center justify-center gap-3 w-full max-w-xs sm:w-72 h-16 sm:h-16 bg-fuchsia-500 text-black font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
       >
         {isPending ? (
           <><Loader2 className="size-5 animate-spin" /> Connecting…</>
@@ -1103,14 +1103,14 @@ function MatchmakingTimeoutOverlay({
           <button
             type="button"
             onClick={onTryAgain}
-            className="py-3.5 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+            className="py-4 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[52px]"
           >
             TRY AGAIN
           </button>
           <button
             type="button"
             onClick={() => void onBackToArena()}
-            className="py-3.5 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-sm hover:bg-cyan-500/15 transition-colors"
+            className="py-4 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-sm hover:bg-cyan-500/15 transition-colors min-h-[52px]"
           >
             BACK TO ARENA
           </button>
@@ -1661,13 +1661,13 @@ function DoneOverlay({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={onRematch}
-            className="py-3 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+            className="py-4 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-sm sm:text-base shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[52px]"
           >
             Rematch
           </button>
           <button
             onClick={onDashboard}
-            className="py-3 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-black uppercase tracking-widest text-sm transition-colors"
+            className="py-4 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-black uppercase tracking-widest text-sm sm:text-base transition-colors min-h-[52px]"
           >
             Dashboard
           </button>
