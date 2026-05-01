@@ -15,24 +15,64 @@ export function useAgoraVideo({
   channelName,
   uid,
   enabled,
+  localOnly = false,
 }: {
   channelName: string;
   uid: number;
   enabled: boolean;
+  /** If true, creates local cam+mic tracks immediately for self-preview without joining a channel. */
+  localOnly?: boolean;
 }) {
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localVideoRef = useRef<ICameraVideoTrack | null>(null);
   const localAudioRef = useRef<IMicrophoneAudioTrack | null>(null);
+  const tracksCreated = useRef(false);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<IRemoteVideoTrack | null>(null);
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<IRemoteAudioTrack | null>(null);
   const [localReady, setLocalReady] = useState(false);
   const [joined, setJoined] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
+  // Create local tracks as soon as localOnly or enabled — gives instant cam preview.
   useEffect(() => {
-    if (!enabled || !channelName) return;
+    if (!localOnly && !enabled) return;
+    if (tracksCreated.current) return;
+    tracksCreated.current = true;
 
     setMediaError(null);
+    AgoraRTC.createMicrophoneAndCameraTracks(
+      { encoderConfig: "music_standard" },
+      { encoderConfig: "480p_1", facingMode: "user" }
+    ).then(([audioTrack, videoTrack]) => {
+      localAudioRef.current = audioTrack;
+      localVideoRef.current = videoTrack;
+      setLocalReady(true);
+    }).catch((e) => {
+      const msg = e instanceof Error ? e.message : typeof e === "string" ? e : "Could not access camera or microphone.";
+      setMediaError(
+        /Permission|NotAllowed|denied|NotReadable/i.test(msg)
+          ? "Allow camera and microphone for this site to use the arena."
+          : msg
+      );
+      tracksCreated.current = false;
+    });
+
+    return () => {
+      localVideoRef.current?.stop();
+      localVideoRef.current?.close();
+      localAudioRef.current?.stop();
+      localAudioRef.current?.close();
+      localVideoRef.current = null;
+      localAudioRef.current = null;
+      tracksCreated.current = false;
+      setLocalReady(false);
+    };
+  }, [localOnly, enabled]);
+
+  // Join channel + publish once enabled and tracks are ready.
+  useEffect(() => {
+    if (!enabled || !channelName || !localReady) return;
+
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
 
@@ -49,43 +89,26 @@ export function useAgoraVideo({
     client.on("user-unpublished", (user, mediaType) => {
       if (mediaType === "video") setRemoteVideoTrack(null);
       if (mediaType === "audio") {
-        try {
-          user.audioTrack?.stop();
-        } catch {
-          /* ignore */
-        }
+        try { user.audioTrack?.stop(); } catch { /* ignore */ }
         setRemoteAudioTrack(null);
       }
     });
 
     async function join() {
       try {
-        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
-          { encoderConfig: "music_standard" },
-          { encoderConfig: "480p_1", facingMode: "user" }
-        );
-        localAudioRef.current = audioTrack;
-        localVideoRef.current = videoTrack;
-        setLocalReady(true);
-
         await client.join(APP_ID, channelName, null, uid);
-        await client.publish([audioTrack, videoTrack]);
+        const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
+        if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
         setJoined(true);
         setMediaError(null);
       } catch (e) {
         console.error("Agora join error:", e);
-        const msg =
-          e instanceof Error
-            ? e.message
-            : typeof e === "string"
-              ? e
-              : "Could not access camera or microphone.";
+        const msg = e instanceof Error ? e.message : String(e);
         setMediaError(
           /Permission|NotAllowed|denied|NotReadable/i.test(msg)
             ? "Allow camera and microphone for this site to use the arena."
             : msg
         );
-        setLocalReady(false);
         setJoined(false);
       }
     }
@@ -93,18 +116,13 @@ export function useAgoraVideo({
     void join();
 
     return () => {
-      localVideoRef.current?.stop();
-      localVideoRef.current?.close();
-      localAudioRef.current?.stop();
-      localAudioRef.current?.close();
       client.leave().catch(() => {});
-      setLocalReady(false);
       setJoined(false);
       setRemoteVideoTrack(null);
       setRemoteAudioTrack(null);
-      setMediaError(null);
+      clientRef.current = null;
     };
-  }, [enabled, channelName, uid]);
+  }, [enabled, channelName, uid, localReady]);
 
   return {
     localVideoTrack: localReady ? localVideoRef.current : null,

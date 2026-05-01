@@ -156,15 +156,19 @@ export function ArenaClient({
     ? myScore >= oppScore
     : false;
 
-  /** Camera + mic: from queue / matchmaking through end (Agora publishes both tracks). */
+  /** Full channel participation — needs a match ID. */
   const videoEnabled =
     !!match?.id &&
     ["queued", "negotiating", "live", "countdown", "analyzing", "verdict", "done"].includes(phase);
+
+  /** Local cam/mic preview starts as soon as user enters queue, before match ID is assigned. */
+  const localPreviewOnly = phase !== "idle" && !videoEnabled;
 
   const { localVideoTrack, remoteVideoTrack, mediaError } = useAgoraVideo({
     channelName: match?.id ?? "",
     uid: isP1 ? 1 : 2,
     enabled: videoEnabled,
+    localOnly: localPreviewOnly,
   });
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
