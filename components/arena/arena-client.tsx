@@ -827,8 +827,8 @@ export function ArenaClient({
           <DoneOverlay
             iWon={iWon}
             betAmount={match?.bet_amount ?? 0}
-            myScore={isP1 ? myScore : oppScore}
-            oppScore={isP1 ? oppScore : myScore}
+            myScore={myScore}
+            oppScore={oppScore}
             onRematch={resetArena}
             onDashboard={() => router.push("/dashboard")}
           />
