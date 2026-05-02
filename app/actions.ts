@@ -229,6 +229,29 @@ export async function loadWalletData(accessToken: string) {
   };
 }
 
+/** Read-only check — returns existing active match without attempting to pair. Used on page load. */
+export async function checkArenaState(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: activeMatch } = await supabase
+    .from("matches")
+    .select("*")
+    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+    .in("status", ["waiting", "matched", "live"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const opponentId =
+    activeMatch?.player1_id === userId ? activeMatch.player2_id : activeMatch?.player1_id;
+  let opponentName: string | null = null;
+  if (opponentId) {
+    const { data: opp } = await supabase.from("profiles").select("username").eq("user_id", opponentId).maybeSingle();
+    opponentName = opp?.username ?? null;
+  }
+  return { activeMatch, opponentName, userId };
+}
+
 export async function loadBattleQueueState(accessToken: string) {
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
