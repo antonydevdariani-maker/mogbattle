@@ -180,7 +180,7 @@ export function ArenaClient({
   /** Local cam/mic preview starts as soon as user enters queue, before match ID is assigned. */
   const localPreviewOnly = phase !== "idle" && !videoEnabled;
 
-  const { localVideoTrack, remoteVideoTrack, mediaError } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, remoteAudioTrack, mediaError } = useAgoraVideo({
     channelName: match?.id ?? "",
     uid: isP1 ? 1 : 2,
     enabled: videoEnabled,
@@ -254,12 +254,14 @@ export function ArenaClient({
           setOppPsl((prev) => prev === null ? payload.psl : Math.max(prev, payload.psl));
         }
       })
-      .on("broadcast", { event: "result" }, ({ payload }) => {
+      .on("broadcast", { event: "result" }, async ({ payload }) => {
         // P2 receives P1's authoritative final scores
         if (!isP1) {
           setScoreP1(payload.p1Total);
           setScoreP2(payload.p2Total);
-          setPhase((prev) => (prev === "analyzing" || prev === "verdict") ? "done" : prev);
+          setPhase("verdict");
+          await pause(2800);
+          setPhase("done");
         }
       })
       .subscribe();
@@ -321,6 +323,13 @@ export function ArenaClient({
       setMatch(null);
     });
   }, [queueTimedOut, phase, getAccessToken]);
+
+  // Mute opponent audio when match ends
+  useEffect(() => {
+    if (phase === "done" && remoteAudioTrack) {
+      try { remoteAudioTrack.setVolume(0); } catch { /* ignore */ }
+    }
+  }, [phase, remoteAudioTrack]);
 
   // Auto-start analysis at 15s after going live
   useEffect(() => {
@@ -584,31 +593,47 @@ export function ArenaClient({
 
     await pause(900);
 
-    // Use actual PSL captures if available, else fall back to metric average
-    const p1Captures = isP1 ? pslCaptures.current : [];
-    const p2Captures = isP1 ? [] : pslCaptures.current;
+    if (!isP1) {
+      // P2 only runs the visual animation — waits for P1's broadcast to set real scores + done
+      setPhase("verdict");
+      return;
+    }
+
+    // P1 is authoritative: compute real scores from PSL captures
+    const myCaptures = pslCaptures.current; // P1's own photos
     const metricAvgP1 = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
     const metricAvgP2 = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-    const p1Total = p1Captures.length > 0 ? Number(Math.max(...p1Captures).toFixed(2)) : metricAvgP1;
-    const p2Total = p2Captures.length > 0 ? Number(Math.max(...p2Captures).toFixed(2)) : metricAvgP2;
+    const jitter1 = 0.001 + Math.random() * 0.009;
+    const jitter2 = 0.001 + Math.random() * 0.009;
+    const p1Total = myCaptures.length > 0
+      ? Number((Math.max(...myCaptures) + jitter1).toFixed(3))
+      : Number((metricAvgP1 + jitter1).toFixed(3));
+    // For P2's score use oppPsl if broadcast arrived, else metric avg
+    const oppPslVal = oppPsl;
+    const p2Total = oppPslVal !== null && oppPslVal > 0
+      ? Number((oppPslVal + jitter2).toFixed(3))
+      : Number((metricAvgP2 + jitter2).toFixed(3));
 
     setScoreP1(p1Total);
     setScoreP2(p2Total);
 
-    // P1 broadcasts final scores so P2 shows identical results
-    if (isP1 && match) {
+    // Broadcast authoritative scores to P2
+    if (match) {
       const supabase = createClient();
-      supabase.channel(`arena:${match.id}`).send({
+      const ch = supabase.channel(`arena:${match.id}`);
+      await ch.subscribe();
+      await ch.send({
         type: "broadcast", event: "result",
         payload: { p1Total, p2Total },
       });
+      supabase.removeChannel(ch);
     }
 
     setPhase("verdict");
     await pause(2800);
     setPhase("done");
 
-    if (isP1 && match) {
+    if (match) {
       startTransition(async () => {
         const token = await getAccessToken();
         if (!token) return;
@@ -1890,14 +1915,15 @@ function MetricsList({
 
 // ─── Done Overlay ─────────────────────────────────────────────────────────────
 
-function Particle({ x, y, color }: { x: number; y: number; color: string }) {
+function Particle({ x, y, color, size = 8, rotate = 0 }: { x: number; y: number; color: string; size?: number; rotate?: number }) {
+  const duration = 1.4 + Math.random() * 1.2;
   return (
     <motion.div
-      className="absolute size-2 rounded-full"
-      style={{ backgroundColor: color, left: "50%", top: "40%" }}
-      initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-      animate={{ x, y, opacity: 0, scale: 0 }}
-      transition={{ duration: 1.2 + Math.random() * 0.8, ease: "easeOut" }}
+      className="absolute rounded-sm pointer-events-none"
+      style={{ backgroundColor: color, left: "50%", top: "30%", width: size, height: size * 0.5, rotate }}
+      initial={{ x: 0, y: 0, opacity: 1, scale: 1, rotate }}
+      animate={{ x, y, opacity: 0, scale: 0.3, rotate: rotate + 720 }}
+      transition={{ duration, ease: [0.2, 0.8, 0.4, 1] }}
     />
   );
 }
@@ -1918,10 +1944,12 @@ function DoneOverlay({
   onDashboard: () => void;
 }) {
   const particles = iWon
-    ? Array.from({ length: 24 }, (_, i) => ({
-        x: (Math.random() - 0.5) * 600,
-        y: (Math.random() - 0.7) * 500,
-        color: ["#a855f7", "#22d3ee", "#f59e0b", "#ec4899", "#10b981"][i % 5],
+    ? Array.from({ length: 60 }, (_, i) => ({
+        x: (Math.random() - 0.5) * 900,
+        y: -(Math.random() * 700 + 100),
+        color: ["#a855f7", "#22d3ee", "#f59e0b", "#ec4899", "#10b981", "#fff", "#f43f5e", "#facc15"][i % 8],
+        size: 6 + Math.random() * 8,
+        rotate: Math.random() * 360,
       }))
     : [];
 
@@ -1934,7 +1962,7 @@ function DoneOverlay({
     >
       {/* Confetti */}
       {particles.map((p, i) => (
-        <Particle key={i} x={p.x} y={p.y} color={p.color} />
+        <Particle key={i} x={p.x} y={p.y} color={p.color} size={p.size} rotate={p.rotate} />
       ))}
 
       <motion.div
@@ -1969,16 +1997,18 @@ function DoneOverlay({
         {/* Title */}
         <div>
           <motion.h2
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className={`text-4xl font-black uppercase tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
+            initial={{ y: 20, opacity: 0, scale: 0.8 }}
+            animate={iWon
+              ? { y: 0, opacity: 1, scale: [0.8, 1.15, 1], textShadow: ["0 0 30px rgba(168,85,247,0.8)", "0 0 60px rgba(168,85,247,1)", "0 0 30px rgba(168,85,247,0.8)"] }
+              : { y: 0, opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.6, type: "spring", bounce: 0.4 }}
+            className={`text-4xl sm:text-5xl font-black uppercase tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
             style={{
               fontFamily: "var(--font-ibm-plex-mono)",
-              textShadow: iWon ? "0 0 30px rgba(168,85,247,0.8)" : "0 0 20px rgba(239,68,68,0.6)",
+              textShadow: iWon ? "0 0 40px rgba(168,85,247,1), 0 0 80px rgba(168,85,247,0.5)" : "0 0 20px rgba(239,68,68,0.6)",
             }}
           >
-            {iWon ? "YOU MOGGED" : "MOGGED"}
+            {iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
           </motion.h2>
           <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">
             {iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie, king"}
