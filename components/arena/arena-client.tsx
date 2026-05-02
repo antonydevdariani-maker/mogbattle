@@ -321,6 +321,16 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, getAccessToken]);
 
+  // Auto-start analysis at 15s after going live
+  useEffect(() => {
+    if (phase !== "live") return;
+    const timer = setTimeout(() => {
+      if (!analysisRunning.current) startAnalysis();
+    }, 15000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   // Auto-capture at 2.5s and 4s — use best PSL, broadcast to opponent
   useEffect(() => {
     if (phase !== "live" || !localVideoTrack) return;
@@ -725,7 +735,7 @@ export function ArenaClient({
             displayOffer={displayOppOffer}
             isTyping={oppTyping}
             phase={phase}
-            isReady={oppReady}
+            isReady={phase === "live" || oppReady}
             score={isP1 ? oppScore : myScore}
             isSearching={isQueued && !queueTimedOut}
             queueTimedOut={queueTimedOut}
@@ -764,7 +774,7 @@ export function ArenaClient({
             displayOffer={displayMyOffer}
             isTyping={false}
             phase={phase}
-            isReady={myReady}
+            isReady={phase === "live" || myReady}
             score={isP1 ? myScore : oppScore}
             isSearching={false}
             queueTimedOut={queueTimedOut}
@@ -773,30 +783,6 @@ export function ArenaClient({
           />
 
           {/* Ready button during live */}
-          {phase === "live" && !myReady && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => { setMyReady(true); setOppReady(true); }}
-              className="w-full py-5 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
-            >
-              ⚔️ Begin AI Judgment
-            </motion.button>
-          )}
-
-          {phase === "live" && myReady && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={startAnalysis}
-              className="w-full py-5 bg-red-600 text-white font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Swords className="size-5 sm:size-6" /> SCAN FACES
-              </span>
-            </motion.button>
-          )}
-
           {/* Your metrics during analysis (desktop: below your panel) */}
           {showAnalysis && (
             <div className="hidden md:block">
