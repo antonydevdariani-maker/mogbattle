@@ -21,7 +21,17 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Phase = "idle" | "countdown" | "analyzing" | "verdict" | "done";
 
-type AiResult = { psl: number; rating: number; verdict: string; failos?: string; strengths?: string } | null;
+type Tier = "sub5" | "ltn" | "mtn" | "htn" | "chadlite" | "chad";
+type AiResult = { psl: number; rating: number; tier?: Tier; verdict: string; failos?: string; strengths?: string; harm?: number; misc?: number; angu?: number; dimo?: number; weighted?: number; penalty?: number } | null;
+
+const TIER_META: Record<Tier, { label: string; color: string; bg: string; border: string }> = {
+  sub5:     { label: "SUB5",      color: "text-red-400",     bg: "bg-red-500/10",     border: "border-red-500/40" },
+  ltn:      { label: "LTN",       color: "text-orange-400",  bg: "bg-orange-500/10",  border: "border-orange-500/40" },
+  mtn:      { label: "MTN",       color: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/40" },
+  htn:      { label: "HTN",       color: "text-lime-400",    bg: "bg-lime-500/10",    border: "border-lime-500/40" },
+  chadlite: { label: "CHADLITE",  color: "text-cyan-300",    bg: "bg-cyan-500/10",    border: "border-cyan-500/40" },
+  chad:     { label: "CHAD",      color: "text-fuchsia-300", bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/60" },
+};
 
 async function judgeFace(imageDataUrl: string): Promise<AiResult> {
   try {
@@ -481,7 +491,10 @@ export function LiveMatchClient({
               <div className="grid grid-cols-2 gap-2">
                 {myDisplayResult?.verdict && (
                   <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2 space-y-1">
-                    <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider">AI on you</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider">AI on you</p>
+                      {myDisplayResult.tier && (() => { const t = TIER_META[myDisplayResult.tier!]; return <span className={`text-[9px] font-black px-1.5 py-0.5 border ${t.border} ${t.bg} ${t.color}`}>{t.label}</span>; })()}
+                    </div>
                     <p className="text-xs text-zinc-300 italic">{`\u201C${myDisplayResult.verdict}\u201D`}</p>
                     {myDisplayResult.strengths && myDisplayResult.strengths !== "n/a" && (
                       <p className="text-[10px] text-green-400">+ {myDisplayResult.strengths}</p>
@@ -493,7 +506,10 @@ export function LiveMatchClient({
                 )}
                 {oppDisplayResult?.verdict && (
                   <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 space-y-1">
-                    <p className="text-[10px] text-red-500 uppercase tracking-wider">AI on opponent</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-red-500 uppercase tracking-wider">AI on opponent</p>
+                      {oppDisplayResult.tier && (() => { const t = TIER_META[oppDisplayResult.tier!]; return <span className={`text-[9px] font-black px-1.5 py-0.5 border ${t.border} ${t.bg} ${t.color}`}>{t.label}</span>; })()}
+                    </div>
                     <p className="text-xs text-zinc-300 italic">{`\u201C${oppDisplayResult.verdict}\u201D`}</p>
                     {oppDisplayResult.strengths && oppDisplayResult.strengths !== "n/a" && (
                       <p className="text-[10px] text-green-400">+ {oppDisplayResult.strengths}</p>
@@ -515,6 +531,7 @@ export function LiveMatchClient({
                 color={iWon ? "fuchsia" : "zinc"}
                 psl={myDisplayResult?.psl ?? null}
                 rating={myDisplayResult?.rating ?? null}
+                result={myDisplayResult}
               />
               <ScoreCard
                 label="OPPONENT"
@@ -523,6 +540,7 @@ export function LiveMatchClient({
                 color={!iWon ? "fuchsia" : "zinc"}
                 psl={oppDisplayResult?.psl ?? null}
                 rating={oppDisplayResult?.rating ?? null}
+                result={oppDisplayResult}
               />
             </div>
 
@@ -643,6 +661,7 @@ function ScoreCard({
   color,
   psl,
   rating,
+  result,
 }: {
   label: string;
   score: number | null;
@@ -650,24 +669,52 @@ function ScoreCard({
   color: "fuchsia" | "zinc";
   psl: number | null;
   rating: number | null;
+  result?: AiResult;
 }) {
+  const accent = color === "fuchsia" ? "text-fuchsia-300" : "text-zinc-400";
+  const hasBreakdown = result && result.harm !== undefined;
   return (
-    <div className={`rounded-xl border p-4 text-center ${
+    <div className={`rounded-xl border p-3 text-center ${
       won ? "border-fuchsia-500/30 bg-fuchsia-500/8" : "border-zinc-800 bg-zinc-900/50"
     }`}>
       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
       <p
-        className={`text-3xl font-black tabular-nums ${
-          color === "fuchsia" ? "text-fuchsia-300" : "text-zinc-400"
-        }`}
+        className={`text-3xl font-black tabular-nums ${accent}`}
         style={{ fontFamily: "var(--font-heading)" }}
       >
-        {score !== null ? score.toFixed(1) : "—"}
+        {psl !== null && psl > 0 ? psl.toFixed(1) : score !== null ? score.toFixed(1) : "—"}
       </p>
-      {psl !== null && psl > 0 && (
-        <div className="mt-2 flex justify-center gap-3 text-[10px] text-zinc-500">
-          <span>PSL <span className="text-zinc-300 font-semibold">{psl.toFixed(1)}</span></span>
-          <span>RTG <span className="text-zinc-300 font-semibold">{rating?.toFixed(1)}/10</span></span>
+      <p className="text-[10px] text-zinc-600 mb-1">PSL</p>
+      {result?.tier && (() => {
+        const t = TIER_META[result.tier];
+        return (
+          <div className={`inline-flex items-center px-2 py-0.5 border ${t.border} ${t.bg} mb-1`}>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${t.color}`}>{t.label}</span>
+          </div>
+        );
+      })()}
+      {rating !== null && rating > 0 && (
+        <p className="text-[10px] text-zinc-500">RTG <span className="text-zinc-300 font-semibold">{rating.toFixed(1)}/10</span></p>
+      )}
+      {hasBreakdown && (
+        <div className="mt-2 space-y-0.5 text-left border-t border-white/5 pt-2">
+          {[
+            { k: "HARM", v: result!.harm },
+            { k: "MISC", v: result!.misc },
+            { k: "ANGU", v: result!.angu },
+            { k: "DIMO", v: result!.dimo },
+          ].map(({ k, v }) => v !== undefined && (
+            <div key={k} className="flex items-center gap-1.5">
+              <span className="text-[9px] text-zinc-600 w-8">{k}</span>
+              <div className="flex-1 h-1 bg-zinc-800 overflow-hidden rounded-full">
+                <div className={`h-full ${color === "fuchsia" ? "bg-fuchsia-500" : "bg-cyan-500"}`} style={{ width: `${(v / 10) * 100}%` }} />
+              </div>
+              <span className="text-[9px] text-zinc-400 tabular-nums w-5 text-right">{v.toFixed(1)}</span>
+            </div>
+          ))}
+          {result!.penalty !== undefined && (
+            <p className="text-[9px] text-zinc-600 pt-0.5">penalty -{result!.penalty.toFixed(1)}</p>
+          )}
         </div>
       )}
       {won && <p className="text-xs text-fuchsia-500 mt-1 font-medium">WINNER</p>}

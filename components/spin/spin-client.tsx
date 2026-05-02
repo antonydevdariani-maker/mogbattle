@@ -155,31 +155,11 @@ export function SpinClient() {
   }
 
   return (
-    <div className="relative min-h-[calc(100dvh-6rem)] flex flex-col items-center justify-center gap-6 px-4 py-10 bg-black">
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage: "linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #06b6d4 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      {/* Header */}
-      <div className="relative text-center space-y-1">
-        <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-cyan-400 font-bold">
-          <Atom className="size-4" />
-          Daily Molecule Spin
-        </div>
-        <h1 className="text-4xl font-black uppercase text-white" style={{ fontFamily: "var(--font-heading)", textShadow: "0 0 30px rgba(6,182,212,0.6)" }}>
-          Spin &amp; Earn
-        </h1>
-        <p className="text-xs text-zinc-500">Once every 24 hours · Free to play · No real money</p>
-      </div>
-
-      {/* Molecule balance */}
-      <div className="relative flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-5 py-2.5">
-        <Atom className="size-4 text-cyan-400" />
-        <span className="font-black text-white tabular-nums text-lg" style={{ fontFamily: "var(--font-heading)" }}>
+    <div className="relative min-h-[calc(100dvh-6rem)] flex flex-col items-center justify-center gap-5 px-4 bg-black">
+      {/* Balance */}
+      <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-4 py-2">
+        <Atom className="size-3.5 text-cyan-400" />
+        <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
           {molecules.toLocaleString()}
         </span>
         <span className="text-xs text-zinc-500 uppercase font-bold">Molecules</span>
@@ -187,11 +167,10 @@ export function SpinClient() {
 
       {/* Wheel */}
       <div className="relative">
-        {/* Pointer */}
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 w-0 h-0"
-          style={{ borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "22px solid #06b6d4" }}
+          style={{ borderLeft: "9px solid transparent", borderRight: "9px solid transparent", borderTop: "20px solid #06b6d4" }}
         />
-        <div className="relative rounded-full shadow-[0_0_60px_rgba(168,85,247,0.4)]">
+        <div className="relative rounded-full shadow-[0_0_50px_rgba(168,85,247,0.35)]">
           <WheelCanvas rotation={rotation} />
         </div>
       </div>
@@ -202,18 +181,23 @@ export function SpinClient() {
           onClick={spin}
           disabled={spinning}
           whileTap={{ scale: 0.96 }}
-          className="relative w-48 h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-base shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-40 h-12 bg-cyan-500 text-black font-black uppercase tracking-widest text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {spinning ? "Spinning…" : "Spin!"}
+          {spinning ? "Spinning…" : "Spin"}
         </motion.button>
       ) : (
-        <div className="text-center space-y-1 border border-white/10 bg-zinc-950 px-8 py-4">
-          <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-500 uppercase tracking-widest">
-            <Timer className="size-3.5" />
+        <div className="text-center space-y-1 border border-white/10 bg-zinc-950 px-6 py-3">
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-widest">
+            <Timer className="size-3" />
             Next spin in
           </div>
           {nextSpinAt && <Countdown nextSpinAt={nextSpinAt} />}
         </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <p className="text-xs text-red-400 font-bold text-center">{error}</p>
       )}
 
       {/* Prize reveal */}
@@ -227,48 +211,22 @@ export function SpinClient() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
             onClick={() => setPrize(null)}
           >
-            <div className="relative border-2 border-cyan-400 bg-black p-10 text-center space-y-4 max-w-xs w-full"
-              style={{ boxShadow: "0 0 80px rgba(6,182,212,0.5)" }}
+            <div className="relative border-2 border-cyan-400 bg-black p-8 text-center space-y-3 max-w-xs w-full"
+              style={{ boxShadow: "0 0 60px rgba(6,182,212,0.5)" }}
             >
-              <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-fuchsia-400" />
-              <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-fuchsia-400" />
-              <Atom className="mx-auto size-10 text-cyan-400" style={{ filter: "drop-shadow(0 0 12px rgba(6,182,212,0.8))" }} />
-              <p className="text-xs uppercase tracking-[0.3em] text-cyan-400 font-bold">You won</p>
-              <p className="text-7xl font-black text-white tabular-nums" style={{ fontFamily: "var(--font-heading)", textShadow: "0 0 30px rgba(6,182,212,0.8)" }}>
+              <div className="absolute -top-px -left-px w-5 h-5 border-t-2 border-l-2 border-fuchsia-400" />
+              <div className="absolute -bottom-px -right-px w-5 h-5 border-b-2 border-r-2 border-fuchsia-400" />
+              <Atom className="mx-auto size-8 text-cyan-400" style={{ filter: "drop-shadow(0 0 10px rgba(6,182,212,0.8))" }} />
+              <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-400 font-bold">You won</p>
+              <p className="text-6xl font-black text-white tabular-nums" style={{ fontFamily: "var(--font-heading)", textShadow: "0 0 20px rgba(6,182,212,0.8)" }}>
                 +{prize}
               </p>
-              <p className="text-sm font-bold text-cyan-300 uppercase tracking-widest">Molecules</p>
-              <p className="text-xs text-zinc-500">Balance: {molecules.toLocaleString()} molecules</p>
-              <p className="text-[10px] text-zinc-700 mt-2">Tap anywhere to close</p>
+              <p className="text-xs font-bold text-cyan-300 uppercase tracking-widest">Molecules</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Tap to close</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Error */}
-      {error && (
-        <div className="border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs text-red-400 font-bold text-center max-w-xs">
-          {error}
-        </div>
-      )}
-
-      {/* Prize table */}
-      <div className="relative w-full max-w-xs border border-white/10 bg-zinc-950">
-        <div className="border-b border-white/10 px-4 py-2">
-          <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Prize Table</p>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-white/5">
-          {PRIZES.map((p, i) => (
-            <div key={p} className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="size-2.5 rounded-full" style={{ backgroundColor: SEGMENT_COLORS[i] }} />
-                <span className="text-xs font-black text-white tabular-nums">{p}</span>
-              </div>
-              <span className="text-[10px] text-zinc-600">{[30,25,20,10,7,5,2,1][i]}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

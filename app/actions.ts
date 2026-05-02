@@ -241,6 +241,75 @@ export async function loadBattleQueueState(accessToken: string) {
     .limit(1)
     .maybeSingle();
 
+  // If user is waiting (not yet matched), try to pair with another waiting player.
+  // This handles the race condition where both players create "waiting" rows simultaneously.
+  if (activeMatch && activeMatch.status === "waiting" && activeMatch.player1_id === userId && !activeMatch.player2_id) {
+    const isFree = activeMatch.is_free_match ?? false;
+    const { data: myProfile } = await supabase
+      .from("profiles")
+      .select("elo")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const myElo = myProfile?.elo ?? 1500;
+
+    // Find waiting opponents: same queue type, not self, ordered by ELO proximity
+    const { data: candidates } = await supabase
+      .from("matches")
+      .select("id, player1_id")
+      .eq("status", "waiting")
+      .eq("is_free_match", isFree)
+      .is("player2_id", null)
+      .neq("player1_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(20);
+
+    if (candidates && candidates.length > 0) {
+      // Pick closest ELO opponent
+      const opponentIds = candidates.map((c) => c.player1_id);
+      const { data: oppProfiles } = await supabase
+        .from("profiles")
+        .select("user_id, elo")
+        .in("user_id", opponentIds);
+
+      let bestMatchId = candidates[0].id;
+      let bestEloDiff = Infinity;
+      for (const c of candidates) {
+        const prof = oppProfiles?.find((p) => p.user_id === c.player1_id);
+        const diff = Math.abs((prof?.elo ?? 1500) - myElo);
+        if (diff < bestEloDiff) {
+          bestEloDiff = diff;
+          bestMatchId = c.id;
+        }
+      }
+
+      // Join their match row (claim it as player2)
+      const deadline = new Date(Date.now() + 10_000).toISOString();
+      const { data: merged } = await supabase
+        .from("matches")
+        .update({ player2_id: userId, status: "matched", negotiation_deadline: deadline })
+        .eq("id", bestMatchId)
+        .is("player2_id", null) // guard against another player claiming it simultaneously
+        .select("*")
+        .maybeSingle();
+
+      if (merged) {
+        // Cancel our own waiting row since we joined theirs
+        await supabase
+          .from("matches")
+          .update({ status: "cancelled" })
+          .eq("id", activeMatch.id);
+
+        const { data: opp } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("user_id", merged.player1_id)
+          .maybeSingle();
+        revalidatePath("/arena");
+        return { activeMatch: merged, opponentName: opp?.username ?? null, userId };
+      }
+    }
+  }
+
   const opponentId =
     activeMatch?.player1_id === userId ? activeMatch.player2_id : activeMatch?.player1_id;
   let opponentName: string | null = null;

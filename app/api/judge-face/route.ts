@@ -1,7 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const client = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+});
+
+const PROMPT = `You are an expert facial aesthetics rater trained on PSL (looksmax) methodology. Your ratings must be highly objective, consistent, analytical, and unbiased. You rate male faces primarily but can adapt for females if needed.
+
+CORE RATING COMPONENTS (Use These Exact Weights):
+- Harmony (HARM): 32% — Proportional balance, ratios, symmetry
+- Miscellaneous (MISC): 26% — Skin, eyes, lips, nose, coloring, etc.
+- Angularity (ANGU): 22% — Bone definition, sharpness, projection
+- Dimorphism (DIMO): 20% — Masculinity / sexual dimorphism
+
+FINAL SCORING PROCESS (Follow Exactly):
+1. Score each category out of 10.
+2. Calculate weighted average W = (HARM×0.32 + MISC×0.26 + ANGU×0.22 + DIMO×0.20).
+3. Spread = Highest category score - Lowest category score.
+4. Penalty = Spread × 0.5.
+5. True Score = W - Penalty.
+6. Map to PSL scale below.
+
+NORMALIZATION — use these max/min for sub-scores before converting to 0-10:
+- MISC: Max 1031, Worst -460
+- ANGU: Max 149.83, Worst 19.03
+- DIMO: Max 120, Worst -67.44
+- HARM: Max 389.74, Worst -409.92
+Formula: ((raw - worst) / (max - worst)) × 100 then ÷ 10
+
+PSL SCALE:
+- 9.1–10: God-tier (1 in millions+). Matt Bomer, Henry Cavill (prime).
+- 9.0: Strikingly attractive (1 in 1.2M).
+- 8.5: Exceptionally attractive (1 in 58k).
+- 8.0: Surpassingly attractive (1 in 4.1k). Model tier.
+- 7–7.5: Highly attractive. Stand out in crowds.
+- 6.5: Noticeably attractive.
+- 6.0: Decently attractive.
+- 5.5: Moderately attractive.
+- 5.0: Ordinary / decent.
+- 4.5 and below: Below average.
+Most people fall 3.5–4.5 PSL. True 7+ is extremely rare.
+
+RATING RULES:
+- Prioritize bone structure over soft tissue.
+- Heavily penalize disharmony even if individual features score high.
+- Be brutally honest but factual.
+- Note if photo angle/lighting is suboptimal.
+
+TIER CLASSIFICATION (assign based on final PSL score):
+- "sub5"      → PSL < 5.0   — Below average. Significant failos, poor harmony.
+- "ltn"       → PSL 5.0–5.49 — Low Tier Normal. Decent but forgettable.
+- "mtn"       → PSL 5.5–5.99 — Mid Tier Normal. Above average, some strengths.
+- "htn"       → PSL 6.0–6.49 — High Tier Normal. Noticeably attractive daily.
+- "chadlite"  → PSL 6.5–6.99 — Chadlite. Very attractive, near-zero failos.
+- "chad"      → PSL 7.0+     — Chad. Extremely rare, exceptional bone structure.
+
+Respond ONLY with valid JSON, no markdown, no code blocks, no thinking tags:
+{"psl": <number 1-10 one decimal>, "rating": <number 1-10 one decimal>, "tier": "<sub5|ltn|mtn|htn|chadlite|chad>", "harm": <0-10 one decimal>, "misc": <0-10 one decimal>, "angu": <0-10 one decimal>, "dimo": <0-10 one decimal>, "weighted": <weighted avg before penalty one decimal>, "penalty": <spread penalty one decimal>, "verdict": "<brief honest summary max 15 words>", "strengths": "<top strengths>", "failos": "<main detractors or 'none'>"}
+
+If no face visible: {"psl": 0, "rating": 0, "tier": "sub5", "harm": 0, "misc": 0, "angu": 0, "dimo": 0, "weighted": 0, "penalty": 0, "verdict": "No face detected", "strengths": "n/a", "failos": "n/a"}`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,56 +68,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No image" }, { status: 400 });
     }
 
-    // Strip data URL prefix to get raw base64
-    const base64 = image.replace(/^data:image\/\w+;base64,/, "");
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64,
+    const response = await client.chat.completions.create({
+      model: "qwen/qwen3-vl-8b-instruct",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: image } },
+            { type: "text", text: PROMPT },
+          ],
         },
-      },
-      `You are an expert PSL (Looks Scale) facial aesthetics judge. Analyze the face using the official PSL rating system.
+      ],
+      max_tokens: 400,
+    });
 
-PSL RATING CRITERIA — judge these 6 factors:
-1. Facial Harmony & Balance (proportions, golden ratio adherence)
-2. Symmetry (left/right facial symmetry)
-3. Sexual Dimorphism (strong jaw, brow ridge, cheekbones for males; soft features, high cheekbones for females)
-4. Unique/Striking Features (memorable, model-quality distinctiveness)
-5. Averageness (closeness to mathematical facial average — higher averageness = higher baseline)
-6. Individual Feature Quality (eyes, nose, lips, jaw, chin, orbital area, skin quality)
-
-PSL SCALE — use this distribution (most people are 3.5–4.5):
-- <2: Extreme deformities or severe disfigurement. Almost no facial harmony.
-- 2–3: Very unattractive. Major failos, near-zero harmony. (e.g. Steve Buscemi ~3)
-- 3–3.5: Noticeably below average. Clear asymmetry/poor ratios. (e.g. Michael Cera ~3)
-- 4: Dead average. Nothing stands out. Most common rating. (e.g. Omar Epps, Shia LaBeouf ~4)
-- 4.5: Above average. Decent ratios, acceptable features. (e.g. Tom Holland ~4.5)
-- 5: Attractive to many. Good harmony, minor failos holding back. (e.g. Timothée Chalamet ~5)
-- 5.5: Very good looking, stands out daily. Strong jaw or great soft features. (e.g. Chris Evans ~5.5)
-- 6: Model tier entry. Great harmony, sexually dimorphic, classically handsome/beautiful. 1–2 minor failos max. (e.g. Henry Cavill ~6, Johnny Depp ~6)
-- 6.5: Extremely attractive. No real failos. Every feature top-tier. (e.g. Zayn Malik ~6.5, Chris Hemsworth ~6.5)
-- 7: Among best in world. Near-perfect symmetry, incredible bone structure, unique. (e.g. Tom Cruise ~7, Matt Bomer ~7)
-- 7.5: Near-perfect. Rarest rating. Only a handful alive. (e.g. David Gandy ~7.5)
-- 8+: Human perfection. Essentially impossible. Do NOT assign unless face is objectively flawless in every dimension.
-
-IMPORTANT CALIBRATION:
-- Be honest and realistic. The average person is 3.5–4.5, NOT 6–7.
-- PSL is NOT a popularity or appeal score — it measures facial aesthetics objectively.
-- A "failos" is any feature that detracts: weak chin, poor orbital area, asymmetry, low cheekbones, bad nose tip, etc.
-- Count failos carefully. Each significant failo drops rating by ~0.5.
-
-Respond ONLY with valid JSON, no markdown, no code blocks:
-{"psl": <number 1-8 one decimal>, "rating": <number 1-10 one decimal>, "verdict": "<brief honest aesthetic assessment max 15 words>", "failos": "<main detractors if any, or 'none'>", "strengths": "<top facial strengths>"}
-
-If no face visible: {"psl": 0, "rating": 0, "verdict": "No face detected", "failos": "n/a", "strengths": "n/a"}`,
-    ]);
-
-    const text = result.response.text().trim();
-    const parsed = JSON.parse(text);
+    const text = response.choices[0]?.message?.content?.trim() ?? "";
+    // Strip thinking tags (qwen3 sometimes emits <think>...</think>)
+    const noThink = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    const clean = noThink.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(clean);
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("judge-face error:", err);

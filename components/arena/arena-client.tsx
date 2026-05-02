@@ -221,7 +221,7 @@ export function ArenaClient({
   }, [phase, poll]);
 
   useEffect(() => {
-    if (!match?.id || phase !== "negotiating") return;
+    if (!match?.id || !["queued", "negotiating"].includes(phase)) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`arena:${match.id}`)
@@ -230,6 +230,11 @@ export function ArenaClient({
         { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${match.id}` },
         (payload) => {
           const updated = payload.new as MatchRow;
+          // If this match got cancelled (we were superseded by pairing into another row), poll to get new state
+          if (updated.status === "cancelled") {
+            poll();
+            return;
+          }
           setMatch(updated);
           const curOpp = isP1 ? updated.player2_bet_offer : updated.player1_bet_offer;
           if (curOpp !== prevOppOffer.current) {
@@ -237,6 +242,9 @@ export function ArenaClient({
             setOppTyping(true);
             if (oppTypingRef.current) clearTimeout(oppTypingRef.current);
             oppTypingRef.current = setTimeout(() => setOppTyping(false), 2000);
+          }
+          if (updated.status === "matched") {
+            setPhase("negotiating");
           }
           if (updated.status === "live") {
             setPhase("live");
@@ -246,7 +254,7 @@ export function ArenaClient({
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [match?.id, phase, isP1, refreshBalance]);
+  }, [match?.id, phase, isP1, refreshBalance, poll]);
 
   useEffect(() => {
     if (phase !== "negotiating" || !match?.negotiation_deadline) return;
@@ -755,34 +763,25 @@ function IdleScreen({
   }, []);
 
   return (
-    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
+    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-4 px-4">
       {/* Neon title */}
-      <div className="text-center space-y-3">
-        <motion.div
-          animate={{ opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-xs font-black uppercase tracking-[0.4em] text-cyan-400"
-        >
-          ◈ OMOGGER ARENA ◈
-        </motion.div>
+      <div className="text-center space-y-1">
         <h1
-          className="text-6xl md:text-8xl font-black uppercase text-white leading-none"
+          className="text-5xl md:text-7xl font-black uppercase text-white leading-none"
           style={{
-            textShadow: "0 0 40px rgba(168,85,247,0.8), 0 0 80px rgba(168,85,247,0.4)",
+            textShadow: "0 0 40px rgba(168,85,247,0.8)",
             fontFamily: "var(--font-ibm-plex-mono)",
           }}
         >
-          ENTER
-          <br />
-          <span className="text-fuchsia-400">ARENA</span>
+          ENTER <span className="text-fuchsia-400">ARENA</span>
         </h1>
-        <p className="text-zinc-500 text-sm uppercase tracking-widest">
+        <p className="text-zinc-600 text-xs uppercase tracking-widest">
           1v1 · Bet · Mog or be mogged
         </p>
       </div>
 
       {/* Self cam preview */}
-      <div className="relative w-48 h-36 sm:w-64 sm:h-48 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
+      <div className="relative w-36 h-28 sm:w-52 sm:h-40 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
         <video
           ref={idleVideoRef}
           autoPlay
@@ -802,57 +801,29 @@ function IdleScreen({
       </div>
 
       {/* Mode selector */}
-      <div className="w-full max-w-sm space-y-2">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Choose mode</p>
+      <div className="w-full max-w-xs space-y-1.5">
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Mode</p>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => onModeChange(false)}
-            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-4 transition-all ${!isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10 shadow-[0_0_24px_rgba(168,85,247,0.3)]" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+            className={`relative flex flex-col items-center gap-1.5 border-2 px-3 py-3 transition-all ${!isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
           >
-            {!isFreeMode && <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-fuchsia-400" />}
-            <Zap className={`size-6 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
-            <div className="text-center">
-              <p className={`text-xs font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>Gold</p>
-              <p className={`text-[10px] mt-0.5 ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
-            </div>
-            <p className="text-[9px] text-zinc-600 text-center">Real money · Full ELO</p>
+            {!isFreeMode && <div className="absolute top-1 right-1 size-1.5 rounded-full bg-fuchsia-400" />}
+            <Zap className={`size-5 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
+            <p className={`text-xs font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>Gold</p>
+            <p className={`text-[10px] ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
           </button>
           <button
             onClick={() => onModeChange(true)}
-            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-4 transition-all ${isFreeMode ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_24px_rgba(6,182,212,0.3)]" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+            className={`relative flex flex-col items-center gap-1.5 border-2 px-3 py-3 transition-all ${isFreeMode ? "border-cyan-500 bg-cyan-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
           >
-            {isFreeMode && <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-cyan-400" />}
-            <Atom className={`size-6 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
-            <div className="text-center">
-              <p className={`text-xs font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Molecules</p>
-              <p className={`text-[10px] mt-0.5 ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
-            </div>
-            <p className="text-[9px] text-zinc-600 text-center">Free · 25% ELO</p>
+            {isFreeMode && <div className="absolute top-1 right-1 size-1.5 rounded-full bg-cyan-400" />}
+            <Atom className={`size-5 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
+            <p className={`text-xs font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Free</p>
+            <p className={`text-[10px] ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
           </button>
         </div>
       </div>
-
-      {/* Balance */}
-      {!isFreeMode ? (
-        <div className="flex items-center gap-2 border border-fuchsia-500/30 bg-fuchsia-500/5 px-5 py-2.5">
-          <Zap className="size-4 text-fuchsia-400" />
-          <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-            {balance.toLocaleString()}
-          </span>
-          <span className="text-xs text-zinc-500 uppercase font-bold">Mog Coins</span>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-5 py-2.5">
-            <Atom className="size-4 text-cyan-400" />
-            <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-              {molecules.toLocaleString()}
-            </span>
-            <span className="text-xs text-zinc-500 uppercase font-bold">Molecules</span>
-          </div>
-          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">ELO gains 25% · No real money</p>
-        </div>
-      )}
 
       {/* Enter button */}
       <motion.button
@@ -1353,11 +1324,11 @@ function PlayerPanel({
 
   return (
     <div
-      className={`relative flex h-full min-h-[22rem] flex-col border-2 md:h-[28rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+      className={`relative flex h-full min-h-[15rem] flex-col border-2 md:h-[20rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
     >
       {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (
-        <div className="relative z-[1] flex min-h-[8.5rem] shrink-0 flex-col justify-center border-b border-white/10 bg-gradient-to-b from-zinc-950 to-black px-2 py-3 md:min-h-[9rem] md:py-4">
+        <div className="relative z-[1] flex min-h-[5rem] shrink-0 flex-col justify-center border-b border-white/10 bg-gradient-to-b from-zinc-950 to-black px-2 py-2 md:min-h-[6rem] md:py-3">
           <AnimatePresence mode="popLayout">
             <motion.div
               key={heroKey}
@@ -1371,7 +1342,7 @@ function PlayerPanel({
                 className={`font-black tabular-nums tracking-tighter ${accentCss.text} ${!heroValue && isYou ? "opacity-40" : ""}`}
                 style={{
                   fontFamily: "var(--font-ibm-plex-mono)",
-                  fontSize: "clamp(2rem, 7vw, 3.5rem)",
+                  fontSize: "clamp(1.5rem, 5vw, 2.5rem)",
                   lineHeight: 1,
                   textShadow: isYou
                     ? "0 0 28px rgba(168,85,247,0.85), 0 0 56px rgba(236,72,153,0.35)"
@@ -1385,7 +1356,7 @@ function PlayerPanel({
               )}
             </motion.div>
           </AnimatePresence>
-          <div className="mt-2 flex min-h-[2.5rem] items-start justify-center">
+          <div className="mt-1 flex min-h-[1.5rem] items-start justify-center">
             {showTypeHint ? (
               <p className="text-center text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-pink-400">
                 Type digits - locked to your balance
@@ -1399,7 +1370,7 @@ function PlayerPanel({
         </div>
       )}
 
-      <div className="relative min-h-[12rem] flex-1 bg-zinc-950 md:min-h-[14rem]">
+      <div className="relative min-h-[8rem] flex-1 bg-zinc-950 md:min-h-[9rem]">
         <div
           ref={videoRef}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}

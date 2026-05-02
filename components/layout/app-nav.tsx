@@ -12,8 +12,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Shield,
-  User,
-  Crown,
   FlaskConical,
   Atom,
 } from "lucide-react";
@@ -26,11 +24,9 @@ import {
 } from "@/components/arena/arena-match-leave-context";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/spin", label: "Spin", icon: Atom },
-  { href: "/leaderboard", label: "Ranks", icon: Crown },
   { href: "/arena", label: "Arena", icon: Shield },
   { href: "/admin", label: "Admin", icon: FlaskConical },
 ];
@@ -118,10 +114,10 @@ export function AppNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black pt-safe">
-      <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
+      <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] sm:grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
-          className="justify-self-start text-sm font-black uppercase tracking-widest"
+          className="justify-self-start text-sm font-black uppercase tracking-widest hidden sm:block"
           style={{ fontFamily: "var(--font-heading)" }}
           onClick={(e) => {
             if (!matchAtRisk) return;
@@ -129,9 +125,9 @@ export function AppNav() {
             tryNavigate("/dashboard");
           }}
         >
-          <span className="sm:hidden">OMG</span>
-          <span className="hidden sm:inline">OMOG<span className="text-fuchsia-400">GER</span></span>
+          OMOG<span className="text-fuchsia-400">GER</span>
         </Link>
+        <div className="justify-self-start sm:hidden" />
 
         {/* Dock + wallet dropdown — always centered */}
         <div className="relative flex justify-center" ref={menuRef}>
