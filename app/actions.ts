@@ -242,14 +242,20 @@ export async function checkArenaState(accessToken: string) {
     .limit(1)
     .maybeSingle();
 
+  // Cancel stale waiting match — never resume into queue on page load
+  if (activeMatch?.status === "waiting") {
+    await supabase.from("matches").update({ status: "cancelled" }).eq("id", activeMatch.id);
+    return { activeMatch: null, opponentName: null, userId };
+  }
+
   const opponentId =
-    activeMatch?.player1_id === userId ? activeMatch.player2_id : activeMatch?.player1_id;
+    activeMatch?.player1_id === userId ? activeMatch?.player2_id : activeMatch?.player1_id;
   let opponentName: string | null = null;
   if (opponentId) {
     const { data: opp } = await supabase.from("profiles").select("username").eq("user_id", opponentId).maybeSingle();
     opponentName = opp?.username ?? null;
   }
-  return { activeMatch, opponentName, userId };
+  return { activeMatch: activeMatch ?? null, opponentName, userId };
 }
 
 export async function loadBattleQueueState(accessToken: string) {
