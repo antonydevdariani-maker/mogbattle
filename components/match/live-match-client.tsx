@@ -93,6 +93,9 @@ export function LiveMatchClient({
   // Live opponent PSL received via Supabase broadcast
   const [oppLivePsl, setOppLivePsl] = useState<number | null>(null);
   const [testMode, setTestMode] = useState(false);
+  // Slowly drifting PSL shown during analysis — nudged by small deltas each metric
+  const [myPartialPsl, setMyPartialPsl] = useState<number | null>(null);
+  const [oppPartialPsl, setOppPartialPsl] = useState<number | null>(null);
   const analysisStarted = useRef(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -111,14 +114,6 @@ export function LiveMatchClient({
 
   const myScore = isPlayer1 ? scoreP1 : scoreP2;
   const oppScore = isPlayer1 ? scoreP2 : scoreP1;
-
-  // Partial live score shown during analyzing phase (metric bar average)
-  const myPartialPsl = phase === "analyzing" && metricScores.length > 0
-    ? Number((metricScores.reduce((a, s) => a + s.p1, 0) / metricScores.length / 10).toFixed(1))
-    : null;
-  const oppPartialPsl = phase === "analyzing" && metricScores.length > 0
-    ? Number((metricScores.reduce((a, s) => a + s.p2, 0) / metricScores.length / 10).toFixed(1))
-    : null;
 
   useEffect(() => {
     if (isCompleted && initialAiP1 !== null && initialAiP2 !== null) {
@@ -175,6 +170,11 @@ export function LiveMatchClient({
       oppFrame ? judgeFace(oppFrame) : Promise.resolve(null),
     ];
 
+    // Initialize partial PSL to a neutral starting value
+    const initPsl = () => Number((4.8 + Math.random() * 0.8).toFixed(2));
+    setMyPartialPsl(initPsl());
+    setOppPartialPsl(initPsl());
+
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
       // ~2s per metric → 12s total for 6 metrics
@@ -183,6 +183,10 @@ export function LiveMatchClient({
       scores.push(ms);
       setMetricScores([...scores]);
       setRevealedMetrics((prev) => [...prev, i]);
+      // Nudge displayed PSL by tiny realistic delta (±0.1 max, slightly positive bias)
+      const nudge = () => Number((Math.random() * 0.18 - 0.06).toFixed(2));
+      setMyPartialPsl((prev) => prev === null ? initPsl() : Number(Math.max(1, Math.min(9.9, prev + nudge())).toFixed(2)));
+      setOppPartialPsl((prev) => prev === null ? initPsl() : Number(Math.max(1, Math.min(9.9, prev + nudge())).toFixed(2)));
     }
 
     const [myResult, oppResult] = await Promise.all([myResultPromise, oppResultPromise]);
@@ -213,6 +217,10 @@ export function LiveMatchClient({
         supabase.removeChannel(channel);
       } catch { /* non-critical */ }
     }
+
+    // Clear partial scores — real scores take over
+    setMyPartialPsl(null);
+    setOppPartialPsl(null);
 
     await delay(1200);
     setPhase("verdict");
