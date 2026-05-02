@@ -32,7 +32,7 @@ export async function ensureProfile(
       user_id: userId,
       username: displayName,
       wallet_address: opts?.walletAddress ?? null,
-      total_credits: 500,
+      total_credits: 0,
     });
   } else {
     const patch: Record<string, string | null> = {};
