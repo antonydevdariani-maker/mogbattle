@@ -91,7 +91,10 @@ export default function AdminPage() {
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
-    canvas.getContext("2d")!.drawImage(videoRef.current, 0, 0);
+    const ctx = canvas.getContext("2d")!;
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(videoRef.current, 0, 0);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
     setPreview(dataUrl);
     stopCam();
