@@ -16,7 +16,7 @@ const SEGMENT_COLORS = [
 const TOTAL = 360;
 const SEG = TOTAL / PRIZES.length; // 45deg each
 
-function WheelCanvas({ rotation }: { rotation: number }) {
+function WheelCanvas({ rotation, size = 280 }: { rotation: number; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -68,11 +68,11 @@ function WheelCanvas({ rotation }: { rotation: number }) {
   return (
     <motion.canvas
       ref={canvasRef}
-      width={300}
-      height={300}
+      width={size}
+      height={size}
       animate={{ rotate: rotation }}
       transition={{ duration: 4, ease: [0.17, 0.67, 0.12, 0.99] }}
-      style={{ borderRadius: "50%" }}
+      style={{ borderRadius: "50%", width: size, height: size }}
     />
   );
 }
@@ -155,23 +155,23 @@ export function SpinClient() {
   }
 
   return (
-    <div className="relative min-h-[calc(100dvh-6rem)] flex flex-col items-center justify-center gap-5 px-4 bg-black">
+    <div className="relative w-full flex flex-col items-center justify-center gap-6 py-8" style={{ minHeight: "calc(100dvh - 8rem)" }}>
       {/* Balance */}
-      <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-4 py-2">
-        <Atom className="size-3.5 text-cyan-400" />
-        <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-heading)" }}>
+      <div className="flex items-center gap-1.5 border border-white/10 bg-white/5 px-3 py-1.5">
+        <Atom className="size-3 text-cyan-400" />
+        <span className="font-black text-white tabular-nums text-sm" style={{ fontFamily: "var(--font-heading)" }}>
           {molecules.toLocaleString()}
         </span>
-        <span className="text-xs text-zinc-500 uppercase font-bold">Molecules</span>
+        <span className="text-[10px] text-zinc-500 uppercase font-bold">mol</span>
       </div>
 
       {/* Wheel */}
       <div className="relative">
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 w-0 h-0"
-          style={{ borderLeft: "9px solid transparent", borderRight: "9px solid transparent", borderTop: "20px solid #06b6d4" }}
+          style={{ borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "18px solid #06b6d4" }}
         />
-        <div className="relative rounded-full shadow-[0_0_50px_rgba(168,85,247,0.35)]">
-          <WheelCanvas rotation={rotation} />
+        <div className="relative rounded-full shadow-[0_0_40px_rgba(168,85,247,0.3)]">
+          <WheelCanvas rotation={rotation} size={260} />
         </div>
       </div>
 
