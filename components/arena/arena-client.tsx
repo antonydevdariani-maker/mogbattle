@@ -801,20 +801,35 @@ function IdleScreen({
         </div>
       </div>
 
-      {/* Mode toggle */}
-      <div className="flex w-full max-w-xs rounded border border-white/10 overflow-hidden">
-        <button
-          onClick={() => onModeChange(false)}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${!isFreeMode ? "bg-fuchsia-500 text-black" : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"}`}
-        >
-          <Zap className="size-3.5" /> Mog Coins
-        </button>
-        <button
-          onClick={() => onModeChange(true)}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${isFreeMode ? "bg-cyan-500 text-black" : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"}`}
-        >
-          <Atom className="size-3.5" /> Free Play
-        </button>
+      {/* Mode selector */}
+      <div className="w-full max-w-sm space-y-2">
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Choose mode</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onModeChange(false)}
+            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-4 transition-all ${!isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10 shadow-[0_0_24px_rgba(168,85,247,0.3)]" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+          >
+            {!isFreeMode && <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-fuchsia-400" />}
+            <Zap className={`size-6 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
+            <div className="text-center">
+              <p className={`text-xs font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>Gold</p>
+              <p className={`text-[10px] mt-0.5 ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
+            </div>
+            <p className="text-[9px] text-zinc-600 text-center">Real money · Full ELO</p>
+          </button>
+          <button
+            onClick={() => onModeChange(true)}
+            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-4 transition-all ${isFreeMode ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_24px_rgba(6,182,212,0.3)]" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+          >
+            {isFreeMode && <div className="absolute top-1.5 right-1.5 size-2 rounded-full bg-cyan-400" />}
+            <Atom className={`size-6 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
+            <div className="text-center">
+              <p className={`text-xs font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Molecules</p>
+              <p className={`text-[10px] mt-0.5 ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
+            </div>
+            <p className="text-[9px] text-zinc-600 text-center">Free · 25% ELO</p>
+          </button>
+        </div>
       </div>
 
       {/* Balance */}

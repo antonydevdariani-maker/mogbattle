@@ -451,11 +451,12 @@ export async function queueForBattle(accessToken: string) {
     throw new Error("Need at least 1 MOG coin to enter.");
   }
 
-  // Check for any waiting match (not own)
+  // Check for any waiting paid match (not own, not free)
   const { data: waitingMatch } = await supabase
     .from("matches")
     .select("id")
     .eq("status", "waiting")
+    .eq("is_free_match", false)
     .is("player2_id", null)
     .neq("player1_id", userId)
     .order("created_at", { ascending: true })
@@ -485,6 +486,7 @@ export async function queueForBattle(accessToken: string) {
       player1_id: userId,
       bet_amount: 0,
       status: "waiting",
+      is_free_match: false,
     })
     .select("id")
     .single();
