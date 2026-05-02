@@ -13,7 +13,7 @@ begin
     create type public.transaction_status as enum ('pending', 'completed', 'failed');
   end if;
   if not exists (select 1 from pg_type where typname = 'match_status') then
-    create type public.match_status as enum ('waiting', 'live', 'completed', 'cancelled');
+    create type public.match_status as enum ('waiting', 'matched', 'live', 'completed', 'cancelled');
   end if;
 end $$;
 
@@ -45,7 +45,7 @@ create table if not exists public.matches (
   id uuid primary key default gen_random_uuid(),
   player1_id text not null references public.profiles(user_id) on delete cascade,
   player2_id text references public.profiles(user_id) on delete cascade,
-  bet_amount bigint not null check (bet_amount > 0),
+  bet_amount bigint not null default 0,
   status public.match_status not null default 'waiting',
   winner_id text references public.profiles(user_id) on delete set null,
   ai_score_p1 numeric(5,2),
@@ -53,6 +53,9 @@ create table if not exists public.matches (
   player1_confirmed boolean not null default false,
   player2_confirmed boolean not null default false,
   is_free_match boolean not null default false,
+  negotiation_deadline timestamptz,
+  player1_bet_offer bigint,
+  player2_bet_offer bigint,
   started_at timestamptz,
   ended_at timestamptz,
   created_at timestamptz not null default now()
