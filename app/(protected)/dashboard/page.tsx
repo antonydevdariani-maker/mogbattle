@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { Swords, TrendingUp, Trophy, Zap, ArrowRight, Atom } from "lucide-react";
+import { FounderBadge } from "@/components/ui/founder-badge";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -52,12 +53,15 @@ export default function DashboardPage() {
         <div className="flex items-start justify-between">
           <div>
             <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
-            <h1
-              className="mb-1 text-3xl font-black text-white uppercase"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {profile?.username ?? "…"}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h1
+                className="text-3xl font-black text-white uppercase"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {profile?.username ?? "…"}
+              </h1>
+              <FounderBadge username={profile?.username} />
+            </div>
             <p className="text-sm text-zinc-500">
               ELO <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span>
               {" · "}

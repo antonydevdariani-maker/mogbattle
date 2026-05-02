@@ -12,6 +12,7 @@ import {
   tierForElo,
 } from "@/lib/leaderboard/elo-tiers";
 import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
+import { FounderBadge } from "@/components/ui/founder-badge";
 
 type Board = "elo" | "credits";
 
@@ -188,16 +189,19 @@ export default function LeaderboardPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`font-bold uppercase truncate ${isTop3 ? "text-white" : "text-zinc-300"} ${
-                      isYou ? "text-fuchsia-200" : ""
-                    }`}
-                  >
-                    {r.username ?? "Mogger"}
-                    {isYou && (
-                      <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
-                    )}
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p
+                      className={`font-bold uppercase truncate ${isTop3 ? "text-white" : "text-zinc-300"} ${
+                        isYou ? "text-fuchsia-200" : ""
+                      }`}
+                    >
+                      {r.username ?? "Mogger"}
+                      {isYou && (
+                        <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
+                      )}
+                    </p>
+                    <FounderBadge username={r.username} />
+                  </div>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played
                     {board === "credits" && (
@@ -286,6 +290,7 @@ function TopThreePodium({ rows, board }: { rows: LeaderboardProfileRow[]; board:
                   <p className="w-full truncate px-0.5 text-[10px] sm:text-xs font-black uppercase text-white">
                     {row.username ?? "Mogger"}
                   </p>
+                  <FounderBadge username={row.username} />
                   <p className="text-[10px] font-black tabular-nums text-amber-200/95">
                     {board === "elo" ? `${row.elo} ELO` : `${Number(row.total_credits).toLocaleString()} MC`}
                   </p>

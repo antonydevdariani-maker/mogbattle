@@ -12,6 +12,7 @@ import type { Database } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FounderBadge } from "@/components/ui/founder-badge";
 import {
   ArrowRight,
   Camera,
@@ -128,12 +129,15 @@ export default function ProfilePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-500/90 mb-1">Profile</p>
-          <h1
-            className="text-3xl font-black text-white uppercase tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Your mogger card
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1
+              className="text-3xl font-black text-white uppercase tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Your mogger card
+            </h1>
+            <FounderBadge username={profile?.username} />
+          </div>
         </div>
         <Link
           href="/leaderboard"

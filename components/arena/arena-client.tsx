@@ -18,6 +18,7 @@ import {
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { useAgoraVideo } from "@/components/match/agora-video";
+import { FounderBadge } from "@/components/ui/founder-badge";
 import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import type { Database } from "@/lib/types/database";
 import {
@@ -1799,6 +1800,7 @@ function PlayerPanel({
           >
             {footerText}
           </span>
+          <FounderBadge username={name} />
         </div>
         {isReady && phase !== "idle" && (
           <span className="flex items-center gap-1 text-xs text-green-400 font-bold">
