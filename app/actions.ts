@@ -535,26 +535,27 @@ export async function recordWithdrawalClaim(
   revalidatePath("/dashboard");
 }
 
-export async function queueForBattle(accessToken: string) {
+export async function queueForBattle(accessToken: string, betAmount: number) {
   const userId = await requirePrivyUser(accessToken);
+  const bet = Math.max(1, Math.floor(betAmount));
   const supabase = getSupabaseAdmin();
 
-  // Require min 1 MOG credit to enter
   const { data: profile } = await supabase
     .from("profiles")
     .select("total_credits")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!profile || profile.total_credits < 1) {
-    throw new Error("Need at least 1 MOG coin to enter.");
+  if (!profile || profile.total_credits < bet) {
+    throw new Error(`Need at least ${bet} MOG coins to enter.`);
   }
 
-  // Check for any waiting paid match (not own, not free)
+  // Find waiting paid match with same bet amount
   const { data: waitingMatch } = await supabase
     .from("matches")
-    .select("id")
+    .select("id,player1_id")
     .eq("status", "waiting")
     .eq("is_free_match", false)
+    .eq("bet_amount", bet)
     .is("player2_id", null)
     .neq("player1_id", userId)
     .order("created_at", { ascending: true })
@@ -562,38 +563,50 @@ export async function queueForBattle(accessToken: string) {
     .maybeSingle();
 
   if (waitingMatch?.id) {
-    const deadline = new Date(Date.now() + 10_000).toISOString();
-    const { data: matched } = await supabase
-      .from("matches")
-      .update({
-        player2_id: userId,
-        status: "matched",
-        negotiation_deadline: deadline,
-      })
-      .eq("id", waitingMatch.id)
-      .is("player2_id", null) // guard: prevent double-claim race condition
-      .select("id")
+    // Deduct from both players and go straight to live
+    const { data: p1Profile } = await supabase
+      .from("profiles")
+      .select("total_credits")
+      .eq("user_id", waitingMatch.player1_id)
       .maybeSingle();
-    if (matched?.id) {
-      revalidatePath("/battle");
-      revalidatePath("/arena");
-      return { matchId: matched.id, state: "found" as const };
+    if (!p1Profile || p1Profile.total_credits < bet) {
+      // Opponent can't afford — cancel their match, fall through to create own
+      await supabase.from("matches").update({ status: "cancelled" }).eq("id", waitingMatch.id);
+    } else {
+      const { data: matched } = await supabase
+        .from("matches")
+        .update({
+          player2_id: userId,
+          status: "live",
+          player1_bet_offer: bet,
+          player2_bet_offer: bet,
+          started_at: new Date().toISOString(),
+        })
+        .eq("id", waitingMatch.id)
+        .is("player2_id", null)
+        .select("id")
+        .maybeSingle();
+      if (matched?.id) {
+        await supabase.from("profiles").update({ total_credits: p1Profile.total_credits - bet }).eq("user_id", waitingMatch.player1_id);
+        await supabase.from("profiles").update({ total_credits: profile.total_credits - bet }).eq("user_id", userId);
+        revalidatePath("/arena");
+        return { matchId: matched.id, state: "found" as const };
+      }
     }
-    // Race lost — fall through and create own waiting row
+    // Race lost — fall through
   }
 
   const { data: created } = await supabase
     .from("matches")
     .insert({
       player1_id: userId,
-      bet_amount: 0,
+      bet_amount: bet,
       status: "waiting",
       is_free_match: false,
     })
     .select("id")
     .single();
 
-  revalidatePath("/battle");
   revalidatePath("/arena");
   return { matchId: created?.id, state: "queued" as const };
 }
@@ -678,8 +691,9 @@ export async function loadSpinData(accessToken: string) {
 
 // ─── Molecule (Free) Queue ────────────────────────────────────────────────────
 
-export async function queueForFreeMatch(accessToken: string) {
+export async function queueForFreeMatch(accessToken: string, betAmount: number) {
   const userId = await requirePrivyUser(accessToken);
+  const bet = Math.max(1, Math.floor(betAmount));
   const supabase = getSupabaseAdmin();
 
   const { data: profile } = await supabase
@@ -687,15 +701,16 @@ export async function queueForFreeMatch(accessToken: string) {
     .select("molecules")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!profile || profile.molecules < 1) {
-    throw new Error("Need at least 1 molecule to enter free queue.");
+  if (!profile || (profile.molecules ?? 0) < bet) {
+    throw new Error(`Need at least ${bet} molecules to enter.`);
   }
 
   const { data: waitingMatch } = await supabase
     .from("matches")
-    .select("id")
+    .select("id,player1_id")
     .eq("status", "waiting")
     .eq("is_free_match", true)
+    .eq("bet_amount", bet)
     .is("player2_id", null)
     .neq("player1_id", userId)
     .order("created_at", { ascending: true })
@@ -703,24 +718,39 @@ export async function queueForFreeMatch(accessToken: string) {
     .maybeSingle();
 
   if (waitingMatch?.id) {
-    const deadline = new Date(Date.now() + 10_000).toISOString();
-    const { data: matched } = await supabase
-      .from("matches")
-      .update({ player2_id: userId, status: "matched", negotiation_deadline: deadline })
-      .eq("id", waitingMatch.id)
-      .is("player2_id", null) // guard: prevent double-claim race condition
-      .select("id")
+    const { data: p1Profile } = await supabase
+      .from("profiles")
+      .select("molecules")
+      .eq("user_id", waitingMatch.player1_id)
       .maybeSingle();
-    if (matched?.id) {
-      revalidatePath("/arena");
-      return { matchId: matched.id, state: "found" as const };
+    if (!p1Profile || (p1Profile.molecules ?? 0) < bet) {
+      await supabase.from("matches").update({ status: "cancelled" }).eq("id", waitingMatch.id);
+    } else {
+      const { data: matched } = await supabase
+        .from("matches")
+        .update({
+          player2_id: userId,
+          status: "live",
+          player1_bet_offer: bet,
+          player2_bet_offer: bet,
+          started_at: new Date().toISOString(),
+        })
+        .eq("id", waitingMatch.id)
+        .is("player2_id", null)
+        .select("id")
+        .maybeSingle();
+      if (matched?.id) {
+        await supabase.from("profiles").update({ molecules: (p1Profile.molecules ?? 0) - bet }).eq("user_id", waitingMatch.player1_id);
+        await supabase.from("profiles").update({ molecules: (profile.molecules ?? 0) - bet }).eq("user_id", userId);
+        revalidatePath("/arena");
+        return { matchId: matched.id, state: "found" as const };
+      }
     }
-    // Race lost — fall through and create own waiting row
   }
 
   const { data: created } = await supabase
     .from("matches")
-    .insert({ player1_id: userId, bet_amount: 0, status: "waiting", is_free_match: true })
+    .insert({ player1_id: userId, bet_amount: bet, status: "waiting", is_free_match: true })
     .select("id")
     .single();
 

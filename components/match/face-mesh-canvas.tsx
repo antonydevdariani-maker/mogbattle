@@ -3,24 +3,11 @@
 import { useEffect, useRef } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
-// Face oval connections (jaw contour) — pairs of landmark indices
-// These are the official MediaPipe face oval connections
-const FACE_OVAL: [number, number][] = [
-  [10, 338], [338, 297], [297, 332], [332, 284], [284, 251], [251, 389],
-  [389, 356], [356, 454], [454, 323], [323, 361], [361, 288], [288, 397],
-  [397, 365], [365, 379], [379, 378], [378, 400], [400, 377], [377, 152],
-  [152, 148], [148, 176], [176, 149], [149, 150], [150, 136], [136, 172],
-  [172, 58], [58, 132], [132, 93], [93, 234], [234, 127], [127, 162],
-  [162, 21], [21, 54], [54, 103], [103, 67], [67, 109], [109, 10],
+// Unique landmark indices along the jaw/chin contour
+const JAW_DOTS = [
+  356, 454, 323, 361, 288, 397, 365, 379, 378, 400,
+  377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
 ];
-
-// Jaw-only subset (bottom portion of face oval)
-const JAW_START = 7; // index into FACE_OVAL where jaw-bottom begins
-const JAW_END = 29;  // index where jaw-bottom ends
-
-// Cheekbone highlight points
-const LEFT_CHEEK = [116, 123, 147, 213];
-const RIGHT_CHEEK = [345, 352, 376, 433];
 
 let landmarkerPromise: Promise<FaceLandmarker> | null = null;
 
@@ -46,12 +33,9 @@ function getLandmarker(): Promise<FaceLandmarker> {
 
 export function FaceMeshCanvas({
   containerRef,
-  color = "#a855f7",
   mirrored = false,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
-  color?: string;
-  /** Mirror canvas horizontally to match CSS-mirrored video */
   mirrored?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,61 +80,20 @@ export function FaceMeshCanvas({
       const W = canvas.width;
       const H = canvas.height;
 
-      const lx = (i: number) => lm[i].x * W;
-      const ly = (i: number) => lm[i].y * H;
-
-      // Draw jaw contour (glowing line)
-      const jawSegments = FACE_OVAL.slice(JAW_START, JAW_END);
-
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 12;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 0.85;
-      ctx.beginPath();
-      const [fa] = jawSegments[0];
-      ctx.moveTo(lx(fa), ly(fa));
-      for (const [a, b] of jawSegments) {
-        ctx.lineTo(lx(a), ly(a));
-        ctx.lineTo(lx(b), ly(b));
-      }
-      ctx.stroke();
-      ctx.restore();
-
-      // Draw cheekbone highlight dots
-      for (const idx of [...LEFT_CHEEK, ...RIGHT_CHEEK]) {
+      // Draw green glowing dots along jawline/chin
+      for (const idx of JAW_DOTS) {
+        const x = lm[idx].x * W;
+        const y = lm[idx].y * H;
         ctx.save();
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 16;
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.7;
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "#4ade80";
+        ctx.globalAlpha = 0.9;
         ctx.beginPath();
-        ctx.arc(lx(idx), ly(idx), 2.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
-
-      // Cheekbone arc lines
-      const drawArc = (pts: number[]) => {
-        if (pts.length < 2) return;
-        ctx.save();
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 10;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.2;
-        ctx.globalAlpha = 0.55;
-        ctx.beginPath();
-        ctx.moveTo(lx(pts[0]), ly(pts[0]));
-        for (let i = 1; i < pts.length; i++) {
-          ctx.lineTo(lx(pts[i]), ly(pts[i]));
-        }
-        ctx.stroke();
-        ctx.restore();
-      };
-
-      drawArc(LEFT_CHEEK);
-      drawArc(RIGHT_CHEEK);
     }
 
     void init();
@@ -159,7 +102,7 @@ export function FaceMeshCanvas({
       active = false;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [containerRef, color]);
+  }, [containerRef]);
 
   return (
     <canvas

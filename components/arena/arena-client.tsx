@@ -119,8 +119,10 @@ export function ArenaClient({
 
   const [queueTimedOut, setQueueTimedOut] = useState(false);
   const [myPsl, setMyPsl] = useState<number | null>(null);
+  const [oppPsl, setOppPsl] = useState<number | null>(null);
   const [isFreeMode, setIsFreeMode] = useState(false);
   const [molecules, setMolecules] = useState(initialMolecules);
+  const [lockedBet, setLockedBet] = useState(0);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const oppTypingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOppOffer = useRef<number | null>(null);
@@ -130,6 +132,7 @@ export function ArenaClient({
   const timedOutBattleRef = useRef(false);
   const queueTimedOutRef = useRef(false);
   const autoJudgeDone = useRef(false);
+  const pslCaptures = useRef<number[]>([]);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -222,7 +225,7 @@ export function ArenaClient({
   }, [phase, poll]);
 
   useEffect(() => {
-    if (!match?.id || !["queued", "negotiating"].includes(phase)) return;
+    if (!match?.id || !["queued", "negotiating", "live"].includes(phase)) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`arena:${match.id}`)
@@ -231,11 +234,7 @@ export function ArenaClient({
         { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${match.id}` },
         (payload) => {
           const updated = payload.new as MatchRow;
-          // If this match got cancelled (we were superseded by pairing into another row), poll to get new state
-          if (updated.status === "cancelled") {
-            poll();
-            return;
-          }
+          if (updated.status === "cancelled") { poll(); return; }
           setMatch(updated);
           const curOpp = isP1 ? updated.player2_bet_offer : updated.player1_bet_offer;
           if (curOpp !== prevOppOffer.current) {
@@ -244,18 +243,19 @@ export function ArenaClient({
             if (oppTypingRef.current) clearTimeout(oppTypingRef.current);
             oppTypingRef.current = setTimeout(() => setOppTyping(false), 2000);
           }
-          if (updated.status === "matched") {
-            setPhase("negotiating");
-          }
-          if (updated.status === "live") {
-            setPhase("live");
-            refreshBalance();
-          }
+          if (updated.status === "matched") { setPhase("negotiating"); }
+          if (updated.status === "live") { setPhase("live"); refreshBalance(); }
         }
       )
+      .on("broadcast", { event: "psl" }, ({ payload }) => {
+        // Receive opponent's PSL broadcast
+        if (payload.userId !== userId) {
+          setOppPsl((prev) => prev === null ? payload.psl : Math.max(prev, payload.psl));
+        }
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [match?.id, phase, isP1, refreshBalance, poll]);
+  }, [match?.id, phase, isP1, refreshBalance, poll, userId]);
 
   useEffect(() => {
     if (phase !== "negotiating" || !match?.negotiation_deadline) return;
@@ -313,18 +313,17 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, getAccessToken]);
 
-  // Auto-capture + PSL judge 5s after going live
+  // Auto-capture at 2.5s and 4s — use best PSL, broadcast to opponent
   useEffect(() => {
-    if (phase !== "live" || !localVideoTrack || autoJudgeDone.current) return;
-    const timer = setTimeout(async () => {
-      autoJudgeDone.current = true;
+    if (phase !== "live" || !localVideoTrack) return;
+
+    async function captureAndJudge() {
       try {
         const frameData = (localVideoTrack as ICameraVideoTrack).getCurrentFrameData();
-        if (!frameData || frameData.width === 0) return;
+        if (!frameData || frameData.width === 0) return null;
         const canvas = document.createElement("canvas");
         canvas.width = frameData.width;
         canvas.height = frameData.height;
-        // mirror to match what user sees
         const ctx = canvas.getContext("2d")!;
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
@@ -336,11 +335,46 @@ export function ArenaClient({
           body: JSON.stringify({ image: base64 }),
         });
         const data = await res.json();
-        if (data.psl && data.psl > 0) setMyPsl(data.psl);
-      } catch {}
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [phase, localVideoTrack]);
+        return (data.psl && data.psl > 0) ? (data.psl as number) : null;
+      } catch { return null; }
+    }
+
+    const t1 = setTimeout(async () => {
+      const psl = await captureAndJudge();
+      if (psl) {
+        pslCaptures.current.push(psl);
+        const best = Math.max(...pslCaptures.current);
+        setMyPsl(best);
+        // Broadcast to opponent via realtime
+        if (match?.id) {
+          const supabase = createClient();
+          supabase.channel(`arena:${match.id}`).send({
+            type: "broadcast", event: "psl",
+            payload: { userId, psl: best },
+          });
+        }
+      }
+    }, 2500);
+
+    const t2 = setTimeout(async () => {
+      autoJudgeDone.current = true;
+      const psl = await captureAndJudge();
+      if (psl) {
+        pslCaptures.current.push(psl);
+        const best = Math.max(...pslCaptures.current);
+        setMyPsl(best);
+        if (match?.id) {
+          const supabase = createClient();
+          supabase.channel(`arena:${match.id}`).send({
+            type: "broadcast", event: "psl",
+            payload: { userId, psl: best },
+          });
+        }
+      }
+    }, 4000);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [phase, localVideoTrack, match?.id, userId]);
 
   // Keyboard number input while searching / negotiating
   useEffect(() => {
@@ -409,14 +443,17 @@ export function ArenaClient({
     scheduleOfferSubmit(String(cap));
   }
 
-  function onQueue() {
+  function onQueue(betAmount: number) {
     matchmakingIntentRef.current = true;
     timedOutBattleRef.current = false;
     setQueueTimedOut(false);
     setQueueSecs(0);
     setQueueSession((s) => s + 1);
+    setLockedBet(betAmount);
     setPhase("queued");
     setIsPending(true);
+    pslCaptures.current = [];
+    autoJudgeDone.current = false;
     startTransition(async () => {
       try {
         const token = await getAccessToken();
@@ -426,9 +463,9 @@ export function ArenaClient({
           return;
         }
         if (isFreeMode) {
-          await queueForFreeMatch(token);
+          await queueForFreeMatch(token, betAmount);
         } else {
-          await queueForBattle(token);
+          await queueForBattle(token, betAmount);
         }
         await poll();
       } catch {
@@ -517,6 +554,8 @@ export function ArenaClient({
     analysisRunning.current = false;
     autoJudgeDone.current = false;
     setMyPsl(null);
+    setOppPsl(null);
+    pslCaptures.current = [];
     refreshBalance();
   }
 
@@ -629,6 +668,7 @@ export function ArenaClient({
             isSearching={isQueued && !queueTimedOut}
             queueTimedOut={queueTimedOut}
             isFreeMode={isFreeMode}
+            pslBadge={oppPsl}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -710,7 +750,7 @@ export function ArenaClient({
             onTryAgain={() => {
               timedOutBattleRef.current = false;
               setQueueTimedOut(false);
-              onQueue();
+              onQueue(lockedBet);
             }}
             onBackToArena={backToArenaLanding}
           />
@@ -744,7 +784,7 @@ function IdleScreen({
   isFreeMode,
   onModeChange,
 }: {
-  onQueue: () => void;
+  onQueue: (betAmount: number) => void;
   isPending: boolean;
   balance: number;
   molecules: number;
@@ -755,20 +795,32 @@ function IdleScreen({
   const idleStreamRef = useRef<MediaStream | null>(null);
   const [camOn, setCamOn] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
+  const [betStr, setBetStr] = useState("1");
 
-  // Camera only starts when user explicitly enables it — not on page load
+  const cap = isFreeMode ? molecules : balance;
+  const betNum = Math.min(Math.max(1, parseInt(betStr, 10) || 1), cap);
+
+  // Camera — iOS-safe: simple constraints, explicit play()
   useEffect(() => {
     if (!camOn) return;
+    const constraints: MediaStreamConstraints = {
+      video: { facingMode: "user" },
+      audio: false,
+    };
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } })
+      .getUserMedia(constraints)
       .then((stream) => {
         idleStreamRef.current = stream;
-        if (idleVideoRef.current) idleVideoRef.current.srcObject = stream;
+        const vid = idleVideoRef.current;
+        if (vid) {
+          vid.srcObject = stream;
+          vid.play().catch(() => {});
+        }
         setCamError(null);
       })
-      .catch(() => {
+      .catch((err) => {
         setCamOn(false);
-        setCamError("Camera access denied.");
+        setCamError(err?.name === "NotAllowedError" ? "Camera permission denied." : "Camera unavailable.");
       });
     return () => {
       idleStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -777,38 +829,18 @@ function IdleScreen({
   }, [camOn]);
 
   function validateAndQueue() {
-    if (!camOn) {
-      setCamError("Enable your camera first.");
-      return;
-    }
+    if (!camOn) { setCamError("Enable your camera first."); return; }
     const video = idleVideoRef.current;
     const stream = idleStreamRef.current;
-
     if (!stream || stream.getTracks().every((t) => t.readyState === "ended")) {
-      setCamError("Camera disconnected.");
-      return;
+      setCamError("Camera disconnected."); return;
     }
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-      setCamError("Camera not ready yet — wait a moment.");
-      return;
+      setCamError("Camera not ready — wait a moment."); return;
     }
-
-    try {
-      const tmp = document.createElement("canvas");
-      tmp.width = 16; tmp.height = 16;
-      const ctx = tmp.getContext("2d")!;
-      ctx.drawImage(video, 0, 0, 16, 16);
-      const data = ctx.getImageData(0, 0, 16, 16).data;
-      let total = 0;
-      for (let i = 0; i < data.length; i += 4) total += data[i] + data[i + 1] + data[i + 2];
-      if (total / (data.length / 4 * 3) < 8) {
-        setCamError("Black screen detected — check lighting or camera.");
-        return;
-      }
-    } catch { /* cross-origin, allow through */ }
-
+    if (betNum < 1 || betNum > cap) { setCamError(`Bet must be 1–${cap}.`); return; }
     setCamError(null);
-    onQueue();
+    onQueue(betNum);
   }
 
   const accentColor = isFreeMode ? "cyan" : "fuchsia";
@@ -864,9 +896,56 @@ function IdleScreen({
         </div>
       </div>
 
-      {/* Step 2 — Camera */}
+      {/* Step 2 — Set bet */}
       <div className="w-full max-w-sm space-y-2">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Enable camera</p>
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Set your bet</p>
+        <div className={`border-2 px-4 py-3 ${accentColor === "cyan" ? "border-cyan-500/40" : "border-fuchsia-500/40"} bg-zinc-950`}>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={cap}
+              value={betStr}
+              onChange={(e) => setBetStr(e.target.value.replace(/\D/g, ""))}
+              className={`flex-1 bg-transparent text-2xl font-black text-center text-white tabular-nums focus:outline-none border-b-2 pb-1 ${accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50"}`}
+              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            />
+            <span className={`text-sm font-black uppercase ${accentColor === "cyan" ? "text-cyan-400" : "text-fuchsia-400"}`}>
+              {isFreeMode ? "mol" : "MC"}
+            </span>
+          </div>
+          <div className="mt-2 flex gap-1.5 justify-center flex-wrap">
+            {[1, 5, 10, 25].map((n) => (
+              <button
+                key={n}
+                type="button"
+                disabled={cap < n}
+                onClick={() => setBetStr(String(n))}
+                className={`border px-2.5 py-1 text-[10px] font-black uppercase disabled:opacity-30 ${accentColor === "cyan" ? "border-cyan-500/40 text-cyan-300 hover:border-cyan-400" : "border-fuchsia-500/40 text-fuchsia-300 hover:border-fuchsia-400"}`}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={cap < 1}
+              onClick={() => setBetStr(String(cap))}
+              className="border border-orange-500/60 bg-orange-500/10 px-2.5 py-1 text-[10px] font-black uppercase text-orange-300 disabled:opacity-30"
+            >
+              MAX
+            </button>
+          </div>
+          <p className="mt-1.5 text-center text-[10px] text-zinc-500">
+            Balance <span className={`font-black tabular-nums ${accentColor === "cyan" ? "text-cyan-300" : "text-fuchsia-300"}`}>{cap.toLocaleString()} {isFreeMode ? "mol" : "MC"}</span>
+            {" · "}matched with same bet only
+          </p>
+        </div>
+      </div>
+
+      {/* Step 3 — Camera */}
+      <div className="w-full max-w-sm space-y-2">
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 3 — Enable camera</p>
         <div className={`relative w-full h-44 border-2 overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50") : "border-white/10"}`}>
           {camOn ? (
             <>
@@ -896,7 +975,7 @@ function IdleScreen({
       <div className="w-full max-w-sm space-y-2">
         <motion.button
           onClick={validateAndQueue}
-          disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1)}
+          disabled={isPending || cap < 1 || betNum < 1}
           whileTap={{ scale: 0.97 }}
           className={`w-full h-14 font-black text-base uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
             isFreeMode
@@ -905,9 +984,9 @@ function IdleScreen({
           }`}
         >
           {isPending ? (
-            <><Loader2 className="size-5 animate-spin" /> Finding opponent…</>
+            <><Loader2 className="size-5 animate-spin" /> Finding {betNum} {isFreeMode ? "mol" : "MC"} match…</>
           ) : (
-            <><Swords className="size-5" /> Fight ({isFreeMode ? "Molecules" : "MOG Coins"})</>
+            <><Swords className="size-5" /> Fight — {betNum} {isFreeMode ? "mol" : "MC"}</>
           )}
         </motion.button>
 
@@ -925,6 +1004,46 @@ function IdleScreen({
         }}
       />
     </div>
+  );
+}
+
+// ─── PSL HUD ─────────────────────────────────────────────────────────────────
+
+function PslHud({ base, isYou }: { base: number; isYou: boolean }) {
+  const [display, setDisplay] = useState(base);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const delta = (Math.random() - 0.5) * 4; // ±2 points
+      setDisplay(+(Math.max(1, Math.min(10, base + delta)).toFixed(1)));
+    }, 1200);
+    return () => clearInterval(id);
+  }, [base]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`absolute top-2 right-2 z-10 flex flex-col items-center bg-black/85 border px-2 py-1 ${isYou ? "border-fuchsia-500/70" : "border-cyan-500/70"}`}
+    >
+      <span className={`text-[9px] font-black uppercase tracking-widest ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>PSL</span>
+      <motion.span
+        key={display}
+        initial={{ y: -4, opacity: 0.6 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="text-lg font-black tabular-nums text-white leading-none"
+        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+      >
+        {display.toFixed(1)}
+      </motion.span>
+      <div className="mt-0.5 w-full h-0.5 bg-zinc-800 overflow-hidden">
+        <motion.div
+          className={`h-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-400"}`}
+          animate={{ width: `${(display / 10) * 100}%` }}
+          transition={{ duration: 0.6 }}
+        />
+      </div>
+    </motion.div>
   );
 }
 
@@ -1451,7 +1570,6 @@ function PlayerPanel({
         {showVideo && (
           <FaceMeshCanvas
             containerRef={videoRef}
-            color={isYou ? "#d946ef" : "#22d3ee"}
             mirrored={isYou}
           />
         )}
@@ -1538,16 +1656,7 @@ function PlayerPanel({
           </div>
         )}
         {pslBadge !== null && pslBadge > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute top-2 right-2 z-10 flex flex-col items-center bg-black/80 border border-fuchsia-500/60 px-2 py-1"
-          >
-            <span className="text-[9px] font-black uppercase tracking-widest text-fuchsia-400">PSL</span>
-            <span className="text-lg font-black tabular-nums text-white leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-              {pslBadge.toFixed(1)}
-            </span>
-          </motion.div>
+          <PslHud base={pslBadge} isYou={isYou} />
         )}
 
         <AnimatePresence>

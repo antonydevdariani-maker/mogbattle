@@ -99,7 +99,7 @@ export function MatchmakingClient({
     startTransition(async () => {
       const token = await getAccessToken();
       if (!token) return;
-      await queueForBattle(token);
+      await queueForBattle(token, 1);
       await onRefresh?.();
     });
   }

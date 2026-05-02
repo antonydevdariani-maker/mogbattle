@@ -233,7 +233,6 @@ function VideoShell({
         {showFaceMesh && hasTrack && (
           <FaceMeshCanvas
             containerRef={containerRef}
-            color={accentColor === "fuchsia" ? "#d946ef" : "#f87171"}
             mirrored={mirrored}
           />
         )}
