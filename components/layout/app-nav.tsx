@@ -15,6 +15,7 @@ import {
   User,
   Crown,
   FlaskConical,
+  Atom,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/wallet", label: "Wallet", icon: Wallet },
+  { href: "/spin", label: "Spin", icon: Atom },
   { href: "/leaderboard", label: "Ranks", icon: Crown },
   { href: "/arena", label: "Arena", icon: Shield },
   { href: "/admin", label: "Admin", icon: FlaskConical },
@@ -39,6 +41,7 @@ export function AppNav() {
   const matchAtRisk = useArenaMatchLeaveRisk();
   const { logout, authenticated, getAccessToken } = usePrivy();
   const [credits, setCredits] = useState(0);
+  const [molecules, setMolecules] = useState(0);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,6 +53,7 @@ export function AppNav() {
       try {
         const row = await loadProfileSummary(token);
         setCredits(row?.total_credits ?? 0);
+        setMolecules(row?.molecules ?? 0);
       } catch {
         setCredits(0);
       }
@@ -161,12 +165,20 @@ export function AppNav() {
         </div>
 
         <div className="flex items-center justify-end gap-2 sm:gap-3">
-          <div className={cn("hidden items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5 sm:flex")}>
-            <Zap className="size-3.5 text-fuchsia-400" />
-            <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
-              {credits.toLocaleString()}
-            </span>
-            <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
+          <div className="hidden items-center gap-3 sm:flex">
+            <div className="flex items-center gap-1.5 border border-cyan-500/30 bg-cyan-500/5 px-2.5 py-1.5">
+              <Atom className="size-3 text-cyan-400" />
+              <span className="text-xs font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                {molecules.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5">
+              <Zap className="size-3.5 text-fuchsia-400" />
+              <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                {credits.toLocaleString()}
+              </span>
+              <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
+            </div>
           </div>
           <button
             type="button"

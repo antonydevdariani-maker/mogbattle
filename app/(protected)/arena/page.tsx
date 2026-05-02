@@ -12,6 +12,7 @@ export default function ArenaPage() {
   const { authenticated, getAccessToken } = usePrivy();
   const [ready, setReady] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [molecules, setMolecules] = useState(0);
   const [activeMatch, setActiveMatch] = useState<MatchRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export default function ArenaPage() {
     setOpponentName(state.opponentName);
     setUserId(state.userId);
     setBalance(profile?.total_credits ?? 0);
+    setMolecules(profile?.molecules ?? 0);
     setUsername(profile?.username ?? null);
     setWalletAddress(profile?.wallet_address ?? null);
     setReady(true);
@@ -62,6 +64,7 @@ export default function ArenaPage() {
   return (
     <ArenaClient
       initialBalance={balance}
+      initialMolecules={molecules}
       initialMatch={activeMatch}
       initialOpponentName={opponentName}
       userId={userId}

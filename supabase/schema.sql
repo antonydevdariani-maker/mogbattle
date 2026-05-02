@@ -23,6 +23,8 @@ create table if not exists public.profiles (
   avatar_url text,
   wallet_address text,
   total_credits bigint not null default 0,
+  molecules bigint not null default 500,
+  last_spin_at timestamptz,
   elo integer not null default 800,
   matches_played integer not null default 0,
   wins integer not null default 0,
@@ -50,6 +52,7 @@ create table if not exists public.matches (
   ai_score_p2 numeric(5,2),
   player1_confirmed boolean not null default false,
   player2_confirmed boolean not null default false,
+  is_free_match boolean not null default false,
   started_at timestamptz,
   ended_at timestamptz,
   created_at timestamptz not null default now()

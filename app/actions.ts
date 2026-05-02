@@ -33,6 +33,7 @@ export async function ensureProfile(
       username: displayName,
       wallet_address: opts?.walletAddress ?? null,
       total_credits: 0,
+      molecules: 500,
     });
   } else {
     const patch: Record<string, string | null> = {};
@@ -121,11 +122,13 @@ export async function loadProfileSummary(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from("profiles")
-    .select("total_credits, username, wallet_address")
+    .select("total_credits, molecules, last_spin_at, username, wallet_address")
     .eq("user_id", userId)
     .maybeSingle();
   return data as {
     total_credits: number;
+    molecules: number;
+    last_spin_at: string | null;
     username: string | null;
     wallet_address: string | null;
   } | null;
@@ -502,6 +505,215 @@ export async function cancelWaitingMatch(accessToken: string) {
     .eq("status", "waiting")
     .is("player2_id", null);
   revalidatePath("/battle");
+  revalidatePath("/arena");
+}
+
+// ─── Daily Spin ──────────────────────────────────────────────────────────────
+
+const SPIN_PRIZES = [50, 75, 100, 125, 150, 200, 250, 500];
+const SPIN_WEIGHTS = [30, 25, 20, 10, 7, 5, 2, 1]; // sum = 100
+
+function pickSpinPrize(): number {
+  const roll = Math.random() * 100;
+  let cumulative = 0;
+  for (let i = 0; i < SPIN_PRIZES.length; i++) {
+    cumulative += SPIN_WEIGHTS[i];
+    if (roll < cumulative) return SPIN_PRIZES[i];
+  }
+  return SPIN_PRIZES[0];
+}
+
+export async function claimDailySpin(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules, last_spin_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!profile) throw new Error("Profile not found.");
+
+  if (profile.last_spin_at) {
+    const next = new Date(profile.last_spin_at).getTime() + 24 * 60 * 60 * 1000;
+    if (Date.now() < next) {
+      throw new Error(`Next spin available in ${Math.ceil((next - Date.now()) / 3600000)}h.`);
+    }
+  }
+
+  const prize = pickSpinPrize();
+  const newMolecules = Number(profile.molecules ?? 0) + prize;
+  await supabase
+    .from("profiles")
+    .update({ molecules: newMolecules, last_spin_at: new Date().toISOString() })
+    .eq("user_id", userId);
+
+  revalidatePath("/spin");
+  revalidatePath("/dashboard");
+  return { prize, newMolecules };
+}
+
+export async function loadSpinData(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("profiles")
+    .select("molecules, last_spin_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const lastSpin = data?.last_spin_at ? new Date(data.last_spin_at).getTime() : null;
+  const nextSpinAt = lastSpin ? lastSpin + 24 * 60 * 60 * 1000 : null;
+  const canSpin = !nextSpinAt || Date.now() >= nextSpinAt;
+  return {
+    molecules: Number(data?.molecules ?? 0),
+    canSpin,
+    nextSpinAt,
+    prizes: SPIN_PRIZES,
+    weights: SPIN_WEIGHTS,
+  };
+}
+
+// ─── Molecule (Free) Queue ────────────────────────────────────────────────────
+
+export async function queueForFreeMatch(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!profile || profile.molecules < 1) {
+    throw new Error("Need at least 1 molecule to enter free queue.");
+  }
+
+  const { data: waitingMatch } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("status", "waiting")
+    .eq("is_free_match", true)
+    .is("player2_id", null)
+    .neq("player1_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (waitingMatch?.id) {
+    const deadline = new Date(Date.now() + 10_000).toISOString();
+    const { data: matched } = await supabase
+      .from("matches")
+      .update({ player2_id: userId, status: "matched", negotiation_deadline: deadline })
+      .eq("id", waitingMatch.id)
+      .select("id")
+      .single();
+    revalidatePath("/arena");
+    return { matchId: matched?.id, state: "found" as const };
+  }
+
+  const { data: created } = await supabase
+    .from("matches")
+    .insert({ player1_id: userId, bet_amount: 0, status: "waiting", is_free_match: true })
+    .select("id")
+    .single();
+
+  revalidatePath("/arena");
+  return { matchId: created?.id, state: "queued" as const };
+}
+
+export async function submitMoleculeBetOffer(accessToken: string, matchId: string, amount: number) {
+  const userId = await requirePrivyUser(accessToken);
+  if (!Number.isFinite(amount) || amount < 1) throw new Error("Invalid bet amount.");
+  const supabase = getSupabaseAdmin();
+  const normalizedAmount = Math.floor(amount);
+
+  const { data: match } = await supabase.from("matches").select("*").eq("id", matchId).single();
+  if (!match || (match.player1_id !== userId && match.player2_id !== userId)) throw new Error("Not your match.");
+  if (match.status !== "matched") throw new Error("Not in negotiation phase.");
+  if (!match.is_free_match) throw new Error("Not a free match.");
+
+  if (match.negotiation_deadline && new Date() > new Date(match.negotiation_deadline)) {
+    await supabase.from("matches").update({ status: "cancelled" }).eq("id", matchId);
+    throw new Error("Negotiation timed out.");
+  }
+
+  const isP1 = match.player1_id === userId;
+  const updates = isP1 ? { player1_bet_offer: normalizedAmount } : { player2_bet_offer: normalizedAmount };
+  const { data: updated } = await supabase.from("matches").update(updates).eq("id", matchId).select("*").single();
+  if (!updated) throw new Error("Update failed.");
+
+  const p1Offer = isP1 ? normalizedAmount : (updated.player1_bet_offer ?? null);
+  const p2Offer = isP1 ? (updated.player2_bet_offer ?? null) : normalizedAmount;
+
+  if (p1Offer !== null && p2Offer !== null && p1Offer === p2Offer) {
+    const { data: players } = await supabase
+      .from("profiles")
+      .select("user_id,molecules")
+      .in("user_id", [match.player1_id, match.player2_id!]);
+    const p1 = players?.find((p) => p.user_id === match.player1_id);
+    const p2 = players?.find((p) => p.user_id === match.player2_id);
+    if (!p1 || !p2 || (p1.molecules ?? 0) < p1Offer || (p2.molecules ?? 0) < p1Offer) {
+      throw new Error("Insufficient molecules for agreed bet.");
+    }
+    await supabase.from("profiles").update({ molecules: (p1.molecules ?? 0) - p1Offer }).eq("user_id", match.player1_id);
+    await supabase.from("profiles").update({ molecules: (p2.molecules ?? 0) - p1Offer }).eq("user_id", match.player2_id!);
+    await supabase.from("matches").update({ status: "live", bet_amount: p1Offer, started_at: new Date().toISOString() }).eq("id", matchId);
+  }
+
+  revalidatePath("/arena");
+}
+
+export async function finalizeFreeMatchResult(
+  accessToken: string,
+  args: { matchId: string; aiScoreP1: number; aiScoreP2: number }
+) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: match } = await supabase.from("matches").select("*").eq("id", args.matchId).single();
+
+  if (!match || (match.player1_id !== userId && match.player2_id !== userId)) throw new Error("Invalid match.");
+  if (!match.player2_id) throw new Error("Missing opponent.");
+  if (match.status === "completed") return;
+  if (!match.is_free_match) throw new Error("Not a free match.");
+
+  const winnerId = args.aiScoreP1 >= args.aiScoreP2 ? match.player1_id : match.player2_id;
+  const loserId = winnerId === match.player1_id ? match.player2_id : match.player1_id;
+  const winnings = match.bet_amount * 2;
+
+  await supabase.from("matches").update({
+    status: "completed",
+    winner_id: winnerId,
+    ai_score_p1: Number(args.aiScoreP1.toFixed(2)),
+    ai_score_p2: Number(args.aiScoreP2.toFixed(2)),
+    ended_at: new Date().toISOString(),
+  }).eq("id", match.id);
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id,elo,wins,matches_played,molecules")
+    .in("user_id", [winnerId, loserId]);
+  const winner = profiles?.find((p) => p.user_id === winnerId);
+  const loser = profiles?.find((p) => p.user_id === loserId);
+  if (!winner || !loser) return;
+
+  // 25% ELO gain for free matches
+  const k = 6;
+  const winnerExpected = expectedScore(winner.elo, loser.elo);
+  const loserExpected = expectedScore(loser.elo, winner.elo);
+  const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
+  const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+
+  await supabase.from("profiles").update({
+    molecules: (winner.molecules ?? 0) + winnings,
+    wins: winner.wins + 1,
+    matches_played: winner.matches_played + 1,
+    elo: winnerElo,
+  }).eq("user_id", winnerId);
+  await supabase.from("profiles").update({
+    matches_played: loser.matches_played + 1,
+    elo: loserElo,
+  }).eq("user_id", loserId);
+
+  revalidatePath("/dashboard");
   revalidatePath("/arena");
 }
 

@@ -6,8 +6,11 @@ import { usePrivy } from "@privy-io/react-auth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   queueForBattle,
+  queueForFreeMatch,
   submitBetOffer,
+  submitMoleculeBetOffer,
   finalizeMatchResult,
+  finalizeFreeMatchResult,
   loadBattleQueueState,
   loadProfileSummary,
   cancelWaitingMatch,
@@ -28,6 +31,7 @@ import {
   CheckCircle2,
   Wifi,
   WifiOff,
+  Atom,
 } from "lucide-react";
 import type { ICameraVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
@@ -76,6 +80,7 @@ function queueMonogram(username: string | null, wallet: string | null): string {
 
 export function ArenaClient({
   initialBalance,
+  initialMolecules = 0,
   initialMatch,
   initialOpponentName,
   userId,
@@ -83,6 +88,7 @@ export function ArenaClient({
   walletAddress,
 }: {
   initialBalance: number;
+  initialMolecules?: number;
   initialMatch: MatchRow | null;
   initialOpponentName: string | null;
   userId: string;
@@ -112,6 +118,8 @@ export function ArenaClient({
 
   const [queueTimedOut, setQueueTimedOut] = useState(false);
   const [myPsl, setMyPsl] = useState<number | null>(null);
+  const [isFreeMode, setIsFreeMode] = useState(false);
+  const [molecules, setMolecules] = useState(initialMolecules);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const oppTypingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOppOffer = useRef<number | null>(null);
@@ -180,6 +188,7 @@ export function ArenaClient({
     if (!token) return;
     const p = await loadProfileSummary(token);
     setBalance(p?.total_credits ?? 0);
+    setMolecules(p?.molecules ?? 0);
   }, [getAccessToken]);
 
   const poll = useCallback(async () => {
@@ -355,31 +364,40 @@ export function ArenaClient({
     if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
     const amount = parseInt(val, 10);
     if (!amount || amount < 1 || !match?.id || match.status !== "matched") return;
-    const capped = Math.min(amount, balance);
+    const capped = isFreeMode ? Math.min(amount, molecules) : Math.min(amount, balance);
     submitTimerRef.current = setTimeout(async () => {
       const token = await getAccessToken();
       if (!token) return;
-      try { await submitBetOffer(token, match.id, capped); } catch {}
+      try {
+        if (isFreeMode) {
+          await submitMoleculeBetOffer(token, match.id, capped);
+        } else {
+          await submitBetOffer(token, match.id, capped);
+        }
+      } catch {}
     }, 300);
   }
 
   function onOfferChange(val: string) {
     const cleaned = val.replace(/\D/g, "").slice(0, 6);
     const amount = parseInt(cleaned, 10);
-    const capped = !isNaN(amount) && amount > balance ? String(balance) : cleaned;
+    const cap = isFreeMode ? molecules : balance;
+    const capped = !isNaN(amount) && amount > cap ? String(cap) : cleaned;
     setMyOfferStr(capped);
     scheduleOfferSubmit(capped);
   }
 
   function setQuickBet(amount: number) {
-    const capped = String(Math.min(amount, balance));
+    const cap = isFreeMode ? molecules : balance;
+    const capped = String(Math.min(amount, cap));
     setMyOfferStr(capped);
     scheduleOfferSubmit(capped);
   }
 
   function setMaxBet() {
-    setMyOfferStr(String(balance));
-    scheduleOfferSubmit(String(balance));
+    const cap = isFreeMode ? molecules : balance;
+    setMyOfferStr(String(cap));
+    scheduleOfferSubmit(String(cap));
   }
 
   function onQueue() {
@@ -398,7 +416,11 @@ export function ArenaClient({
           setPhase("idle");
           return;
         }
-        await queueForBattle(token);
+        if (isFreeMode) {
+          await queueForFreeMatch(token);
+        } else {
+          await queueForBattle(token);
+        }
         await poll();
       } catch {
         matchmakingIntentRef.current = false;
@@ -461,7 +483,11 @@ export function ArenaClient({
       startTransition(async () => {
         const token = await getAccessToken();
         if (!token) return;
-        await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+        if (isFreeMode) {
+          await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+        } else {
+          await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+        }
         refreshBalance();
       });
     }
@@ -511,7 +537,7 @@ export function ArenaClient({
   // ── Render ───────────────────────────────────────────────────────────────────
 
   if (phase === "idle") {
-    return <IdleScreen onQueue={onQueue} isPending={isPending} balance={balance} />;
+    return <IdleScreen onQueue={onQueue} isPending={isPending} balance={balance} molecules={molecules} isFreeMode={isFreeMode} onModeChange={setIsFreeMode} />;
   }
 
   const isQueued = phase === "queued";
@@ -701,10 +727,16 @@ function IdleScreen({
   onQueue,
   isPending,
   balance,
+  molecules,
+  isFreeMode,
+  onModeChange,
 }: {
   onQueue: () => void;
   isPending: boolean;
   balance: number;
+  molecules: number;
+  isFreeMode: boolean;
+  onModeChange: (free: boolean) => void;
 }) {
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const idleStreamRef = useRef<MediaStream | null>(null);
@@ -769,33 +801,68 @@ function IdleScreen({
         </div>
       </div>
 
-      {/* Balance */}
-      <div className="flex items-center gap-2 border border-fuchsia-500/30 bg-fuchsia-500/5 px-5 py-2.5">
-        <Zap className="size-4 text-fuchsia-400" />
-        <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
-          {balance.toLocaleString()}
-        </span>
-        <span className="text-xs text-zinc-500 uppercase font-bold">Mog Coins</span>
+      {/* Mode toggle */}
+      <div className="flex w-full max-w-xs rounded border border-white/10 overflow-hidden">
+        <button
+          onClick={() => onModeChange(false)}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${!isFreeMode ? "bg-fuchsia-500 text-black" : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"}`}
+        >
+          <Zap className="size-3.5" /> Mog Coins
+        </button>
+        <button
+          onClick={() => onModeChange(true)}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-colors ${isFreeMode ? "bg-cyan-500 text-black" : "bg-zinc-950 text-zinc-500 hover:text-zinc-300"}`}
+        >
+          <Atom className="size-3.5" /> Free Play
+        </button>
       </div>
+
+      {/* Balance */}
+      {!isFreeMode ? (
+        <div className="flex items-center gap-2 border border-fuchsia-500/30 bg-fuchsia-500/5 px-5 py-2.5">
+          <Zap className="size-4 text-fuchsia-400" />
+          <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+            {balance.toLocaleString()}
+          </span>
+          <span className="text-xs text-zinc-500 uppercase font-bold">Mog Coins</span>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-5 py-2.5">
+            <Atom className="size-4 text-cyan-400" />
+            <span className="font-black text-white tabular-nums" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+              {molecules.toLocaleString()}
+            </span>
+            <span className="text-xs text-zinc-500 uppercase font-bold">Molecules</span>
+          </div>
+          <p className="text-[10px] text-zinc-600 uppercase tracking-widest">ELO gains 25% · No real money</p>
+        </div>
+      )}
 
       {/* Enter button */}
       <motion.button
         onClick={onQueue}
-        disabled={isPending || balance < 1}
+        disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1)}
         whileTap={{ scale: 0.97 }}
-        className="group relative flex items-center justify-center gap-3 w-full max-w-xs sm:w-72 h-16 sm:h-16 bg-fuchsia-500 text-black font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
+        className={`group relative flex items-center justify-center gap-3 w-full max-w-xs sm:w-72 h-16 sm:h-16 font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 ${isFreeMode ? "bg-cyan-500 text-black" : "bg-fuchsia-500 text-black"}`}
       >
         {isPending ? (
           <><Loader2 className="size-5 animate-spin" /> Connecting…</>
         ) : (
-          <><Swords className="size-5" /> Fight</>
+          <><Swords className="size-5" /> {isFreeMode ? "Free Fight" : "Fight"}</>
         )}
       </motion.button>
 
-      {balance < 1 && (
+      {!isFreeMode && balance < 1 && (
         <p className="text-xs text-red-400 uppercase tracking-widest">
           Need Mog Coins to enter →{" "}
           <a href="/wallet" className="underline text-red-300">Deposit</a>
+        </p>
+      )}
+      {isFreeMode && molecules < 1 && (
+        <p className="text-xs text-cyan-400 uppercase tracking-widest">
+          Need molecules →{" "}
+          <a href="/spin" className="underline text-cyan-300">Spin to earn</a>
         </p>
       )}
 

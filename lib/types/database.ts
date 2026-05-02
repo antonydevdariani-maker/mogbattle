@@ -10,6 +10,8 @@ export type Database = {
           avatar_url: string | null;
           wallet_address: string | null;
           total_credits: number;
+          molecules: number;
+          last_spin_at: string | null;
           elo: number;
           matches_played: number;
           wins: number;
@@ -21,6 +23,8 @@ export type Database = {
           avatar_url?: string | null;
           wallet_address?: string | null;
           total_credits?: number;
+          molecules?: number;
+          last_spin_at?: string | null;
           elo?: number;
           matches_played?: number;
           wins?: number;
@@ -66,6 +70,7 @@ export type Database = {
           player1_bet_offer: number | null;
           player2_bet_offer: number | null;
           negotiation_deadline: string | null;
+          is_free_match: boolean;
           started_at: string | null;
           ended_at: string | null;
           created_at: string;
@@ -84,6 +89,7 @@ export type Database = {
           player1_bet_offer?: number | null;
           player2_bet_offer?: number | null;
           negotiation_deadline?: string | null;
+          is_free_match?: boolean;
           started_at?: string | null;
           ended_at?: string | null;
           created_at?: string;
