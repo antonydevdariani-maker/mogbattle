@@ -122,7 +122,7 @@ export async function loadProfileSummary(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from("profiles")
-    .select("total_credits, molecules, last_spin_at, username, wallet_address")
+    .select("total_credits, molecules, last_spin_at, username, wallet_address, avatar_url")
     .eq("user_id", userId)
     .maybeSingle();
   return data as {
@@ -131,6 +131,7 @@ export async function loadProfileSummary(accessToken: string) {
     last_spin_at: string | null;
     username: string | null;
     wallet_address: string | null;
+    avatar_url: string | null;
   } | null;
 }
 
@@ -251,11 +252,13 @@ export async function checkArenaState(accessToken: string) {
   const opponentId =
     activeMatch?.player1_id === userId ? activeMatch?.player2_id : activeMatch?.player1_id;
   let opponentName: string | null = null;
+  let opponentAvatarUrl: string | null = null;
   if (opponentId) {
-    const { data: opp } = await supabase.from("profiles").select("username").eq("user_id", opponentId).maybeSingle();
+    const { data: opp } = await supabase.from("profiles").select("username, avatar_url").eq("user_id", opponentId).maybeSingle();
     opponentName = opp?.username ?? null;
+    opponentAvatarUrl = opp?.avatar_url ?? null;
   }
-  return { activeMatch: activeMatch ?? null, opponentName, userId };
+  return { activeMatch: activeMatch ?? null, opponentName, opponentAvatarUrl, userId };
 }
 
 export async function loadBattleQueueState(accessToken: string) {
@@ -330,11 +333,11 @@ export async function loadBattleQueueState(accessToken: string) {
 
         const { data: opp } = await supabase
           .from("profiles")
-          .select("username")
+          .select("username, avatar_url")
           .eq("user_id", merged.player1_id)
           .maybeSingle();
         revalidatePath("/arena");
-        return { activeMatch: merged, opponentName: opp?.username ?? null, userId };
+        return { activeMatch: merged, opponentName: opp?.username ?? null, opponentAvatarUrl: opp?.avatar_url ?? null, userId };
       }
     }
   }
@@ -342,11 +345,13 @@ export async function loadBattleQueueState(accessToken: string) {
   const opponentId =
     activeMatch?.player1_id === userId ? activeMatch.player2_id : activeMatch?.player1_id;
   let opponentName: string | null = null;
+  let opponentAvatarUrl: string | null = null;
   if (opponentId) {
-    const { data: opp } = await supabase.from("profiles").select("username").eq("user_id", opponentId).maybeSingle();
+    const { data: opp } = await supabase.from("profiles").select("username, avatar_url").eq("user_id", opponentId).maybeSingle();
     opponentName = opp?.username ?? null;
+    opponentAvatarUrl = opp?.avatar_url ?? null;
   }
-  return { activeMatch, opponentName, userId };
+  return { activeMatch, opponentName, opponentAvatarUrl, userId };
 }
 
 export async function getMatchForUser(accessToken: string, matchId: string) {

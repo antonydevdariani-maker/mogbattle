@@ -85,17 +85,21 @@ export function ArenaClient({
   initialMolecules = 0,
   initialMatch,
   initialOpponentName,
+  initialOpponentAvatarUrl = null,
   userId,
   displayName,
   walletAddress,
+  myAvatarUrl = null,
 }: {
   initialBalance: number;
   initialMolecules?: number;
   initialMatch: MatchRow | null;
   initialOpponentName: string | null;
+  initialOpponentAvatarUrl?: string | null;
   userId: string;
   displayName: string | null;
   walletAddress: string | null;
+  myAvatarUrl?: string | null;
 }) {
   const { getAccessToken } = usePrivy();
   const router = useRouter();
@@ -104,6 +108,7 @@ export function ArenaClient({
 
   const [match, setMatch] = useState<MatchRow | null>(initialMatch);
   const [opponentName, setOpponentName] = useState<string | null>(initialOpponentName);
+  const [opponentAvatarUrl, setOpponentAvatarUrl] = useState<string | null>(initialOpponentAvatarUrl);
   const [balance, setBalance] = useState(initialBalance);
   const [myOfferStr, setMyOfferStr] = useState("");
   const [timeLeft, setTimeLeft] = useState(10);
@@ -204,6 +209,7 @@ export function ArenaClient({
     const newMatch = s.activeMatch as MatchRow | null;
     setMatch(newMatch);
     setOpponentName(s.opponentName);
+    if (s.opponentAvatarUrl) setOpponentAvatarUrl(s.opponentAvatarUrl);
     setPhase((prev) => {
       if (["countdown", "analyzing", "verdict", "done"].includes(prev)) return prev;
       const derived = derivePhase(newMatch);
@@ -797,6 +803,7 @@ export function ArenaClient({
             side="opponent"
             name={opponentName ?? "???"}
             footerOverride={isQueued && !queueTimedOut ? "???" : null}
+            avatarUrl={opponentAvatarUrl}
             videoTrack={remoteVideoTrack}
             hasVideo={videoEnabled}
             displayOffer={displayOppOffer}
@@ -836,6 +843,7 @@ export function ArenaClient({
             side="you"
             name={yourHandle}
             queueMonogram={yourMonogram}
+            avatarUrl={myAvatarUrl}
             videoTrack={localVideoTrack}
             hasVideo={videoEnabled || localPreviewOnly}
             displayOffer={displayMyOffer}
@@ -1507,6 +1515,7 @@ function PlayerPanel({
   name,
   footerOverride,
   queueMonogram,
+  avatarUrl = null,
   videoTrack,
   hasVideo,
   displayOffer,
@@ -1523,6 +1532,7 @@ function PlayerPanel({
   name: string;
   footerOverride?: string | null;
   queueMonogram?: string;
+  avatarUrl?: string | null;
   videoTrack: ICameraVideoTrack | IRemoteVideoTrack | null;
   hasVideo: boolean;
   displayOffer: string;
@@ -1771,12 +1781,25 @@ function PlayerPanel({
       </div>
 
       <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black`}>
-        <span
-          className={`text-[10px] sm:text-xs font-black uppercase tracking-widest truncate max-w-[85%] ${accentCss.text}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        >
-          {footerText}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className={`size-6 rounded-full object-cover border ${accentCss.border} shrink-0`}
+            />
+          ) : (
+            <div className={`size-6 rounded-full border ${accentCss.border} bg-zinc-900 flex items-center justify-center shrink-0`}>
+              <span className={`text-[9px] font-black ${accentCss.text}`}>{circleLetters.slice(0, 1)}</span>
+            </div>
+          )}
+          <span
+            className={`text-[10px] sm:text-xs font-black uppercase tracking-widest truncate ${accentCss.text}`}
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            {footerText}
+          </span>
+        </div>
         {isReady && phase !== "idle" && (
           <span className="flex items-center gap-1 text-xs text-green-400 font-bold">
             <CheckCircle2 className="size-3" /> Ready

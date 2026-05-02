@@ -18,6 +18,8 @@ export default function ArenaPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null);
+  const [opponentAvatarUrl, setOpponentAvatarUrl] = useState<string | null>(null);
 
   const init = useCallback(async () => {
     const token = await getAccessToken();
@@ -28,11 +30,13 @@ export default function ArenaPage() {
     ]);
     setActiveMatch(state.activeMatch as MatchRow | null);
     setOpponentName(state.opponentName);
+    setOpponentAvatarUrl(state.opponentAvatarUrl ?? null);
     setUserId(state.userId);
     setBalance(profile?.total_credits ?? 0);
     setMolecules(profile?.molecules ?? 0);
     setUsername(profile?.username ?? null);
     setWalletAddress(profile?.wallet_address ?? null);
+    setMyAvatarUrl(profile?.avatar_url ?? null);
     setReady(true);
   }, [getAccessToken]);
 
@@ -67,9 +71,11 @@ export default function ArenaPage() {
       initialMolecules={molecules}
       initialMatch={activeMatch}
       initialOpponentName={opponentName}
+      initialOpponentAvatarUrl={opponentAvatarUrl}
       userId={userId}
       displayName={username}
       walletAddress={walletAddress}
+      myAvatarUrl={myAvatarUrl}
     />
   );
 }
