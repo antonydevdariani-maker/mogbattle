@@ -249,9 +249,16 @@ export function ArenaClient({
         }
       )
       .on("broadcast", { event: "psl" }, ({ payload }) => {
-        // Receive opponent's PSL broadcast
         if (payload.userId !== userId) {
           setOppPsl((prev) => prev === null ? payload.psl : Math.max(prev, payload.psl));
+        }
+      })
+      .on("broadcast", { event: "result" }, ({ payload }) => {
+        // P2 receives P1's authoritative final scores
+        if (!isP1) {
+          setScoreP1(payload.p1Total);
+          setScoreP2(payload.p2Total);
+          setPhase((prev) => (prev === "analyzing" || prev === "verdict") ? "done" : prev);
         }
       })
       .subscribe();
@@ -557,17 +564,34 @@ export function ArenaClient({
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
       await pause(1400 + Math.random() * 700);
-      const ms = { p1: 70 + Math.random() * 30, p2: 70 + Math.random() * 30 };
+      // Visual metric scores on 1–10 scale
+      const ms = { p1: 5 + Math.random() * 5, p2: 5 + Math.random() * 5 };
       scores.push(ms);
       setMetricScores([...scores]);
       setRevealedMetrics((prev) => [...prev, i]);
     }
 
     await pause(900);
-    const p1Total = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
-    const p2Total = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
+
+    // Use actual PSL captures if available, else fall back to metric average
+    const p1Captures = isP1 ? pslCaptures.current : [];
+    const p2Captures = isP1 ? [] : pslCaptures.current;
+    const metricAvgP1 = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
+    const metricAvgP2 = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
+    const p1Total = p1Captures.length > 0 ? Number(Math.max(...p1Captures).toFixed(2)) : metricAvgP1;
+    const p2Total = p2Captures.length > 0 ? Number(Math.max(...p2Captures).toFixed(2)) : metricAvgP2;
+
     setScoreP1(p1Total);
     setScoreP2(p2Total);
+
+    // P1 broadcasts final scores so P2 shows identical results
+    if (isP1 && match) {
+      const supabase = createClient();
+      supabase.channel(`arena:${match.id}`).send({
+        type: "broadcast", event: "result",
+        payload: { p1Total, p2Total },
+      });
+    }
 
     setPhase("verdict");
     await pause(2800);
@@ -1795,7 +1819,7 @@ function PlayerPanel({
                       : "0 0 20px rgba(6,182,212,0.8)",
                   }}
                 >
-                  {score?.toFixed(1)}
+                  {score?.toFixed(1)}<span className="text-2xl opacity-50">/10</span>
                 </p>
               </div>
             </motion.div>
@@ -2051,7 +2075,7 @@ function DoneOverlay({
               className={`text-3xl font-black tabular-nums ${iWon ? "text-fuchsia-300" : "text-zinc-400"}`}
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             >
-              {myScore?.toFixed(1) ?? "—"}
+              {myScore !== null ? <>{myScore.toFixed(1)}<span className="text-lg opacity-50">/10</span></> : "—"}
             </p>
             {myScore !== null && (
               <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(myScore).color }}>
@@ -2066,7 +2090,7 @@ function DoneOverlay({
               className={`text-3xl font-black tabular-nums ${!iWon ? "text-fuchsia-300" : "text-zinc-400"}`}
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             >
-              {oppScore?.toFixed(1) ?? "—"}
+              {oppScore !== null ? <>{oppScore.toFixed(1)}<span className="text-lg opacity-50">/10</span></> : "—"}
             </p>
             {oppScore !== null && (
               <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(oppScore).color }}>
