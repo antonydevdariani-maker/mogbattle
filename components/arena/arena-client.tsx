@@ -425,6 +425,7 @@ export function ArenaClient({
     setMatch(null);
     setPhase("idle");
     await refreshBalance();
+    router.push("/dashboard");
   }
 
   async function startAnalysis() {
@@ -1186,7 +1187,7 @@ function MatchmakingTimeoutOverlay({
             onClick={() => void onBackToArena()}
             className="py-4 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-sm hover:bg-cyan-500/15 transition-colors min-h-[52px]"
           >
-            BACK TO ARENA
+            HOME
           </button>
         </div>
       </motion.div>
