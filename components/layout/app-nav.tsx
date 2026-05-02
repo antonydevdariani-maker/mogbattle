@@ -12,9 +12,9 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Shield,
-  FlaskConical,
-  Scan,
   Atom,
+  Trophy,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
@@ -24,13 +24,13 @@ import {
   useArenaMatchLeaveRisk,
 } from "@/components/arena/arena-match-leave-context";
 
+// Wallet is at index 2 (center of 5)
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/wallet", label: "Wallet", icon: Wallet },
-  { href: "/spin", label: "Spin", icon: Atom },
   { href: "/arena", label: "Arena", icon: Shield },
-  { href: "/face-report", label: "Report", icon: Scan },
-  { href: "/admin", label: "Admin", icon: FlaskConical },
+  { href: "/wallet", label: "Wallet", icon: Wallet },
+  { href: "/leaderboard", label: "Ranks", icon: Trophy },
+  { href: "/profile", label: "Profile", icon: User },
 ];
 
 export function AppNav() {
@@ -115,7 +115,7 @@ export function AppNav() {
   if (matchAtRisk) return null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-black pt-safe">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-black pt-safe rounded-none">
       <div className="mx-auto grid h-14 w-full max-w-6xl grid-cols-[auto_1fr_auto] sm:grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
         <Link
           href="/dashboard"
@@ -137,7 +137,7 @@ export function AppNav() {
 
           {/* Wallet quick menu */}
           {walletMenuOpen && (
-            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-44 border border-white/10 bg-zinc-950 shadow-[4px_4px_0_#000] z-50">
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-44 border border-white/10 bg-zinc-950 shadow-[4px_4px_0_#000] z-50 rounded-xl overflow-hidden">
               <button
                 onClick={() => {
                   setWalletMenuOpen(false);
@@ -164,13 +164,13 @@ export function AppNav() {
 
         <div className="flex items-center justify-end gap-2 sm:gap-3">
           <div className="hidden items-center gap-3 sm:flex">
-            <div className="flex items-center gap-1.5 border border-cyan-500/30 bg-cyan-500/5 px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 border border-cyan-500/30 bg-cyan-500/5 px-2.5 py-1.5 rounded-lg">
               <Atom className="size-3 text-cyan-400" />
               <span className="text-xs font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
                 {molecules.toLocaleString()}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5">
+            <div className="flex items-center gap-1.5 border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-1.5 rounded-lg">
               <Zap className="size-3.5 text-fuchsia-400" />
               <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
                 {credits.toLocaleString()}

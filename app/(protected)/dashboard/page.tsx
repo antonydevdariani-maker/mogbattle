@@ -5,7 +5,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, ArrowRight } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, ArrowRight, Atom } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   return (
     <div className="w-full space-y-5">
       {/* Hero identity card */}
-      <div className="relative border border-white/10 bg-zinc-950 p-6">
+      <div className="relative border border-white/10 bg-zinc-950 p-6 rounded-xl">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
         <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
         <div className="flex items-start justify-between">
@@ -66,13 +66,22 @@ export default function DashboardPage() {
               <span className="text-zinc-400">{losses}L</span>
             </p>
           </div>
-          <Link
-            href="/battle"
-            className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-          >
-            <Swords className="size-3.5" />
-            Battle
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/spin"
+              className="flex items-center gap-1.5 border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 px-3 py-1.5 text-xs font-black uppercase tracking-wide rounded-lg hover:bg-cyan-500/20 transition-colors"
+            >
+              <Atom className="size-3.5" />
+              Spin
+            </Link>
+            <Link
+              href="/battle"
+              className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all rounded-lg"
+            >
+              <Swords className="size-3.5" />
+              Battle
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -86,7 +95,7 @@ export default function DashboardPage() {
 
       {/* Recent battles */}
       {matches.length > 0 && userId && (
-        <div className="border border-white/10 bg-zinc-950">
+        <div className="border border-white/10 bg-zinc-950 rounded-xl">
           <div className="border-b border-white/10 px-5 py-4">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Recent Battles</h2>
           </div>
@@ -116,7 +125,7 @@ export default function DashboardPage() {
       )}
 
       {matches.length === 0 && (
-        <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center">
+        <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center rounded-xl">
           <Swords className="mx-auto mb-3 size-8 text-zinc-700" />
           <p className="text-sm text-zinc-500 uppercase tracking-widest">No battles yet.</p>
           <Link href="/battle" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
