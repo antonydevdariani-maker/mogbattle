@@ -628,6 +628,7 @@ export function ArenaClient({
             score={isP1 ? oppScore : myScore}
             isSearching={isQueued && !queueTimedOut}
             queueTimedOut={queueTimedOut}
+            isFreeMode={isFreeMode}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -666,6 +667,7 @@ export function ArenaClient({
             isSearching={false}
             queueTimedOut={queueTimedOut}
             pslBadge={myPsl}
+            isFreeMode={isFreeMode}
           />
 
           {/* Ready button during live */}
@@ -1333,6 +1335,7 @@ function PlayerPanel({
   isSearching = false,
   queueTimedOut = false,
   pslBadge = null,
+  isFreeMode = false,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1348,6 +1351,7 @@ function PlayerPanel({
   isSearching?: boolean;
   queueTimedOut?: boolean;
   pslBadge?: number | null;
+  isFreeMode?: boolean;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
@@ -1420,7 +1424,7 @@ function PlayerPanel({
                 {heroValue || (isYou ? "0" : "—")}
               </span>
               {(phase === "queued" || phase === "negotiating" || !!displayOffer) && (
-                <span className={`text-sm font-black uppercase ${accentCss.text} opacity-50`}>MC</span>
+                <span className={`text-sm font-black uppercase ${accentCss.text} opacity-50`}>{isFreeMode ? "mol" : "MC"}</span>
               )}
             </motion.div>
           </AnimatePresence>
