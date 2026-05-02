@@ -229,6 +229,29 @@ export async function loadWalletData(accessToken: string) {
   };
 }
 
+/** Read-only check — returns existing active match without attempting to pair. Used on page load. */
+export async function checkArenaState(accessToken: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: activeMatch } = await supabase
+    .from("matches")
+    .select("*")
+    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+    .in("status", ["waiting", "matched", "live"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const opponentId =
+    activeMatch?.player1_id === userId ? activeMatch.player2_id : activeMatch?.player1_id;
+  let opponentName: string | null = null;
+  if (opponentId) {
+    const { data: opp } = await supabase.from("profiles").select("username").eq("user_id", opponentId).maybeSingle();
+    opponentName = opp?.username ?? null;
+  }
+  return { activeMatch, opponentName, userId };
+}
+
 export async function loadBattleQueueState(accessToken: string) {
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
@@ -542,11 +565,15 @@ export async function queueForBattle(accessToken: string) {
         negotiation_deadline: deadline,
       })
       .eq("id", waitingMatch.id)
+      .is("player2_id", null) // guard: prevent double-claim race condition
       .select("id")
-      .single();
-    revalidatePath("/battle");
-    revalidatePath("/arena");
-    return { matchId: matched?.id, state: "found" as const };
+      .maybeSingle();
+    if (matched?.id) {
+      revalidatePath("/battle");
+      revalidatePath("/arena");
+      return { matchId: matched.id, state: "found" as const };
+    }
+    // Race lost — fall through and create own waiting row
   }
 
   const { data: created } = await supabase
@@ -675,10 +702,14 @@ export async function queueForFreeMatch(accessToken: string) {
       .from("matches")
       .update({ player2_id: userId, status: "matched", negotiation_deadline: deadline })
       .eq("id", waitingMatch.id)
+      .is("player2_id", null) // guard: prevent double-claim race condition
       .select("id")
-      .single();
-    revalidatePath("/arena");
-    return { matchId: matched?.id, state: "found" as const };
+      .maybeSingle();
+    if (matched?.id) {
+      revalidatePath("/arena");
+      return { matchId: matched.id, state: "found" as const };
+    }
+    // Race lost — fall through and create own waiting row
   }
 
   const { data: created } = await supabase
@@ -997,6 +1028,28 @@ export async function finalizeMatchResult(
   revalidatePath(`/match/${args.matchId}`);
 }
 
+
+export async function buildFaceReportPaymentTx(
+  accessToken: string,
+  { ownerAddress }: { ownerAddress: string }
+): Promise<{ transactionBase64: string }> {
+  await requirePrivyUser(accessToken);
+  const { buildFacePaymentTxBytes } = await import("@/lib/solana/build-face-payment-tx");
+  const { PublicKey, Connection } = await import("@solana/web3.js");
+  const connection = new Connection(process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com", "confirmed");
+  const owner = new PublicKey(ownerAddress);
+  const bytes = await buildFacePaymentTxBytes({ owner, connection });
+  return { transactionBase64: Buffer.from(bytes).toString("base64") };
+}
+
+export async function verifyFaceReportPayment(
+  accessToken: string,
+  { txSignature }: { txSignature: string }
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  await requirePrivyUser(accessToken);
+  const { verifyFacePaymentTransaction } = await import("@/lib/solana/verify-face-payment-tx");
+  return verifyFacePaymentTransaction(txSignature);
+}
 
 export async function buildDepositTransaction(
   accessToken: string,

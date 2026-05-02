@@ -97,7 +97,11 @@ export function useAgoraVideo({
 
     async function join() {
       try {
-        await client.join(APP_ID, channelName, null, uid);
+        const res = await fetch(`/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${uid}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(`Token fetch failed: ${json.error}`);
+        const token: string = json.token;
+        await client.join(APP_ID, channelName, token, uid);
         const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
         if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
         setJoined(true);

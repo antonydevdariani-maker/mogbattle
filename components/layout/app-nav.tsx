@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   Shield,
   FlaskConical,
+  Scan,
   Atom,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/spin", label: "Spin", icon: Atom },
   { href: "/arena", label: "Arena", icon: Shield },
+  { href: "/face-report", label: "Report", icon: Scan },
   { href: "/admin", label: "Admin", icon: FlaskConical },
 ];
 

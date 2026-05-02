@@ -751,116 +751,174 @@ function IdleScreen({
 }) {
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const idleStreamRef = useRef<MediaStream | null>(null);
+  const [camOn, setCamOn] = useState(false);
+  const [camError, setCamError] = useState<string | null>(null);
 
+  // Camera only starts when user explicitly enables it — not on page load
   useEffect(() => {
+    if (!camOn) return;
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } })
+      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } })
       .then((stream) => {
         idleStreamRef.current = stream;
         if (idleVideoRef.current) idleVideoRef.current.srcObject = stream;
+        setCamError(null);
       })
-      .catch(() => {});
+      .catch(() => {
+        setCamOn(false);
+        setCamError("Camera access denied.");
+      });
     return () => {
       idleStreamRef.current?.getTracks().forEach((t) => t.stop());
+      idleStreamRef.current = null;
     };
-  }, []);
+  }, [camOn]);
+
+  function validateAndQueue() {
+    if (!camOn) {
+      setCamError("Enable your camera first.");
+      return;
+    }
+    const video = idleVideoRef.current;
+    const stream = idleStreamRef.current;
+
+    if (!stream || stream.getTracks().every((t) => t.readyState === "ended")) {
+      setCamError("Camera disconnected.");
+      return;
+    }
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setCamError("Camera not ready yet — wait a moment.");
+      return;
+    }
+
+    try {
+      const tmp = document.createElement("canvas");
+      tmp.width = 16; tmp.height = 16;
+      const ctx = tmp.getContext("2d")!;
+      ctx.drawImage(video, 0, 0, 16, 16);
+      const data = ctx.getImageData(0, 0, 16, 16).data;
+      let total = 0;
+      for (let i = 0; i < data.length; i += 4) total += data[i] + data[i + 1] + data[i + 2];
+      if (total / (data.length / 4 * 3) < 8) {
+        setCamError("Black screen detected — check lighting or camera.");
+        return;
+      }
+    } catch { /* cross-origin, allow through */ }
+
+    setCamError(null);
+    onQueue();
+  }
+
+  const accentColor = isFreeMode ? "cyan" : "fuchsia";
 
   return (
-    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-4 px-4">
-      {/* Neon title */}
+    <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-6 px-4 py-8">
+      {/* Title */}
       <div className="text-center space-y-1">
         <h1
-          className="text-5xl md:text-7xl font-black uppercase text-white leading-none"
-          style={{
-            textShadow: "0 0 40px rgba(168,85,247,0.8)",
-            fontFamily: "var(--font-ibm-plex-mono)",
-          }}
+          className="text-4xl md:text-6xl font-black uppercase text-white leading-none"
+          style={{ textShadow: "0 0 40px rgba(168,85,247,0.8)", fontFamily: "var(--font-ibm-plex-mono)" }}
         >
           ENTER <span className="text-fuchsia-400">ARENA</span>
         </h1>
-        <p className="text-zinc-600 text-xs uppercase tracking-widest">
-          1v1 · Bet · Mog or be mogged
-        </p>
+        <p className="text-zinc-600 text-xs uppercase tracking-widest">1v1 · face-off · bet your balance</p>
       </div>
 
-      {/* Self cam preview */}
-      <div className="relative w-36 h-28 sm:w-52 sm:h-40 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
-        <video
-          ref={idleVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover scale-x-[-1]"
-        />
-        <div className="absolute inset-0 border-2 border-fuchsia-500/20 pointer-events-none" />
-        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 px-2 py-0.5">
-          <motion.span
-            className="size-1.5 rounded-full bg-red-500"
-            animate={{ opacity: [1, 0, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
-          <span className="text-[10px] font-mono text-red-400 font-bold uppercase">You</span>
-        </div>
-      </div>
-
-      {/* Mode selector */}
-      <div className="w-full max-w-xs space-y-1.5">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-bold">Mode</p>
-        <div className="grid grid-cols-2 gap-2">
+      {/* Step 1 — Pick currency */}
+      <div className="w-full max-w-sm space-y-2">
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 1 — Choose currency</p>
+        <div className="grid grid-cols-2 gap-3">
+          {/* MOG Coins */}
           <button
             onClick={() => onModeChange(false)}
-            className={`relative flex flex-col items-center gap-1.5 border-2 px-3 py-3 transition-all ${!isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-5 transition-all ${
+              !isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
+            }`}
           >
-            {!isFreeMode && <div className="absolute top-1 right-1 size-1.5 rounded-full bg-fuchsia-400" />}
-            <Zap className={`size-5 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
-            <p className={`text-xs font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>Gold</p>
-            <p className={`text-[10px] ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
+            {!isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-fuchsia-400" />}
+            <Zap className={`size-7 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
+            <p className={`text-sm font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>MOG Coins</p>
+            <p className={`text-[11px] font-mono ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
+            {!isFreeMode && balance < 1 && (
+              <a href="/wallet" className="text-[10px] text-red-400 underline">Deposit →</a>
+            )}
           </button>
+
+          {/* Molecules */}
           <button
             onClick={() => onModeChange(true)}
-            className={`relative flex flex-col items-center gap-1.5 border-2 px-3 py-3 transition-all ${isFreeMode ? "border-cyan-500 bg-cyan-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"}`}
+            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-5 transition-all ${
+              isFreeMode ? "border-cyan-500 bg-cyan-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
+            }`}
           >
-            {isFreeMode && <div className="absolute top-1 right-1 size-1.5 rounded-full bg-cyan-400" />}
-            <Atom className={`size-5 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
-            <p className={`text-xs font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Free</p>
-            <p className={`text-[10px] ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
+            {isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-cyan-400" />}
+            <Atom className={`size-7 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
+            <p className={`text-sm font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Molecules</p>
+            <p className={`text-[11px] font-mono ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
+            {isFreeMode && molecules < 1 && (
+              <a href="/spin" className="text-[10px] text-cyan-400 underline">Spin to earn →</a>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Enter button */}
-      <motion.button
-        onClick={onQueue}
-        disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1)}
-        whileTap={{ scale: 0.97 }}
-        className={`group relative flex items-center justify-center gap-3 w-full max-w-xs sm:w-72 h-16 sm:h-16 font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 ${isFreeMode ? "bg-cyan-500 text-black" : "bg-fuchsia-500 text-black"}`}
-      >
-        {isPending ? (
-          <><Loader2 className="size-5 animate-spin" /> Connecting…</>
-        ) : (
-          <><Swords className="size-5" /> {isFreeMode ? "Free Fight" : "Fight"}</>
+      {/* Step 2 — Camera */}
+      <div className="w-full max-w-sm space-y-2">
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Enable camera</p>
+        <div className={`relative w-full h-44 border-2 overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50") : "border-white/10"}`}>
+          {camOn ? (
+            <>
+              <video ref={idleVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 px-2 py-0.5">
+                <motion.span className="size-1.5 rounded-full bg-red-500" animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+                <span className="text-[10px] font-mono text-red-400 font-bold uppercase">Live</span>
+              </div>
+            </>
+          ) : (
+            <button
+              onClick={() => setCamOn(true)}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors group"
+            >
+              <div className={`size-12 border flex items-center justify-center transition-colors ${accentColor === "cyan" ? "border-cyan-500/40 group-hover:border-cyan-400" : "border-fuchsia-500/40 group-hover:border-fuchsia-400"}`}>
+                <Swords className={`size-5 transition-colors ${accentColor === "cyan" ? "text-cyan-500/60 group-hover:text-cyan-400" : "text-fuchsia-500/60 group-hover:text-fuchsia-400"}`} />
+              </div>
+              <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${accentColor === "cyan" ? "text-zinc-600 group-hover:text-cyan-400" : "text-zinc-600 group-hover:text-fuchsia-400"}`}>
+                Tap to enable camera
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Fight button */}
+      <div className="w-full max-w-sm space-y-2">
+        <motion.button
+          onClick={validateAndQueue}
+          disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1)}
+          whileTap={{ scale: 0.97 }}
+          className={`w-full h-14 font-black text-base uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+            isFreeMode
+              ? "bg-cyan-500 text-black hover:bg-cyan-400"
+              : "bg-fuchsia-500 text-black hover:bg-fuchsia-400"
+          }`}
+        >
+          {isPending ? (
+            <><Loader2 className="size-5 animate-spin" /> Finding opponent…</>
+          ) : (
+            <><Swords className="size-5" /> Fight ({isFreeMode ? "Molecules" : "MOG Coins"})</>
+          )}
+        </motion.button>
+
+        {camError && (
+          <p className="text-xs text-red-400 font-bold uppercase tracking-widest text-center">{camError}</p>
         )}
-      </motion.button>
+      </div>
 
-      {!isFreeMode && balance < 1 && (
-        <p className="text-xs text-red-400 uppercase tracking-widest">
-          Need Mog Coins to enter →{" "}
-          <a href="/wallet" className="underline text-red-300">Deposit</a>
-        </p>
-      )}
-      {isFreeMode && molecules < 1 && (
-        <p className="text-xs text-cyan-400 uppercase tracking-widest">
-          Need molecules →{" "}
-          <a href="/spin" className="underline text-cyan-300">Spin to earn</a>
-        </p>
-      )}
-
-      {/* Aesthetic grid lines */}
+      {/* Grid bg */}
       <div
         className="pointer-events-none fixed inset-0 -z-10 opacity-[0.04]"
         style={{
-          backgroundImage:
-            "linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px)",
           backgroundSize: "60px 60px",
         }}
       />
@@ -1334,7 +1392,7 @@ function PlayerPanel({
 
   return (
     <div
-      className={`relative flex h-full min-h-[15rem] flex-col border-2 md:h-[20rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+      className={`relative flex h-full min-h-[18rem] flex-col border-2 md:h-[26rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
     >
       {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (
@@ -1380,7 +1438,7 @@ function PlayerPanel({
         </div>
       )}
 
-      <div className="relative min-h-[8rem] flex-1 bg-zinc-950 md:min-h-[9rem]">
+      <div className="relative min-h-[10rem] flex-1 bg-zinc-950 md:min-h-[12rem]">
         <div
           ref={videoRef}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}

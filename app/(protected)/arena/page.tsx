@@ -2,7 +2,7 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { useCallback, useEffect, useState } from "react";
-import { loadBattleQueueState, loadProfileSummary } from "@/app/actions";
+import { checkArenaState, loadProfileSummary } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { ArenaClient } from "@/components/arena/arena-client";
 
@@ -23,7 +23,7 @@ export default function ArenaPage() {
     const token = await getAccessToken();
     if (!token) return;
     const [state, profile] = await Promise.all([
-      loadBattleQueueState(token),
+      checkArenaState(token),
       loadProfileSummary(token),
     ]);
     setActiveMatch(state.activeMatch as MatchRow | null);
