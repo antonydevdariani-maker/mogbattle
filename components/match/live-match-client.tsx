@@ -165,15 +165,17 @@ export function LiveMatchClient({
     const myFrame = localVideoRef.current?.captureFrame() ?? null;
     const oppFrame = isTest ? myFrame : (remoteVideoRef.current?.captureFrame() ?? null);
 
-    const [myResultPromise, oppResultPromise] = [
-      myFrame ? judgeFace(myFrame) : Promise.resolve(null),
-      oppFrame ? judgeFace(oppFrame) : Promise.resolve(null),
-    ];
-
-    // Initialize partial PSL to a neutral starting value
-    const initPsl = () => Number((4.8 + Math.random() * 0.8).toFixed(2));
-    setMyPartialPsl(initPsl());
-    setOppPartialPsl(initPsl());
+    // Capture AI results into refs as soon as they land (before metric loop ends)
+    let resolvedMyPsl: number | null = null;
+    let resolvedOppPsl: number | null = null;
+    const myResultPromise = (myFrame ? judgeFace(myFrame) : Promise.resolve(null)).then((r) => {
+      resolvedMyPsl = r?.psl ?? null;
+      return r;
+    });
+    const oppResultPromise = (oppFrame ? judgeFace(oppFrame) : Promise.resolve(null)).then((r) => {
+      resolvedOppPsl = r?.psl ?? null;
+      return r;
+    });
 
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
@@ -183,10 +185,19 @@ export function LiveMatchClient({
       scores.push(ms);
       setMetricScores([...scores]);
       setRevealedMetrics((prev) => [...prev, i]);
-      // Nudge displayed PSL by tiny realistic delta (±0.1 max, slightly positive bias)
-      const nudge = () => Number((Math.random() * 0.18 - 0.06).toFixed(2));
-      setMyPartialPsl((prev) => prev === null ? initPsl() : Number(Math.max(1, Math.min(9.9, prev + nudge())).toFixed(2)));
-      setOppPartialPsl((prev) => prev === null ? initPsl() : Number(Math.max(1, Math.min(9.9, prev + nudge())).toFixed(2)));
+
+      // Drift toward real AI PSL when known; otherwise tiny random walk
+      const driftToward = (prev: number | null, target: number | null): number => {
+        const fallback = target ?? 5.0;
+        const base = prev ?? fallback;
+        // Pull 15-25% of gap toward target, plus small noise
+        const gap = fallback - base;
+        const pull = gap * (0.15 + Math.random() * 0.10);
+        const noise = (Math.random() * 0.12 - 0.06);
+        return Number(Math.max(1, Math.min(9.9, base + pull + noise)).toFixed(2));
+      };
+      setMyPartialPsl((prev) => driftToward(prev, resolvedMyPsl));
+      setOppPartialPsl((prev) => driftToward(prev, resolvedOppPsl));
     }
 
     const [myResult, oppResult] = await Promise.all([myResultPromise, oppResultPromise]);
