@@ -67,7 +67,9 @@ export default function AdminPage() {
 
   async function startCam() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+      });
       streamRef.current = stream;
       setCamActive(true);
       setPreview(null);
@@ -201,7 +203,7 @@ export default function AdminPage() {
         {camActive && (
           <div className="space-y-3">
             <div className="relative aspect-[4/3] w-full overflow-hidden border border-white/10 bg-zinc-950">
-              <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+              <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover scale-x-[-1]" />
               <div className="absolute inset-0 border-4 border-fuchsia-500/20 pointer-events-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
