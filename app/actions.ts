@@ -542,11 +542,15 @@ export async function queueForBattle(accessToken: string) {
         negotiation_deadline: deadline,
       })
       .eq("id", waitingMatch.id)
+      .is("player2_id", null) // guard: prevent double-claim race condition
       .select("id")
-      .single();
-    revalidatePath("/battle");
-    revalidatePath("/arena");
-    return { matchId: matched?.id, state: "found" as const };
+      .maybeSingle();
+    if (matched?.id) {
+      revalidatePath("/battle");
+      revalidatePath("/arena");
+      return { matchId: matched.id, state: "found" as const };
+    }
+    // Race lost — fall through and create own waiting row
   }
 
   const { data: created } = await supabase
@@ -675,10 +679,14 @@ export async function queueForFreeMatch(accessToken: string) {
       .from("matches")
       .update({ player2_id: userId, status: "matched", negotiation_deadline: deadline })
       .eq("id", waitingMatch.id)
+      .is("player2_id", null) // guard: prevent double-claim race condition
       .select("id")
-      .single();
-    revalidatePath("/arena");
-    return { matchId: matched?.id, state: "found" as const };
+      .maybeSingle();
+    if (matched?.id) {
+      revalidatePath("/arena");
+      return { matchId: matched.id, state: "found" as const };
+    }
+    // Race lost — fall through and create own waiting row
   }
 
   const { data: created } = await supabase
