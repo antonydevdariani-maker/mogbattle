@@ -32,8 +32,16 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
       await ensureProfile(token, { walletAddress: wallet, username });
       const profile = await loadProfileSummary(token);
       setCredits(profile?.total_credits ?? 0);
+
+      // Gate: unverified users must complete liveness check before anything else
+      if (pathname !== "/verify") {
+        const verified = localStorage.getItem(`mogbattle_verified_${user.id}`);
+        if (!verified) {
+          router.replace("/verify");
+        }
+      }
     })();
-  }, [ready, authenticated, user, user?.wallet?.address, user?.id, getAccessToken]);
+  }, [ready, authenticated, user, user?.wallet?.address, user?.id, getAccessToken, pathname, router]);
 
   if (!ready || !authenticated) {
     return (
@@ -51,7 +59,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
     <ArenaMatchLeaveProvider>
       <AppNav />
       <WalletSetupHud show={showHud} />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">{children}</div>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6" style={{ overflowX: "clip" }}>{children}</div>
     </ArenaMatchLeaveProvider>
   );
 }

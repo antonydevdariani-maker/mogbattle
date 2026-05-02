@@ -751,19 +751,63 @@ function IdleScreen({
 }) {
   const idleVideoRef = useRef<HTMLVideoElement>(null);
   const idleStreamRef = useRef<MediaStream | null>(null);
+  const [camOn, setCamOn] = useState(false);
+  const [camError, setCamError] = useState<string | null>(null);
 
+  // Camera only starts when user explicitly enables it — not on page load
   useEffect(() => {
+    if (!camOn) return;
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } })
+      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } })
       .then((stream) => {
         idleStreamRef.current = stream;
         if (idleVideoRef.current) idleVideoRef.current.srcObject = stream;
+        setCamError(null);
       })
-      .catch(() => {});
+      .catch(() => {
+        setCamOn(false);
+        setCamError("Camera access denied.");
+      });
     return () => {
       idleStreamRef.current?.getTracks().forEach((t) => t.stop());
+      idleStreamRef.current = null;
     };
-  }, []);
+  }, [camOn]);
+
+  function validateAndQueue() {
+    if (!camOn) {
+      setCamError("Enable your camera first.");
+      return;
+    }
+    const video = idleVideoRef.current;
+    const stream = idleStreamRef.current;
+
+    if (!stream || stream.getTracks().every((t) => t.readyState === "ended")) {
+      setCamError("Camera disconnected.");
+      return;
+    }
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      setCamError("Camera not ready yet — wait a moment.");
+      return;
+    }
+
+    try {
+      const tmp = document.createElement("canvas");
+      tmp.width = 16; tmp.height = 16;
+      const ctx = tmp.getContext("2d")!;
+      ctx.drawImage(video, 0, 0, 16, 16);
+      const data = ctx.getImageData(0, 0, 16, 16).data;
+      let total = 0;
+      for (let i = 0; i < data.length; i += 4) total += data[i] + data[i + 1] + data[i + 2];
+      if (total / (data.length / 4 * 3) < 8) {
+        setCamError("Black screen detected — check lighting or camera.");
+        return;
+      }
+    } catch { /* cross-origin, allow through */ }
+
+    setCamError(null);
+    onQueue();
+  }
 
   return (
     <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-4 px-4">
@@ -784,23 +828,26 @@ function IdleScreen({
       </div>
 
       {/* Self cam preview */}
-      <div className="relative w-36 h-28 sm:w-52 sm:h-40 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
-        <video
-          ref={idleVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover scale-x-[-1]"
-        />
-        <div className="absolute inset-0 border-2 border-fuchsia-500/20 pointer-events-none" />
-        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 px-2 py-0.5">
-          <motion.span
-            className="size-1.5 rounded-full bg-red-500"
-            animate={{ opacity: [1, 0, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
-          <span className="text-[10px] font-mono text-red-400 font-bold uppercase">You</span>
-        </div>
+      <div className="relative w-36 h-48 sm:w-44 sm:h-60 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
+        {camOn ? (
+          <>
+            <video ref={idleVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 px-2 py-0.5">
+              <motion.span className="size-1.5 rounded-full bg-red-500" animate={{ opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+              <span className="text-[10px] font-mono text-red-400 font-bold uppercase">Live</span>
+            </div>
+          </>
+        ) : (
+          <button
+            onClick={() => setCamOn(true)}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-fuchsia-500/5 transition-colors group"
+          >
+            <div className="size-10 border border-fuchsia-500/40 flex items-center justify-center group-hover:border-fuchsia-400 transition-colors">
+              <Swords className="size-4 text-fuchsia-500/60 group-hover:text-fuchsia-400" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 group-hover:text-fuchsia-400 transition-colors">Enable Camera</span>
+          </button>
+        )}
       </div>
 
       {/* Mode selector */}
@@ -830,8 +877,8 @@ function IdleScreen({
 
       {/* Enter button */}
       <motion.button
-        onClick={onQueue}
-        disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1)}
+        onClick={validateAndQueue}
+        disabled={isPending || (!isFreeMode && balance < 1) || (isFreeMode && molecules < 1) || !!camError}
         whileTap={{ scale: 0.97 }}
         className={`group relative flex items-center justify-center gap-3 w-full max-w-xs sm:w-72 h-16 sm:h-16 font-black text-lg uppercase tracking-widest shadow-[6px_6px_0_#fff] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 ${isFreeMode ? "bg-cyan-500 text-black" : "bg-fuchsia-500 text-black"}`}
       >
@@ -841,6 +888,10 @@ function IdleScreen({
           <><Swords className="size-5" /> {isFreeMode ? "Free Fight" : "Fight"}</>
         )}
       </motion.button>
+
+      {camError && (
+        <p className="text-xs text-red-400 font-bold uppercase tracking-widest text-center max-w-xs">{camError}</p>
+      )}
 
       {!isFreeMode && balance < 1 && (
         <p className="text-xs text-red-400 uppercase tracking-widest">
@@ -1334,7 +1385,7 @@ function PlayerPanel({
 
   return (
     <div
-      className={`relative flex h-full min-h-[15rem] flex-col border-2 md:h-[20rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+      className={`relative flex h-full min-h-[18rem] flex-col border-2 md:h-[26rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
     >
       {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (
@@ -1380,7 +1431,7 @@ function PlayerPanel({
         </div>
       )}
 
-      <div className="relative min-h-[8rem] flex-1 bg-zinc-950 md:min-h-[9rem]">
+      <div className="relative min-h-[10rem] flex-1 bg-zinc-950 md:min-h-[12rem]">
         <div
           ref={videoRef}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}

@@ -4,42 +4,37 @@ import { useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { claimDailySpin, loadSpinData } from "@/app/actions";
-import { Atom, Timer, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Atom, Timer } from "lucide-react";
 
 const PRIZES = [50, 75, 100, 125, 150, 200, 250, 500];
-const SEGMENT_COLORS = [
-  "#a855f7", "#06b6d4", "#ec4899", "#f59e0b",
-  "#10b981", "#6366f1", "#ef4444", "#fbbf24",
-];
-
 const TOTAL = 360;
 const SEG = TOTAL / PRIZES.length; // 45deg each
 
-function WheelCanvas({ rotation, size = 280 }: { rotation: number; size?: number }) {
+function WheelCanvas({ rotation, size = 260 }: { rotation: number; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    const size = canvas.width;
-    const cx = size / 2;
-    const r = cx - 4;
-    ctx.clearRect(0, 0, size, size);
+    const sz = canvas.width;
+    const cx = sz / 2;
+    const r = cx - 2;
+    ctx.clearRect(0, 0, sz, sz);
 
     PRIZES.forEach((prize, i) => {
       const startAngle = (i * SEG - 90) * (Math.PI / 180);
       const endAngle = ((i + 1) * SEG - 90) * (Math.PI / 180);
+      const isAlt = i % 2 === 0;
 
       ctx.beginPath();
       ctx.moveTo(cx, cx);
       ctx.arc(cx, cx, r, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = SEGMENT_COLORS[i];
+      ctx.fillStyle = isAlt ? "#0d0d0d" : "#141414";
       ctx.fill();
-      ctx.strokeStyle = "#000";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#2a2a2a";
+      ctx.lineWidth = 1;
       ctx.stroke();
 
       // Label
@@ -47,22 +42,24 @@ function WheelCanvas({ rotation, size = 280 }: { rotation: number; size?: number
       ctx.translate(cx, cx);
       ctx.rotate((startAngle + endAngle) / 2);
       ctx.textAlign = "right";
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 13px monospace";
-      ctx.shadowColor = "rgba(0,0,0,0.8)";
-      ctx.shadowBlur = 4;
-      ctx.fillText(`${prize}`, r - 8, 5);
+      ctx.fillStyle = prize === 500 ? "#d946ef" : "#ffffff";
+      ctx.font = `bold ${prize >= 200 ? "12px" : "13px"} monospace`;
+      ctx.fillText(`${prize}`, r - 10, 5);
       ctx.restore();
     });
 
-    // Center circle
+    // Outer ring
     ctx.beginPath();
-    ctx.arc(cx, cx, 18, 0, Math.PI * 2);
-    ctx.fillStyle = "#000";
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
+    ctx.arc(cx, cx, r, 0, Math.PI * 2);
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cx, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#d946ef";
+    ctx.fill();
   }, []);
 
   return (
@@ -124,17 +121,22 @@ export function SpinClient() {
     setError(null);
     setPrize(null);
 
-    // Animate first — server will validate timing
-    const spinAmount = 1800 + Math.random() * 1440; // 5-9 full rotations
-    totalRotation.current += spinAmount;
-    setRotation(totalRotation.current);
-
-    await new Promise((r) => setTimeout(r, 4200)); // wait for animation
-
     try {
       const token = await getAccessToken();
       if (!token) throw new Error("Not authenticated");
+
+      // Claim prize first so wheel lands on the actual winning segment
       const result = await claimDailySpin(token);
+
+      const prizeIndex = PRIZES.indexOf(result.prize);
+      const targetDeg = (prizeIndex + 0.5) * SEG;
+      const currentMod = ((totalRotation.current % 360) + 360) % 360;
+      const diff = ((targetDeg - currentMod) + 360) % 360;
+      totalRotation.current += 1800 + diff; // 5 full rotations + land on prize
+      setRotation(totalRotation.current);
+
+      await new Promise((r) => setTimeout(r, 4200));
+
       setPrize(result.prize);
       setMolecules(result.newMolecules);
       setCanSpin(false);

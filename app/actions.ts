@@ -998,6 +998,28 @@ export async function finalizeMatchResult(
 }
 
 
+export async function buildFaceReportPaymentTx(
+  accessToken: string,
+  { ownerAddress }: { ownerAddress: string }
+): Promise<{ transactionBase64: string }> {
+  await requirePrivyUser(accessToken);
+  const { buildFacePaymentTxBytes } = await import("@/lib/solana/build-face-payment-tx");
+  const { PublicKey, Connection } = await import("@solana/web3.js");
+  const connection = new Connection(process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com", "confirmed");
+  const owner = new PublicKey(ownerAddress);
+  const bytes = await buildFacePaymentTxBytes({ owner, connection });
+  return { transactionBase64: Buffer.from(bytes).toString("base64") };
+}
+
+export async function verifyFaceReportPayment(
+  accessToken: string,
+  { txSignature }: { txSignature: string }
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  await requirePrivyUser(accessToken);
+  const { verifyFacePaymentTransaction } = await import("@/lib/solana/verify-face-payment-tx");
+  return verifyFacePaymentTransaction(txSignature);
+}
+
 export async function buildDepositTransaction(
   accessToken: string,
   { grossUsdc, ownerAddress }: { grossUsdc: number; ownerAddress: string }
