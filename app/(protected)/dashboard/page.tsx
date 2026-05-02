@@ -75,7 +75,7 @@ export default function DashboardPage() {
               Spin
             </Link>
             <Link
-              href="/battle"
+              href="/arena"
               className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all rounded-lg"
             >
               <Swords className="size-3.5" />
@@ -128,7 +128,7 @@ export default function DashboardPage() {
         <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center rounded-xl">
           <Swords className="mx-auto mb-3 size-8 text-zinc-700" />
           <p className="text-sm text-zinc-500 uppercase tracking-widest">No battles yet.</p>
-          <Link href="/battle" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
+          <Link href="/arena" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
             Enter the pit →
           </Link>
         </div>
