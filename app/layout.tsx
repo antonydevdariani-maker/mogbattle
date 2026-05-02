@@ -47,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark h-full antialiased`}
+      className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark min-h-full antialiased`}
     >
       <body className="min-h-full flex flex-col pb-safe">
         <MogBattlePrivyProvider>{children}</MogBattlePrivyProvider>

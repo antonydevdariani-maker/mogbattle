@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import AgoraRTC, {
   type IAgoraRTCClient,
   type ICameraVideoTrack,
@@ -140,7 +141,8 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}>(function LocalVideoBox({ track, label, accentColor, overlay }, ref) {
+  showFaceMesh?: boolean;
+}>(function LocalVideoBox({ track, label, accentColor, overlay, showFaceMesh }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -154,7 +156,7 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} />
   );
 });
 
@@ -163,7 +165,8 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}>(function RemoteVideoBox({ track, label, accentColor, overlay }, ref) {
+  showFaceMesh?: boolean;
+}>(function RemoteVideoBox({ track, label, accentColor, overlay, showFaceMesh }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -177,7 +180,7 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} />
   );
 });
 
@@ -199,12 +202,16 @@ function VideoShell({
   accentColor,
   hasTrack,
   overlay,
+  showFaceMesh,
+  mirrored,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   label: string;
   accentColor: "fuchsia" | "red";
   hasTrack: boolean;
   overlay?: React.ReactNode;
+  showFaceMesh?: boolean;
+  mirrored?: boolean;
 }) {
   const borderClass = hasTrack
     ? accentColor === "fuchsia"
@@ -217,6 +224,15 @@ function VideoShell({
       <div className="relative aspect-video bg-zinc-950 overflow-hidden">
         {/* Agora renders video into this div */}
         <div ref={containerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
+
+        {/* Face mesh overlay */}
+        {showFaceMesh && hasTrack && (
+          <FaceMeshCanvas
+            containerRef={containerRef}
+            color={accentColor === "fuchsia" ? "#d946ef" : "#f87171"}
+            mirrored={mirrored}
+          />
+        )}
 
         {/* Placeholder when no track */}
         {!hasTrack && (

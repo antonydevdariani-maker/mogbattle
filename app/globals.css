@@ -285,9 +285,14 @@
   padding-right: env(safe-area-inset-right);
 }
 
-/* Prevent iOS bounce/overscroll on body */
-html, body {
-  overscroll-behavior: none;
+/* Scroll layout */
+html {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+body {
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
   max-width: 100vw;

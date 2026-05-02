@@ -233,6 +233,7 @@ export function LiveMatchClient({
             track={localVideoTrack}
             label="YOU"
             accentColor="fuchsia"
+            showFaceMesh
           />
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
@@ -270,6 +271,7 @@ export function LiveMatchClient({
             track={remoteVideoTrack}
             label="OPPONENT"
             accentColor="red"
+            showFaceMesh
           />
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">

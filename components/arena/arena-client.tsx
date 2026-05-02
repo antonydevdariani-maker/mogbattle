@@ -17,6 +17,7 @@ import {
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { useAgoraVideo } from "@/components/match/agora-video";
+import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import type { Database } from "@/lib/types/database";
 import {
   useArenaMatchLeaveSetters,
@@ -586,7 +587,8 @@ export function ArenaClient({
       {!queueTimedOut && phase === "queued" && (
         <CompactYourBetStrip
           myOffer={myOfferStr}
-          balance={balance}
+          balance={isFreeMode ? molecules : balance}
+          isFreeMode={isFreeMode}
           onOfferChange={onOfferChange}
           onQuickBet={setQuickBet}
           onMaxBet={setMaxBet}
@@ -599,7 +601,8 @@ export function ArenaClient({
           match={match}
           timeLeft={timeLeft}
           myOffer={myOfferStr}
-          balance={balance}
+          balance={isFreeMode ? molecules : balance}
+          isFreeMode={isFreeMode}
           onOfferChange={onOfferChange}
           onQuickBet={setQuickBet}
           onMaxBet={setMaxBet}
@@ -929,6 +932,7 @@ function ArenaTopBar({
 function CompactYourBetStrip({
   myOffer,
   balance,
+  isFreeMode,
   onOfferChange,
   onQuickBet,
   onMaxBet,
@@ -936,6 +940,7 @@ function CompactYourBetStrip({
 }: {
   myOffer: string;
   balance: number;
+  isFreeMode: boolean;
   onOfferChange: (val: string) => void;
   onQuickBet: (n: number) => void;
   onMaxBet: () => void;
@@ -943,15 +948,17 @@ function CompactYourBetStrip({
 }) {
   const myNum = parseInt(displayMyOffer, 10) || 0;
   const overBalance = myNum > balance;
+  const unit = isFreeMode ? "mol" : "MC";
+  const accent = isFreeMode ? "fuchsia" : "fuchsia";
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className="relative z-10 mx-auto flex w-full max-w-md flex-col items-stretch gap-2 px-3 py-3 sm:max-w-lg"
     >
-      <div className="border border-fuchsia-500/35 bg-black/90 px-3 py-2.5 shadow-[0_0_24px_rgba(168,85,247,0.12)]">
+      <div className={`border bg-black/90 px-3 py-2.5 shadow-[0_0_24px_rgba(168,85,247,0.12)] ${isFreeMode ? "border-cyan-500/35" : "border-fuchsia-500/35"}`}>
         <p
-          className="text-center text-[11px] font-black uppercase tracking-[0.35em] text-fuchsia-300"
+          className={`text-center text-[11px] font-black uppercase tracking-[0.35em] ${isFreeMode ? "text-cyan-300" : "text-fuchsia-300"}`}
           style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
         >
           Your bet
@@ -960,23 +967,23 @@ function CompactYourBetStrip({
           className="text-center text-xl font-black tabular-nums text-white sm:text-2xl"
           style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 16px rgba(34,211,238,0.35)" }}
         >
-          {myNum} MC
+          {myNum} {unit}
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
           {[1, 5, 10].map((n, i) => (
             <span key={n} className="flex items-center gap-1.5">
-              {i > 0 && <span className="text-fuchsia-600 select-none">•</span>}
+              {i > 0 && <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>}
               <button
                 type="button"
                 onClick={() => onQuickBet(n)}
                 disabled={balance < n}
-                className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-fuchsia-500/50 disabled:opacity-30"
+                className={`border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 disabled:opacity-30 ${isFreeMode ? "hover:border-cyan-500/50" : "hover:border-fuchsia-500/50"}`}
               >
-                {n} MC
+                {n} {unit}
               </button>
             </span>
           ))}
-          <span className="text-fuchsia-600 select-none">•</span>
+          <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>
           <button
             type="button"
             onClick={onMaxBet}
@@ -993,14 +1000,14 @@ function CompactYourBetStrip({
           value={myOffer}
           onChange={(e) => onOfferChange(e.target.value)}
           placeholder="0"
-          className="mt-2 w-full border border-fuchsia-500/30 bg-zinc-950 py-1.5 text-center text-sm font-black text-white placeholder-zinc-700 focus:border-fuchsia-400 focus:outline-none tabular-nums"
+          className={`mt-2 w-full border bg-zinc-950 py-1.5 text-center text-sm font-black text-white placeholder-zinc-700 focus:outline-none tabular-nums ${isFreeMode ? "border-cyan-500/30 focus:border-cyan-400" : "border-fuchsia-500/30 focus:border-fuchsia-400"}`}
           style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
         />
         {overBalance && (
-          <p className="mt-1 text-center text-[10px] font-bold text-red-400">Max {balance} MC</p>
+          <p className="mt-1 text-center text-[10px] font-bold text-red-400">Max {balance} {unit}</p>
         )}
         <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-          Balance <span className="font-black text-cyan-300 tabular-nums">{balance} MC</span>
+          Balance <span className="font-black text-cyan-300 tabular-nums">{balance} {unit}</span>
         </p>
       </div>
     </motion.div>
@@ -1049,6 +1056,7 @@ function ThePotNegotiationStrip({
   timeLeft,
   myOffer,
   balance,
+  isFreeMode,
   onOfferChange,
   onQuickBet,
   onMaxBet,
@@ -1059,6 +1067,7 @@ function ThePotNegotiationStrip({
   timeLeft: number;
   myOffer: string;
   balance: number;
+  isFreeMode: boolean;
   onOfferChange: (val: string) => void;
   onQuickBet: (n: number) => void;
   onMaxBet: () => void;
@@ -1073,6 +1082,7 @@ function ThePotNegotiationStrip({
   const perPlayer = agreed ? p1 : null;
   const potTotal = agreed ? p1 * 2 : null;
   const overBalance = myNum > balance;
+  const unit = isFreeMode ? "mol" : "MC";
 
   const [mergeKey, setMergeKey] = useState(0);
   const prevAgreed = useRef(false);
@@ -1124,7 +1134,7 @@ function ThePotNegotiationStrip({
                     disabled={balance < n}
                     className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-amber-500/40 disabled:opacity-30"
                   >
-                    {n} MC
+                    {n} {unit}
                   </button>
                 </span>
               ))}
@@ -1149,7 +1159,7 @@ function ThePotNegotiationStrip({
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             />
             {overBalance && (
-              <p className="mt-1 text-center text-[10px] font-bold text-red-400">Capped at {balance} MC</p>
+              <p className="mt-1 text-center text-[10px] font-bold text-red-400">Capped at {balance} {unit}</p>
             )}
           </>
         )}
@@ -1158,7 +1168,7 @@ function ThePotNegotiationStrip({
           <div className="mt-2">
             <PotMergeBurst key={mergeKey} perPlayer={perPlayer} potTotal={potTotal} />
             <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/90">
-              Winner takes {potTotal} MC
+              Winner takes {potTotal} {unit}
             </p>
           </div>
         )}
@@ -1375,6 +1385,14 @@ function PlayerPanel({
           ref={videoRef}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}
         />
+
+        {showVideo && (
+          <FaceMeshCanvas
+            containerRef={videoRef}
+            color={isYou ? "#d946ef" : "#22d3ee"}
+            mirrored={isYou}
+          />
+        )}
 
         {!showVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-950 to-black">
