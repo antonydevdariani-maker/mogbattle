@@ -697,12 +697,7 @@ export function ArenaClient({
 
       {!queueTimedOut && phase === "queued" && (
         <CompactYourBetStrip
-          myOffer={myOfferStr}
-          balance={isFreeMode ? molecules : balance}
           isFreeMode={isFreeMode}
-          onOfferChange={onOfferChange}
-          onQuickBet={setQuickBet}
-          onMaxBet={setMaxBet}
           displayMyOffer={displayMyOffer}
         />
       )}
@@ -711,12 +706,7 @@ export function ArenaClient({
         <ThePotNegotiationStrip
           match={match}
           timeLeft={timeLeft}
-          myOffer={myOfferStr}
-          balance={isFreeMode ? molecules : balance}
           isFreeMode={isFreeMode}
-          onOfferChange={onOfferChange}
-          onQuickBet={setQuickBet}
-          onMaxBet={setMaxBet}
           displayMyOffer={displayMyOffer}
           displayOppOffer={displayOppOffer}
         />
@@ -1229,26 +1219,14 @@ function ArenaTopBar({
 }
 
 function CompactYourBetStrip({
-  myOffer,
-  balance,
   isFreeMode,
-  onOfferChange,
-  onQuickBet,
-  onMaxBet,
   displayMyOffer,
 }: {
-  myOffer: string;
-  balance: number;
   isFreeMode: boolean;
-  onOfferChange: (val: string) => void;
-  onQuickBet: (n: number) => void;
-  onMaxBet: () => void;
   displayMyOffer: string;
 }) {
   const myNum = parseInt(displayMyOffer, 10) || 0;
-  const overBalance = myNum > balance;
   const unit = isFreeMode ? "mol" : "MC";
-  const accent = isFreeMode ? "fuchsia" : "fuchsia";
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -1263,51 +1241,12 @@ function CompactYourBetStrip({
           Your bet
         </p>
         <p
-          className="text-center text-xl font-black tabular-nums text-white sm:text-2xl"
-          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 16px rgba(34,211,238,0.35)" }}
+          className="text-center text-2xl font-black tabular-nums text-white sm:text-3xl"
+          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 16px rgba(168,85,247,0.4)" }}
         >
-          {myNum} {unit}
+          {myNum} <span className={`text-base ${isFreeMode ? "text-cyan-400" : "text-fuchsia-400"}`}>{unit}</span>
         </p>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-          {[1, 5, 10].map((n, i) => (
-            <span key={n} className="flex items-center gap-1.5">
-              {i > 0 && <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>}
-              <button
-                type="button"
-                onClick={() => onQuickBet(n)}
-                disabled={balance < n}
-                className={`border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 disabled:opacity-30 ${isFreeMode ? "hover:border-cyan-500/50" : "hover:border-fuchsia-500/50"}`}
-              >
-                {n} {unit}
-              </button>
-            </span>
-          ))}
-          <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>
-          <button
-            type="button"
-            onClick={onMaxBet}
-            disabled={balance < 1}
-            className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 hover:bg-orange-500/25 disabled:opacity-30"
-          >
-            Max
-          </button>
-        </div>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={myOffer}
-          onChange={(e) => onOfferChange(e.target.value)}
-          placeholder="0"
-          className={`mt-2 w-full border bg-zinc-950 py-1.5 text-center text-sm font-black text-white placeholder-zinc-700 focus:outline-none tabular-nums ${isFreeMode ? "border-cyan-500/30 focus:border-cyan-400" : "border-fuchsia-500/30 focus:border-fuchsia-400"}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        />
-        {overBalance && (
-          <p className="mt-1 text-center text-[10px] font-bold text-red-400">Max {balance} {unit}</p>
-        )}
-        <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-          Balance <span className="font-black text-cyan-300 tabular-nums">{balance} {unit}</span>
-        </p>
+        <p className="mt-1 text-center text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Locked in · searching…</p>
       </div>
     </motion.div>
   );
@@ -1353,23 +1292,13 @@ function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: n
 function ThePotNegotiationStrip({
   match,
   timeLeft,
-  myOffer,
-  balance,
   isFreeMode,
-  onOfferChange,
-  onQuickBet,
-  onMaxBet,
   displayMyOffer,
   displayOppOffer,
 }: {
   match: MatchRow;
   timeLeft: number;
-  myOffer: string;
-  balance: number;
   isFreeMode: boolean;
-  onOfferChange: (val: string) => void;
-  onQuickBet: (n: number) => void;
-  onMaxBet: () => void;
   displayMyOffer: string;
   displayOppOffer: string;
 }) {
@@ -1380,7 +1309,6 @@ function ThePotNegotiationStrip({
   const agreed = p1 !== null && p2 !== null && p1 === p2 && p1 > 0;
   const perPlayer = agreed ? p1 : null;
   const potTotal = agreed ? p1 * 2 : null;
-  const overBalance = myNum > balance;
   const unit = isFreeMode ? "mol" : "MC";
 
   const [mergeKey, setMergeKey] = useState(0);
@@ -1409,58 +1337,20 @@ function ThePotNegotiationStrip({
         <p
           className={`mt-1 text-center text-[10px] font-black uppercase tracking-widest ${timeLeft <= 3 ? "text-red-400" : "text-zinc-500"}`}
         >
-          {agreed ? "Bets merged — heading live" : `Negotiate · ${timeLeft}s left`}
+          {agreed ? "Bets locked — heading live" : `Waiting for opponent · ${timeLeft}s`}
         </p>
 
         {!agreed && (
-          <>
-            <div className="mt-2 flex justify-center gap-6 text-[11px] font-mono sm:text-xs">
-              <span className="text-cyan-300">You {myNum || "—"}</span>
-              <span className="text-fuchsia-300">Opp {oppNum || "—"}</span>
+          <div className="mt-2 flex justify-center gap-8 text-sm font-mono">
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-0.5">You</p>
+              <p className="font-black text-white tabular-nums">{myNum} <span className="text-fuchsia-400 text-xs">{unit}</span></p>
             </div>
-            {p1 !== null && p2 !== null && p1 !== p2 && (
-              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-yellow-500">
-                Same amount both sides to fill the pot
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-              {[1, 5, 10].map((n, i) => (
-                <span key={n} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-amber-700/80 select-none">•</span>}
-                  <button
-                    type="button"
-                    onClick={() => onQuickBet(n)}
-                    disabled={balance < n}
-                    className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-amber-500/40 disabled:opacity-30"
-                  >
-                    {n} {unit}
-                  </button>
-                </span>
-              ))}
-              <span className="text-amber-700/80 select-none">•</span>
-              <button
-                type="button"
-                onClick={onMaxBet}
-                disabled={balance < 1}
-                className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 disabled:opacity-30"
-              >
-                Max
-              </button>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-0.5">Opp</p>
+              <p className="font-black text-white tabular-nums">{oppNum || "—"} {oppNum > 0 && <span className="text-fuchsia-400 text-xs">{unit}</span>}</p>
             </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={myOffer}
-              onChange={(e) => onOfferChange(e.target.value)}
-              placeholder="0"
-              className="mt-2 w-full border border-amber-500/30 bg-zinc-950 py-1.5 text-center text-sm font-black text-white focus:border-amber-400 focus:outline-none tabular-nums"
-              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-            />
-            {overBalance && (
-              <p className="mt-1 text-center text-[10px] font-bold text-red-400">Capped at {balance} {unit}</p>
-            )}
-          </>
+          </div>
         )}
 
         {agreed && perPlayer !== null && potTotal !== null && (
