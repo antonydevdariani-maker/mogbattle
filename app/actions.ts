@@ -1090,6 +1090,62 @@ export async function finalizeMatchResult(
   revalidatePath(`/match/${args.matchId}`);
 }
 
+/** Called when a player forfeits (leaves mid-match or no camera/mic). Opponent wins instantly. */
+export async function forfeitMatch(
+  accessToken: string,
+  { matchId }: { matchId: string }
+) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: match } = await supabase.from("matches").select("*").eq("id", matchId).single();
+
+  if (!match || (match.player1_id !== userId && match.player2_id !== userId)) return;
+  if (match.status === "completed" || match.status === "cancelled") return;
+  if (!match.player2_id) return;
+
+  const opponentId = match.player1_id === userId ? match.player2_id : match.player1_id;
+  const isP1 = match.player1_id === userId;
+
+  // Forfeit: loser gets PSL 0, opponent gets PSL 10
+  const aiScoreP1 = isP1 ? 0 : 10;
+  const aiScoreP2 = isP1 ? 10 : 0;
+
+  await supabase.from("matches").update({
+    status: "completed",
+    winner_id: opponentId,
+    ai_score_p1: aiScoreP1,
+    ai_score_p2: aiScoreP2,
+    ended_at: new Date().toISOString(),
+  }).eq("id", matchId).neq("status", "completed");
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id,elo,wins,matches_played,total_credits")
+    .in("user_id", [userId, opponentId]);
+
+  const forfeiter = profiles?.find((p) => p.user_id === userId);
+  const opponent = profiles?.find((p) => p.user_id === opponentId);
+  if (!forfeiter || !opponent) return;
+
+  const k = 24;
+  const winnerExpected = expectedScore(opponent.elo, forfeiter.elo);
+  const loserExpected = expectedScore(forfeiter.elo, opponent.elo);
+
+  await supabase.from("profiles").update({
+    total_credits: opponent.total_credits + match.bet_amount * 2,
+    wins: opponent.wins + 1,
+    matches_played: opponent.matches_played + 1,
+    elo: Math.round(opponent.elo + k * (1 - winnerExpected)),
+  }).eq("user_id", opponentId);
+
+  await supabase.from("profiles").update({
+    matches_played: forfeiter.matches_played + 1,
+    elo: Math.round(forfeiter.elo + k * (0 - loserExpected)),
+  }).eq("user_id", userId);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/arena");
+}
 
 export async function buildFaceReportPaymentTx(
   accessToken: string,

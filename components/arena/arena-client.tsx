@@ -11,6 +11,7 @@ import {
   submitMoleculeBetOffer,
   finalizeMatchResult,
   finalizeFreeMatchResult,
+  forfeitMatch,
   loadBattleQueueState,
   loadProfileSummary,
   cancelWaitingMatch,
@@ -663,6 +664,47 @@ export function ArenaClient({
     setMatchAtRisk(matchLeaveRisk);
     return () => setMatchAtRisk(false);
   }, [phase, matchLeaveRisk, setMatchAtRisk]);
+
+  // Forfeit if player leaves page during an active match
+  useEffect(() => {
+    if (!matchLeaveRisk || !match?.id) return;
+    const matchId = match.id;
+
+    async function triggerForfeit() {
+      const token = await getAccessToken();
+      if (!token) return;
+      await forfeitMatch(token, { matchId });
+    }
+
+    function onPageHide() { void triggerForfeit(); }
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") void triggerForfeit();
+    }
+
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [matchLeaveRisk, match?.id, getAccessToken]);
+
+  // Forfeit if camera/mic not available when match goes live
+  useEffect(() => {
+    if (phase !== "live" || !match?.id) return;
+    if (localVideoTrack) return; // camera connected — fine
+
+    async function triggerForfeit() {
+      const token = await getAccessToken();
+      if (!token || !match?.id) return;
+      await forfeitMatch(token, { matchId: match.id });
+      resetArena();
+    }
+
+    const timer = setTimeout(() => { void triggerForfeit(); }, 3000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, localVideoTrack, match?.id]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
