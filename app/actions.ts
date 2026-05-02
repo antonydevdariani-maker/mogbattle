@@ -242,8 +242,8 @@ export async function checkArenaState(accessToken: string) {
     .limit(1)
     .maybeSingle();
 
-  // Cancel stale waiting match — never resume into queue on page load
-  if (activeMatch?.status === "waiting") {
+  // Cancel any non-live match on page load — always show lobby first
+  if (activeMatch && activeMatch.status !== "live") {
     await supabase.from("matches").update({ status: "cancelled" }).eq("id", activeMatch.id);
     return { activeMatch: null, opponentName: null, userId };
   }
