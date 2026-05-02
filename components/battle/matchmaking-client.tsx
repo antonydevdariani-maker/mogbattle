@@ -83,9 +83,21 @@ export function MatchmakingClient({
     return () => clearInterval(t);
   }, [isQueued]);
 
+  // Auto-submit fixed bet when matched — no negotiation needed
   useEffect(() => {
-    if (isNegotiating) inputRef.current?.focus();
-  }, [isNegotiating]);
+    if (!isNegotiating || !match?.id) return;
+    const betToSubmit = myRawOffer ?? 1;
+    getAccessToken().then(async (token) => {
+      if (!token) return;
+      try {
+        await submitBetOffer(token, match.id, betToSubmit);
+        await onRefresh?.();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNegotiating, match?.id]);
 
   useEffect(() => {
     if (isLive && match?.id) {
@@ -189,101 +201,33 @@ export function MatchmakingClient({
           </motion.div>
         )}
 
-        {/* Negotiation */}
+        {/* Negotiation — auto-agree, just show locking in */}
         {isNegotiating && !agreed && (
           <motion.div
             key="negotiating"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="space-y-6"
+            className="border border-fuchsia-500/20 bg-zinc-950 p-8 text-center space-y-4"
           >
-            {/* Timer bar */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500 uppercase tracking-widest">Agree on bet</span>
-                <span className={`font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-fuchsia-400"}`}>
-                  {timeLeft}s
-                </span>
+            <p className="text-lg font-black text-white uppercase tracking-wide" style={{ fontFamily: "var(--font-heading)" }}>
+              Opponent Found!
+            </p>
+            <p className="text-sm text-zinc-500">
+              vs <span className="text-zinc-300 font-semibold">{opponentName ?? "???"}</span>
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="border border-fuchsia-500/50 bg-fuchsia-500/10 px-4 py-2">
+                <span className="text-fuchsia-300 font-black text-xl tabular-nums">{myRawOffer ?? 1} MC</span>
               </div>
-              <div className="h-1 w-full bg-zinc-900 overflow-hidden">
-                <motion.div
-                  className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-fuchsia-500"}`}
-                  initial={{ width: "100%" }}
-                  animate={{ width: `${(timeLeft / 10) * 100}%` }}
-                  transition={{ duration: 0.2 }}
-                />
-              </div>
+              <span className="text-zinc-700 font-black">BET</span>
             </div>
-
-            {/* Battle area */}
-            <div className="relative border border-white/10 bg-black overflow-hidden" style={{ minHeight: 220 }}>
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-                <span className="text-xs text-zinc-700 uppercase tracking-widest">video starts after bet agreed</span>
-              </div>
-
-              <div className="flex items-end justify-between px-4 sm:px-12 pb-8 pt-16">
-                {/* Your side */}
-                <div className="flex flex-col items-center gap-2">
-                  <AnimatePresence>
-                    {displayMyOffer && (
-                      <motion.div
-                        key={displayMyOffer}
-                        initial={{ opacity: 0, y: 8, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="border border-fuchsia-500/50 bg-fuchsia-500/10 px-3 py-1"
-                      >
-                        <span className="text-fuchsia-300 font-black text-lg tabular-nums">{displayMyOffer} MC</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  <div className="size-16 border-2 border-fuchsia-500/50 bg-fuchsia-500/10 flex items-center justify-center">
-                    <span className="text-fuchsia-300 font-black text-xs uppercase">YOU</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center gap-1 pb-4">
-                  <span className="text-zinc-700 font-black text-xl tracking-widest">VS</span>
-                </div>
-
-                {/* Opponent side */}
-                <div className="flex flex-col items-center gap-2">
-                  <AnimatePresence>
-                    {displayOppOffer && (
-                      <motion.div
-                        key={displayOppOffer}
-                        initial={{ opacity: 0, y: 8, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="border border-red-500/50 bg-red-500/10 px-3 py-1"
-                      >
-                        <span className="text-red-300 font-black text-lg tabular-nums">{displayOppOffer} MC</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  <div className="size-16 border-2 border-red-500/50 bg-red-500/10 flex items-center justify-center">
-                    <span className="text-red-300 font-black text-xs uppercase truncate max-w-[52px] text-center px-1">
-                      {opponentName?.slice(0, 5) ?? "???"}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex justify-center gap-1">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="size-1.5 bg-fuchsia-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+              ))}
             </div>
-
-            {/* Bet input */}
-            <div className="space-y-2">
-              <p className="text-xs text-zinc-600 text-center uppercase tracking-widest">Type your bet — match theirs to agree</p>
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={myOffer}
-                onChange={(e) => onOfferChange(e.target.value)}
-                placeholder="0"
-                className="w-full border border-white/10 bg-zinc-950 px-4 py-4 text-center text-2xl font-black text-white placeholder-zinc-800 focus:border-fuchsia-500 focus:outline-none tabular-nums"
-              />
-              <p className="text-xs text-zinc-700 text-center uppercase tracking-widest">MOG coins</p>
-            </div>
+            <p className="text-xs text-zinc-600 uppercase tracking-widest">Locking in bet…</p>
           </motion.div>
         )}
 

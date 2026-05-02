@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { finalizeMatchResult } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
+import { createClient } from "@/lib/supabase/client";
 
 const METRICS = [
   "Jawline Definition",
@@ -16,6 +17,8 @@ const METRICS = [
   "Canthal Tilt",
   "Bone Structure",
 ];
+
+const AUTO_START_DELAY_MS = 3000;
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -68,7 +71,7 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, remoteAudioTrack } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -77,8 +80,6 @@ export function LiveMatchClient({
   const localVideoRef = useRef<VideoBoxHandle>(null);
   const remoteVideoRef = useRef<VideoBoxHandle>(null);
 
-  const [myReady, setMyReady] = useState(isCompleted);
-  const [oppReady, setOppReady] = useState(isCompleted);
   const [phase, setPhase] = useState<Phase>(isCompleted ? "done" : "idle");
   const [countdown, setCountdown] = useState(3);
   const [revealedMetrics, setRevealedMetrics] = useState<number[]>(isCompleted ? METRICS.map((_, i) => i) : []);
@@ -89,7 +90,10 @@ export function LiveMatchClient({
   const [scoreP2, setScoreP2] = useState<number | null>(initialAiP2);
   const [myAiResult, setMyAiResult] = useState<AiResult>(null);
   const [oppAiResult, setOppAiResult] = useState<AiResult>(null);
+  // Live opponent PSL received via Supabase broadcast
+  const [oppLivePsl, setOppLivePsl] = useState<number | null>(null);
   const [testMode, setTestMode] = useState(false);
+  const analysisStarted = useRef(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const { getAccessToken } = usePrivy();
@@ -103,7 +107,13 @@ export function LiveMatchClient({
   const myScore = isPlayer1 ? scoreP1 : scoreP2;
   const oppScore = isPlayer1 ? scoreP2 : scoreP1;
 
-  const bothReady = myReady && oppReady;
+  // Partial live score shown during analyzing phase (metric bar average)
+  const myPartialPsl = phase === "analyzing" && metricScores.length > 0
+    ? Number((metricScores.reduce((a, s) => a + s.p1, 0) / metricScores.length / 10).toFixed(1))
+    : null;
+  const oppPartialPsl = phase === "analyzing" && metricScores.length > 0
+    ? Number((metricScores.reduce((a, s) => a + s.p2, 0) / metricScores.length / 10).toFixed(1))
+    : null;
 
   useEffect(() => {
     if (isCompleted && initialAiP1 !== null && initialAiP2 !== null) {
@@ -116,7 +126,32 @@ export function LiveMatchClient({
     }
   }, [isCompleted, initialAiP1, initialAiP2]);
 
+  // Mute opponent audio when match ends
+  useEffect(() => {
+    if (phase === "done" && remoteAudioTrack) {
+      try { remoteAudioTrack.setVolume(0); } catch { /* ignore */ }
+    }
+  }, [phase, remoteAudioTrack]);
+
+  // Supabase broadcast channel for live score sharing
+  useEffect(() => {
+    if (isCompleted) return;
+    const supabase = createClient();
+    const channel = supabase.channel(`match-scores:${matchId}`, { config: { broadcast: { self: false } } });
+    channel
+      .on("broadcast", { event: "psl" }, ({ payload }: { payload: { from: "p1" | "p2"; psl: number; result?: AiResult } }) => {
+        const fromOpponent = isPlayer1 ? payload.from === "p2" : payload.from === "p1";
+        if (fromOpponent) {
+          setOppLivePsl(payload.psl);
+          if (payload.result) setOppAiResult(payload.result);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [matchId, isPlayer1, isCompleted]);
+
   async function startAnalysis(isTest = false) {
+    analysisStarted.current = true;
     setPhase("countdown");
     for (let i = 3; i >= 1; i--) {
       setCountdown(i);
@@ -127,11 +162,9 @@ export function LiveMatchClient({
     setRevealedMetrics([]);
     setMetricScores([]);
 
-    // Capture frames for AI judgment
     const myFrame = localVideoRef.current?.captureFrame() ?? null;
     const oppFrame = isTest ? myFrame : (remoteVideoRef.current?.captureFrame() ?? null);
 
-    // Fire AI calls in parallel while metrics animate
     const [myResultPromise, oppResultPromise] = [
       myFrame ? judgeFace(myFrame) : Promise.resolve(null),
       oppFrame ? judgeFace(oppFrame) : Promise.resolve(null),
@@ -139,35 +172,48 @@ export function LiveMatchClient({
 
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
-      await delay(1800 + Math.random() * 800);
+      // ~2s per metric → 12s total for 6 metrics
+      await delay(1900 + Math.random() * 200);
       const ms = { p1: 70 + Math.random() * 30, p2: 70 + Math.random() * 30 };
       scores.push(ms);
       setMetricScores([...scores]);
       setRevealedMetrics((prev) => [...prev, i]);
     }
 
-    // Wait for AI results
     const [myResult, oppResult] = await Promise.all([myResultPromise, oppResultPromise]);
     setMyAiResult(myResult);
-    setOppAiResult(oppResult);
+    if (oppResult) setOppAiResult(oppResult);
 
-    await delay(1200);
-    setPhase("verdict");
-
-    await delay(2500);
-
-    // Use AI PSL scores if available, else fallback to metric average
     const p1Total = myResult?.psl
       ? Number(myResult.psl.toFixed(2))
       : Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length / 10).toFixed(2));
-    const p2Total = oppResult?.psl
-      ? Number(oppResult.psl.toFixed(2))
+    const p2Total = (oppResult?.psl || oppLivePsl)
+      ? Number((oppResult?.psl ?? oppLivePsl!).toFixed(2))
       : Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length / 10).toFixed(2));
+
+    // Broadcast my score so opponent sees it
+    if (!isTest) {
+      try {
+        const supabase = createClient();
+        const channel = supabase.channel(`match-scores:${matchId}`, { config: { broadcast: { self: false } } });
+        await channel.subscribe();
+        await channel.send({
+          type: "broadcast",
+          event: "psl",
+          payload: { from: isPlayer1 ? "p1" : "p2", psl: isPlayer1 ? p1Total : p2Total, result: myResult },
+        });
+        supabase.removeChannel(channel);
+      } catch { /* non-critical */ }
+    }
+
+    await delay(1200);
+    setPhase("verdict");
+    await delay(2000);
 
     setScoreP1(isPlayer1 ? p1Total : p2Total);
     setScoreP2(isPlayer1 ? p2Total : p1Total);
 
-    await delay(800);
+    await delay(600);
     setPhase("done");
 
     if (!isTest && isPlayer1) {
@@ -184,8 +230,21 @@ export function LiveMatchClient({
     }
   }
 
+  // Auto-start analysis shortly after match loads
+  useEffect(() => {
+    if (isCompleted || analysisStarted.current) return;
+    const timer = setTimeout(() => {
+      if (!analysisStarted.current) startAnalysis(false);
+    }, AUTO_START_DELAY_MS);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompleted]);
+
   const myDisplayResult = isPlayer1 ? myAiResult : oppAiResult;
   const oppDisplayResult = isPlayer1 ? oppAiResult : myAiResult;
+
+  // Resolved opponent PSL: real result > live broadcast > null
+  const resolvedOppPsl = oppDisplayResult?.psl ?? oppLivePsl;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
@@ -204,9 +263,8 @@ export function LiveMatchClient({
             <button
               onClick={() => {
                 setTestMode(true);
-                setMyReady(true);
-                setOppReady(true);
-                setTimeout(() => startAnalysis(true), 100);
+                analysisStarted.current = true;
+                startAnalysis(true);
               }}
               className="flex items-center gap-1.5 border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/20 transition-colors min-h-[40px]"
             >
@@ -224,7 +282,7 @@ export function LiveMatchClient({
         </div>
       </div>
 
-      {/* Camera feeds — side by side on desktop, stacked on mobile */}
+      {/* Camera feeds */}
       <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
         {/* YOUR side */}
         <div className="space-y-2">
@@ -238,29 +296,32 @@ export function LiveMatchClient({
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-zinc-300">YOU</span>
-              {/* Inline score on mobile after done */}
               {phase === "done" && myDisplayResult && (
                 <span className="text-xs font-mono text-fuchsia-400 sm:hidden">
                   PSL {myDisplayResult.psl.toFixed(1)}
                 </span>
               )}
             </div>
-            {!myReady ? (
-              <button
-                onClick={() => setMyReady(true)}
-                className="px-4 py-2 text-sm font-bold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all min-h-[40px] min-w-[80px]"
-              >
-                Ready
-              </button>
-            ) : (
+            {phase === "idle" && (
+              <span className="flex items-center gap-1 text-xs font-medium text-yellow-400">
+                <Loader2 className="size-3.5 animate-spin" /> Starting…
+              </span>
+            )}
+            {phase !== "idle" && phase !== "done" && (
               <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                <CheckCircle2 className="size-3.5" /> Ready
+                <CheckCircle2 className="size-3.5" /> Live
               </span>
             )}
           </div>
-          {/* Score panel desktop only */}
+          {/* Live partial score during analyzing */}
           <div className="hidden sm:block">
-            <ScoreSidePanel result={myDisplayResult} color="fuchsia" phase={phase} horizontal />
+            <ScoreSidePanel
+              result={phase === "done" ? myDisplayResult : null}
+              partialPsl={myPartialPsl}
+              color="fuchsia"
+              phase={phase}
+              horizontal
+            />
           </div>
         </div>
 
@@ -282,53 +343,32 @@ export function LiveMatchClient({
                 </span>
               )}
             </div>
-            {oppReady ? (
-              <span className="flex items-center gap-1 text-xs font-medium text-green-400">
-                <CheckCircle2 className="size-3.5" /> Ready
-              </span>
-            ) : (
-              <span className="text-xs text-zinc-600">Waiting...</span>
+            {resolvedOppPsl !== null && phase !== "done" && (
+              <span className="text-xs font-mono text-red-400">PSL {resolvedOppPsl.toFixed(1)}</span>
             )}
           </div>
           <div className="hidden sm:block">
-            <ScoreSidePanel result={oppDisplayResult} color="red" phase={phase} horizontal />
+            <ScoreSidePanel
+              result={phase === "done" ? oppDisplayResult : null}
+              partialPsl={oppPartialPsl ?? resolvedOppPsl}
+              color="red"
+              phase={phase}
+              horizontal
+            />
           </div>
         </div>
       </div>
 
-      {/* Idle: both ready → start button */}
       <AnimatePresence mode="wait">
-        {phase === "idle" && bothReady && !isCompleted && (
-          <motion.div
-            key="start"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <button
-              onClick={() => startAnalysis(false)}
-              className="w-full bg-red-600 hover:bg-red-500 py-4 sm:py-5 text-base sm:text-lg font-black text-white uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 min-h-[56px]"
-            >
-              <Swords className="size-5 sm:size-6" />
-              Begin AI Judgment
-            </button>
-          </motion.div>
-        )}
-
-        {phase === "idle" && !bothReady && !isCompleted && (
+        {/* Idle — waiting for auto-start */}
+        {phase === "idle" && !isCompleted && (
           <motion.div
             key="waiting-ready"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-center"
           >
-            <p className="text-sm text-zinc-400">
-              {myReady && !oppReady
-                ? "Waiting for opponent to ready up..."
-                : !myReady
-                  ? "Click \"Ready\" to signal you're set."
-                  : ""}
-            </p>
+            <p className="text-sm text-zinc-400">AI analysis starts in a moment…</p>
           </motion.div>
         )}
 
@@ -497,7 +537,7 @@ export function LiveMatchClient({
                       <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider">AI on you</p>
                       {myDisplayResult.tier && (() => { const t = TIER_META[myDisplayResult.tier!]; return <span className={`text-[9px] font-black px-1.5 py-0.5 border ${t.border} ${t.bg} ${t.color}`}>{t.label}</span>; })()}
                     </div>
-                    <p className="text-xs text-zinc-300 italic">{`\u201C${myDisplayResult.verdict}\u201D`}</p>
+                    <p className="text-xs text-zinc-300 italic">{`“${myDisplayResult.verdict}”`}</p>
                     {myDisplayResult.strengths && myDisplayResult.strengths !== "n/a" && (
                       <p className="text-[10px] text-green-400">+ {myDisplayResult.strengths}</p>
                     )}
@@ -512,7 +552,7 @@ export function LiveMatchClient({
                       <p className="text-[10px] text-red-500 uppercase tracking-wider">AI on opponent</p>
                       {oppDisplayResult.tier && (() => { const t = TIER_META[oppDisplayResult.tier!]; return <span className={`text-[9px] font-black px-1.5 py-0.5 border ${t.border} ${t.bg} ${t.color}`}>{t.label}</span>; })()}
                     </div>
-                    <p className="text-xs text-zinc-300 italic">{`\u201C${oppDisplayResult.verdict}\u201D`}</p>
+                    <p className="text-xs text-zinc-300 italic">{`“${oppDisplayResult.verdict}”`}</p>
                     {oppDisplayResult.strengths && oppDisplayResult.strengths !== "n/a" && (
                       <p className="text-[10px] text-green-400">+ {oppDisplayResult.strengths}</p>
                     )}
@@ -546,7 +586,7 @@ export function LiveMatchClient({
               />
             </div>
 
-            {/* P&L — hidden in test mode */}
+            {/* P&L */}
             {!testMode && (
               <div className={`relative rounded-xl border px-4 py-3 text-center ${
                 iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
@@ -583,14 +623,15 @@ export function LiveMatchClient({
   );
 }
 
-// Score panel shown below camera on desktop
 function ScoreSidePanel({
   result,
+  partialPsl,
   color,
   phase,
   horizontal = false,
 }: {
   result: AiResult;
+  partialPsl?: number | null;
   color: "fuchsia" | "red";
   phase: Phase;
   horizontal?: boolean;
@@ -610,11 +651,12 @@ function ScoreSidePanel({
     },
   }[color];
 
-  const showScores = phase === "done" && result && result.psl > 0;
+  const showFinalScores = phase === "done" && result && result.psl > 0;
+  const showPartial = (phase === "analyzing" || phase === "verdict") && partialPsl !== null && partialPsl !== undefined;
 
   return (
     <div className={`flex items-center justify-center gap-4 border ${colorMap.border} ${colorMap.bg} px-4 py-2`}>
-      {showScores ? (
+      {showFinalScores ? (
         <>
           <div className="flex items-center gap-1.5">
             <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
@@ -641,6 +683,20 @@ function ScoreSidePanel({
             </motion.span>
             <span className="text-[10px] text-zinc-600">/10</span>
           </div>
+        </>
+      ) : showPartial ? (
+        <>
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${colorMap.label}`}>PSL</span>
+          <motion.span
+            key={partialPsl}
+            initial={{ opacity: 0.5 }}
+            animate={{ opacity: 1 }}
+            className={`text-lg font-black tabular-nums ${colorMap.text}`}
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            {partialPsl!.toFixed(1)}
+          </motion.span>
+          <Loader2 className={`size-3 animate-spin ${colorMap.text} opacity-50`} />
         </>
       ) : (
         <>
@@ -688,7 +744,7 @@ function ScoreCard({
       </p>
       <p className="text-[10px] text-zinc-600 mb-1">PSL</p>
       {result?.tier && (() => {
-        const t = TIER_META[result.tier];
+        const t = TIER_META[result.tier!];
         return (
           <div className={`inline-flex items-center px-2 py-0.5 border ${t.border} ${t.bg} mb-1`}>
             <span className={`text-[10px] font-black uppercase tracking-widest ${t.color}`}>{t.label}</span>
