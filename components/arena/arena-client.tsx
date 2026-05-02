@@ -915,7 +915,10 @@ function IdleScreen({
     }
     if (betNum < 1 || betNum > cap) { setCamError(`Bet must be 1–${cap}.`); return; }
     setCamError(null);
-    onQueue(betNum);
+    // Release idle camera before Agora acquires it, then queue after one frame
+    idleStreamRef.current?.getTracks().forEach((t) => t.stop());
+    idleStreamRef.current = null;
+    setTimeout(() => onQueue(betNum), 150);
   }
 
   const accentColor = isFreeMode ? "cyan" : "fuchsia";
@@ -1082,14 +1085,28 @@ function IdleScreen({
   );
 }
 
+// ─── PSL Tier ────────────────────────────────────────────────────────────────
+
+function pslTier(psl: number): { label: string; color: string } {
+  if (psl >= 9.5) return { label: "GIGACHAD", color: "#f59e0b" };
+  if (psl >= 9)   return { label: "HIGH CHAD", color: "#f59e0b" };
+  if (psl >= 8)   return { label: "CHAD", color: "#22d3ee" };
+  if (psl >= 7.5) return { label: "CHADLITE", color: "#a78bfa" };
+  if (psl >= 6.5) return { label: "HTN", color: "#86efac" };
+  if (psl >= 5.5) return { label: "MTN", color: "#d4d4d8" };
+  if (psl >= 5)   return { label: "LTN", color: "#a1a1aa" };
+  return { label: "SUB5", color: "#f87171" };
+}
+
 // ─── PSL HUD ─────────────────────────────────────────────────────────────────
 
 function PslHud({ base, isYou }: { base: number; isYou: boolean }) {
   const [display, setDisplay] = useState(base);
+  const tier = pslTier(display);
 
   useEffect(() => {
     const id = setInterval(() => {
-      const delta = (Math.random() - 0.5) * 4; // ±2 points
+      const delta = (Math.random() - 0.5) * 4;
       setDisplay(+(Math.max(1, Math.min(10, base + delta)).toFixed(1)));
     }, 1200);
     return () => clearInterval(id);
@@ -1099,21 +1116,25 @@ function PslHud({ base, isYou }: { base: number; isYou: boolean }) {
     <motion.div
       initial={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`absolute top-2 right-2 z-10 flex flex-col items-center bg-black/85 border px-2 py-1 ${isYou ? "border-fuchsia-500/70" : "border-cyan-500/70"}`}
+      className={`absolute top-2 right-2 z-10 flex flex-col items-center bg-black/90 border px-2 py-1.5 min-w-[52px] ${isYou ? "border-fuchsia-500/70" : "border-cyan-500/70"}`}
     >
-      <span className={`text-[9px] font-black uppercase tracking-widest ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>PSL</span>
+      <span className={`text-[8px] font-black uppercase tracking-widest ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>PSL</span>
       <motion.span
         key={display}
-        initial={{ y: -4, opacity: 0.6 }}
+        initial={{ y: -3, opacity: 0.6 }}
         animate={{ y: 0, opacity: 1 }}
         className="text-lg font-black tabular-nums text-white leading-none"
         style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
       >
         {display.toFixed(1)}
       </motion.span>
-      <div className="mt-0.5 w-full h-0.5 bg-zinc-800 overflow-hidden">
+      <span className="text-[8px] font-black uppercase tracking-wider mt-0.5" style={{ color: tier.color }}>
+        {tier.label}
+      </span>
+      <div className="mt-1 w-full h-0.5 bg-zinc-800 overflow-hidden">
         <motion.div
-          className={`h-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-400"}`}
+          className="h-full"
+          style={{ backgroundColor: tier.color }}
           animate={{ width: `${(display / 10) * 100}%` }}
           transition={{ duration: 0.6 }}
         />
@@ -2032,6 +2053,11 @@ function DoneOverlay({
             >
               {myScore?.toFixed(1) ?? "—"}
             </p>
+            {myScore !== null && (
+              <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(myScore).color }}>
+                {pslTier(myScore).label}
+              </p>
+            )}
             {iWon && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
           </div>
           <div className={`border ${!iWon ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-zinc-800"} p-3`}>
@@ -2042,6 +2068,11 @@ function DoneOverlay({
             >
               {oppScore?.toFixed(1) ?? "—"}
             </p>
+            {oppScore !== null && (
+              <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(oppScore).color }}>
+                {pslTier(oppScore).label}
+              </p>
+            )}
             {!iWon && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
           </div>
         </div>
