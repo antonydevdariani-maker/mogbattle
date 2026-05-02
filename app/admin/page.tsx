@@ -4,19 +4,38 @@ import { useRef, useState, useEffect } from "react";
 import { Loader2, Upload, Camera, RotateCcw, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type Tier = "sub5" | "ltn" | "mtn" | "htn" | "chadlite" | "chad";
+
 type AiResult = {
   psl: number;
   rating: number;
+  tier?: Tier;
+  harm?: number;
+  misc?: number;
+  angu?: number;
+  dimo?: number;
+  weighted?: number;
+  penalty?: number;
   verdict: string;
   failos?: string;
   strengths?: string;
 } | null;
 
+const TIER_META: Record<Tier, { label: string; color: string }> = {
+  sub5:     { label: "SUB5",     color: "text-red-400" },
+  ltn:      { label: "LTN",      color: "text-orange-400" },
+  mtn:      { label: "MTN",      color: "text-yellow-400" },
+  htn:      { label: "HTN",      color: "text-lime-400" },
+  chadlite: { label: "CHADLITE", color: "text-cyan-300" },
+  chad:     { label: "CHAD",     color: "text-fuchsia-300" },
+};
+
 function pslColor(psl: number) {
-  if (psl >= 7) return "text-yellow-400";
-  if (psl >= 6) return "text-fuchsia-400";
-  if (psl >= 5) return "text-blue-400";
-  if (psl >= 4) return "text-zinc-300";
+  if (psl >= 7) return "text-fuchsia-300";
+  if (psl >= 6.5) return "text-cyan-300";
+  if (psl >= 6) return "text-lime-400";
+  if (psl >= 5.5) return "text-yellow-400";
+  if (psl >= 5) return "text-orange-400";
   return "text-red-400";
 }
 
@@ -174,7 +193,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black px-4 py-10">
+    <div className="min-h-screen bg-black px-4 py-10 pb-20">
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.03]"
         style={{
@@ -293,14 +312,50 @@ export default function AdminPage() {
         {/* Result */}
         {result && result.psl > 0 && (
           <div className="space-y-4 border border-white/10 bg-zinc-950 p-6">
-            {/* PSL big number */}
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-600 font-bold mb-1">PSL Score</p>
+            {/* PSL + tier */}
+            <div className="text-center space-y-1">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-600 font-bold">PSL Score</p>
               <p className={cn("text-7xl font-black tabular-nums", pslColor(result.psl))} style={{ fontFamily: "var(--font-heading)" }}>
                 {result.psl.toFixed(1)}
               </p>
-              <p className="text-xs text-zinc-500 mt-1">Rating: {result.rating.toFixed(1)} / 10</p>
+              {result.tier && (
+                <p className={cn("text-sm font-black uppercase tracking-widest", TIER_META[result.tier]?.color ?? "text-zinc-400")}>
+                  {TIER_META[result.tier]?.label ?? result.tier}
+                </p>
+              )}
             </div>
+
+            {/* Weighted breakdown */}
+            {(result.harm != null) && (
+              <div className="border-t border-white/10 pt-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-bold mb-3">Category Breakdown</p>
+                {([
+                  { key: "HARM", val: result.harm, weight: "32%" },
+                  { key: "MISC", val: result.misc, weight: "26%" },
+                  { key: "ANGU", val: result.angu, weight: "22%" },
+                  { key: "DIMO", val: result.dimo, weight: "20%" },
+                ] as { key: string; val?: number; weight: string }[]).map(({ key, val, weight }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-[10px] text-zinc-500 w-10 font-bold">{key}</span>
+                    <div className="flex-1 h-1.5 bg-zinc-800">
+                      <div className="h-full bg-fuchsia-500" style={{ width: `${((val ?? 0) / 10) * 100}%` }} />
+                    </div>
+                    <span className="text-xs text-zinc-300 w-6 tabular-nums">{(val ?? 0).toFixed(1)}</span>
+                    <span className="text-[10px] text-zinc-600 w-8">{weight}</span>
+                  </div>
+                ))}
+                {result.weighted != null && (
+                  <div className="flex justify-between text-[10px] text-zinc-500 pt-1 border-t border-white/5">
+                    <span>Weighted avg</span><span>{result.weighted.toFixed(1)}</span>
+                  </div>
+                )}
+                {result.penalty != null && result.penalty > 0 && (
+                  <div className="flex justify-between text-[10px] text-red-400">
+                    <span>Spread penalty</span><span>−{result.penalty.toFixed(1)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Verdict */}
             <div className="border-t border-white/10 pt-4">
@@ -325,22 +380,6 @@ export default function AdminPage() {
                 )}
               </div>
             )}
-
-            {/* PSL tier label */}
-            <div className="border-t border-white/10 pt-4 text-center">
-              <p className={cn("text-xs font-bold uppercase tracking-widest", pslColor(result.psl))}>
-                {result.psl >= 7.5 ? "Near Perfect" :
-                 result.psl >= 7 ? "Elite Tier" :
-                 result.psl >= 6.5 ? "High Model Tier" :
-                 result.psl >= 6 ? "Model Tier" :
-                 result.psl >= 5.5 ? "Very Good Looking" :
-                 result.psl >= 5 ? "Attractive" :
-                 result.psl >= 4.5 ? "Above Average" :
-                 result.psl >= 4 ? "Average" :
-                 result.psl >= 3 ? "Below Average" :
-                 "Unattractive"}
-              </p>
-            </div>
           </div>
         )}
 
