@@ -111,6 +111,7 @@ export function ArenaClient({
   const [scoreP2, setScoreP2] = useState<number | null>(initialMatch?.ai_score_p2 ?? null);
 
   const [queueTimedOut, setQueueTimedOut] = useState(false);
+  const [myPsl, setMyPsl] = useState<number | null>(null);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const oppTypingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOppOffer = useRef<number | null>(null);
@@ -119,6 +120,7 @@ export function ArenaClient({
   const matchmakingIntentRef = useRef(false);
   const timedOutBattleRef = useRef(false);
   const queueTimedOutRef = useRef(false);
+  const autoJudgeDone = useRef(false);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -293,6 +295,35 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, getAccessToken]);
 
+  // Auto-capture + PSL judge 5s after going live
+  useEffect(() => {
+    if (phase !== "live" || !localVideoTrack || autoJudgeDone.current) return;
+    const timer = setTimeout(async () => {
+      autoJudgeDone.current = true;
+      try {
+        const frameData = (localVideoTrack as ICameraVideoTrack).getCurrentFrameData();
+        if (!frameData || frameData.width === 0) return;
+        const canvas = document.createElement("canvas");
+        canvas.width = frameData.width;
+        canvas.height = frameData.height;
+        // mirror to match what user sees
+        const ctx = canvas.getContext("2d")!;
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.putImageData(frameData, 0, 0);
+        const base64 = canvas.toDataURL("image/jpeg", 0.9);
+        const res = await fetch("/api/judge-face", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64 }),
+        });
+        const data = await res.json();
+        if (data.psl && data.psl > 0) setMyPsl(data.psl);
+      } catch {}
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [phase, localVideoTrack]);
+
   // Keyboard number input while searching / negotiating
   useEffect(() => {
     if (phase !== "negotiating" && phase !== "queued") return;
@@ -448,6 +479,8 @@ export function ArenaClient({
     setMyReady(false);
     setOppReady(false);
     analysisRunning.current = false;
+    autoJudgeDone.current = false;
+    setMyPsl(null);
     refreshBalance();
   }
 
@@ -586,7 +619,7 @@ export function ArenaClient({
             name={yourHandle}
             queueMonogram={yourMonogram}
             videoTrack={localVideoTrack}
-            hasVideo={videoEnabled}
+            hasVideo={videoEnabled || localPreviewOnly}
             displayOffer={displayMyOffer}
             isTyping={false}
             phase={phase}
@@ -594,6 +627,7 @@ export function ArenaClient({
             score={isP1 ? myScore : oppScore}
             isSearching={false}
             queueTimedOut={queueTimedOut}
+            pslBadge={myPsl}
           />
 
           {/* Ready button during live */}
@@ -671,6 +705,22 @@ function IdleScreen({
   isPending: boolean;
   balance: number;
 }) {
+  const idleVideoRef = useRef<HTMLVideoElement>(null);
+  const idleStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } })
+      .then((stream) => {
+        idleStreamRef.current = stream;
+        if (idleVideoRef.current) idleVideoRef.current.srcObject = stream;
+      })
+      .catch(() => {});
+    return () => {
+      idleStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
   return (
     <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-8 px-4">
       {/* Neon title */}
@@ -696,6 +746,26 @@ function IdleScreen({
         <p className="text-zinc-500 text-sm uppercase tracking-widest">
           1v1 · Bet · Mog or be mogged
         </p>
+      </div>
+
+      {/* Self cam preview */}
+      <div className="relative w-48 h-36 sm:w-64 sm:h-48 border-2 border-fuchsia-500/40 overflow-hidden bg-zinc-950">
+        <video
+          ref={idleVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover scale-x-[-1]"
+        />
+        <div className="absolute inset-0 border-2 border-fuchsia-500/20 pointer-events-none" />
+        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/70 px-2 py-0.5">
+          <motion.span
+            className="size-1.5 rounded-full bg-red-500"
+            animate={{ opacity: [1, 0, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
+          <span className="text-[10px] font-mono text-red-400 font-bold uppercase">You</span>
+        </div>
       </div>
 
       {/* Balance */}
@@ -1140,6 +1210,7 @@ function PlayerPanel({
   score,
   isSearching = false,
   queueTimedOut = false,
+  pslBadge = null,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1154,6 +1225,7 @@ function PlayerPanel({
   score: number | null;
   isSearching?: boolean;
   queueTimedOut?: boolean;
+  pslBadge?: number | null;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
@@ -1247,7 +1319,7 @@ function PlayerPanel({
       <div className="relative min-h-[12rem] flex-1 bg-zinc-950 md:min-h-[14rem]">
         <div
           ref={videoRef}
-          className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
+          className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}
         />
 
         {!showVideo && (
@@ -1330,6 +1402,18 @@ function PlayerPanel({
             />
             <span className="text-xs font-mono text-red-400 font-bold">LIVE</span>
           </div>
+        )}
+        {pslBadge !== null && pslBadge > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute top-2 right-2 z-10 flex flex-col items-center bg-black/80 border border-fuchsia-500/60 px-2 py-1"
+          >
+            <span className="text-[9px] font-black uppercase tracking-widest text-fuchsia-400">PSL</span>
+            <span className="text-lg font-black tabular-nums text-white leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+              {pslBadge.toFixed(1)}
+            </span>
+          </motion.div>
         )}
 
         <AnimatePresence>
