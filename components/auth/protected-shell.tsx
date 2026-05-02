@@ -59,7 +59,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
     <ArenaMatchLeaveProvider>
       <AppNav />
       <WalletSetupHud show={showHud} />
-      <div className="mx-auto flex w-full max-w-6xl flex-1 px-3 py-4 sm:px-4 sm:py-6" style={{ overflowX: "clip" }}>{children}</div>
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 sm:py-6" style={{ overflowX: "clip" }}>{children}</div>
     </ArenaMatchLeaveProvider>
   );
 }
