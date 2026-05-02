@@ -133,6 +133,7 @@ export function ArenaClient({
   const queueTimedOutRef = useRef(false);
   const autoJudgeDone = useRef(false);
   const pslCaptures = useRef<number[]>([]);
+  const [noFaceWarning, setNoFaceWarning] = useState(false);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -374,6 +375,53 @@ export function ArenaClient({
     }, 4000);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [phase, localVideoTrack, match?.id, userId]);
+
+  // Face presence check — warn at 5s, auto-forfeit (score 0) at 10s if no face
+  useEffect(() => {
+    if (phase !== "live" || !localVideoTrack) return;
+
+    async function hasFace(): Promise<boolean> {
+      try {
+        const frameData = (localVideoTrack as ICameraVideoTrack).getCurrentFrameData();
+        if (!frameData || frameData.width === 0) return false;
+        const canvas = document.createElement("canvas");
+        canvas.width = frameData.width;
+        canvas.height = frameData.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.putImageData(frameData, 0, 0);
+        const base64 = canvas.toDataURL("image/jpeg", 0.7);
+        const res = await fetch("/api/judge-face", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64 }),
+        });
+        const data = await res.json();
+        return !!(data.psl && data.psl > 0);
+      } catch { return true; } // network fail → assume face present
+    }
+
+    const warnTimer = setTimeout(() => setNoFaceWarning(true), 5000);
+
+    const forfeitTimer = setTimeout(async () => {
+      const faceFound = await hasFace();
+      if (!faceFound) {
+        // Force a PSL of 0 so opponent wins
+        setMyPsl(0);
+        pslCaptures.current = [0];
+        if (match?.id) {
+          const supabase = createClient();
+          supabase.channel(`arena:${match.id}`).send({
+            type: "broadcast", event: "psl",
+            payload: { userId, psl: 0 },
+          });
+        }
+      } else {
+        setNoFaceWarning(false);
+      }
+    }, 10000);
+
+    return () => { clearTimeout(warnTimer); clearTimeout(forfeitTimer); };
   }, [phase, localVideoTrack, match?.id, userId]);
 
   // Keyboard number input while searching / negotiating
@@ -757,6 +805,22 @@ export function ArenaClient({
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {noFaceWarning && phase === "live" && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 border-2 border-red-500 bg-black/95 px-4 py-3 shadow-[0_0_30px_rgba(239,68,68,0.4)]"
+          >
+            <span className="text-red-400 text-lg">⚠️</span>
+            <p className="text-sm font-black uppercase tracking-widest text-red-300">
+              Show your face — no face detected, you will forfeit!
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Done overlay */}
       <AnimatePresence>
         {isDone && (
@@ -805,7 +869,7 @@ function IdleScreen({
     if (!camOn) return;
     const constraints: MediaStreamConstraints = {
       video: { facingMode: "user" },
-      audio: false,
+      audio: true,
     };
     navigator.mediaDevices
       .getUserMedia(constraints)
@@ -820,7 +884,13 @@ function IdleScreen({
       })
       .catch((err) => {
         setCamOn(false);
-        setCamError(err?.name === "NotAllowedError" ? "Camera permission denied." : "Camera unavailable.");
+        if (err?.name === "NotAllowedError") {
+          setCamError("Camera & mic permission denied — allow both to play.");
+        } else if (err?.name === "NotFoundError") {
+          setCamError("No camera or mic found on this device.");
+        } else {
+          setCamError("Camera & mic unavailable.");
+        }
       });
     return () => {
       idleStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -829,11 +899,16 @@ function IdleScreen({
   }, [camOn]);
 
   function validateAndQueue() {
-    if (!camOn) { setCamError("Enable your camera first."); return; }
+    if (!camOn) { setCamError("Enable your camera & mic first."); return; }
     const video = idleVideoRef.current;
     const stream = idleStreamRef.current;
     if (!stream || stream.getTracks().every((t) => t.readyState === "ended")) {
-      setCamError("Camera disconnected."); return;
+      setCamError("Camera & mic disconnected."); return;
+    }
+    const hasVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+    const hasAudio = stream.getAudioTracks().some((t) => t.readyState === "live");
+    if (!hasVideo || !hasAudio) {
+      setCamError("Camera & mic both required to play."); return;
     }
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       setCamError("Camera not ready — wait a moment."); return;
@@ -964,7 +1039,7 @@ function IdleScreen({
                 <Swords className={`size-5 transition-colors ${accentColor === "cyan" ? "text-cyan-500/60 group-hover:text-cyan-400" : "text-fuchsia-500/60 group-hover:text-fuchsia-400"}`} />
               </div>
               <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${accentColor === "cyan" ? "text-zinc-600 group-hover:text-cyan-400" : "text-zinc-600 group-hover:text-fuchsia-400"}`}>
-                Tap to enable camera
+                Tap to enable camera & mic
               </span>
             </button>
           )}

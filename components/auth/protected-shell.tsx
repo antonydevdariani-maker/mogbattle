@@ -60,6 +60,11 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
       <AppNav />
       <WalletSetupHud show={showHud} />
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 sm:py-6" style={{ overflowX: "clip" }}>{children}</div>
+      <footer className="border-t border-white/5 py-3 text-center">
+        <a href="mailto:support@omogger.com" className="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors">
+          support@omogger.com
+        </a>
+      </footer>
     </ArenaMatchLeaveProvider>
   );
 }
