@@ -98,11 +98,16 @@ export function LiveMatchClient({
   const router = useRouter();
   const { getAccessToken } = usePrivy();
 
-  const iWon = winnerId
-    ? winnerId === userId
-    : scoreP1 !== null && scoreP2 !== null
-      ? isPlayer1 ? scoreP1 >= scoreP2 : scoreP2 >= scoreP1
-      : false;
+  const TIE_THRESHOLD = 0.05;
+  const isTie = scoreP1 !== null && scoreP2 !== null
+    && Math.abs(scoreP1 - scoreP2) < TIE_THRESHOLD;
+  const iWon = isTie
+    ? false
+    : winnerId
+      ? winnerId === userId
+      : scoreP1 !== null && scoreP2 !== null
+        ? isPlayer1 ? scoreP1 > scoreP2 : scoreP2 > scoreP1
+        : false;
 
   const myScore = isPlayer1 ? scoreP1 : scoreP2;
   const oppScore = isPlayer1 ? scoreP2 : scoreP1;
@@ -184,12 +189,15 @@ export function LiveMatchClient({
     setMyAiResult(myResult);
     if (oppResult) setOppAiResult(oppResult);
 
+    // Small distinct jitter per player so ties are essentially impossible
+    const jitter1 = 0.001 + Math.random() * 0.009;
+    const jitter2 = 0.001 + Math.random() * 0.009;
     const p1Total = myResult?.psl
-      ? Number(myResult.psl.toFixed(2))
-      : Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length / 10).toFixed(2));
+      ? Number((myResult.psl + jitter1).toFixed(3))
+      : Number(((scores.reduce((a, s) => a + s.p1, 0) / scores.length / 10) + jitter1).toFixed(3));
     const p2Total = (oppResult?.psl || oppLivePsl)
-      ? Number((oppResult?.psl ?? oppLivePsl!).toFixed(2))
-      : Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length / 10).toFixed(2));
+      ? Number(((oppResult?.psl ?? oppLivePsl!) + jitter2).toFixed(3))
+      : Number(((scores.reduce((a, s) => a + s.p2, 0) / scores.length / 10) + jitter2).toFixed(3));
 
     // Broadcast my score so opponent sees it
     if (!isTest) {
@@ -498,9 +506,11 @@ export function LiveMatchClient({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring", bounce: 0.3 }}
             className={`relative overflow-hidden border ${
-              iWon
-                ? "border-fuchsia-500/40 bg-zinc-950"
-                : "border-red-500/30 bg-zinc-950"
+              isTie
+                ? "border-yellow-500/30 bg-zinc-950"
+                : iWon
+                  ? "border-fuchsia-500/40 bg-zinc-950"
+                  : "border-red-500/30 bg-zinc-950"
             } p-6 space-y-5`}
           >
             {testMode && (
@@ -511,20 +521,22 @@ export function LiveMatchClient({
 
             <div className="relative text-center space-y-2">
               <div className="flex justify-center mb-4">
-                {iWon ? (
+                {isTie ? (
+                  <span className="text-4xl">🤝</span>
+                ) : iWon ? (
                   <Trophy className="size-10 text-yellow-400" />
                 ) : (
                   <Skull className="size-10 text-red-400" />
                 )}
               </div>
               <h2
-                className={`text-4xl font-black tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
+                className={`text-4xl font-black tracking-tight ${isTie ? "text-yellow-200" : iWon ? "text-fuchsia-200" : "text-red-300"}`}
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                {iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
+                {isTie ? "DEAD HEAT" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
               </h2>
               <p className="text-zinc-500 text-sm">
-                {iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie"}
+                {isTie ? "Scores too close to call — bets returned" : iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie"}
               </p>
             </div>
 
@@ -589,15 +601,17 @@ export function LiveMatchClient({
             {/* P&L */}
             {!testMode && (
               <div className={`relative rounded-xl border px-4 py-3 text-center ${
-                iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
+                isTie
+                  ? "border-yellow-500/30 bg-yellow-500/10"
+                  : iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
               }`}>
-                <p className={`text-2xl font-black tabular-nums ${iWon ? "text-green-300" : "text-red-400"}`}
+                <p className={`text-2xl font-black tabular-nums ${isTie ? "text-yellow-300" : iWon ? "text-green-300" : "text-red-400"}`}
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
+                  {isTie ? `±0` : iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
                 </p>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  {iWon ? "deposited to your wallet" : "taken by winner"}
+                  {isTie ? "bet returned to both players" : iWon ? "deposited to your wallet" : "taken by winner"}
                 </p>
               </div>
             )}

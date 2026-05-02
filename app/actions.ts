@@ -1011,9 +1011,16 @@ export async function finalizeMatchResult(
     return;
   }
 
-  const winnerId = args.aiScoreP1 >= args.aiScoreP2 ? match.player1_id : match.player2_id;
-  const loserId = winnerId === match.player1_id ? match.player2_id : match.player1_id;
-  const winnings = match.bet_amount * 2;
+  // Scores within 0.05 PSL → tie (very rare since AI returns floats)
+  const isTie = Math.abs(args.aiScoreP1 - args.aiScoreP2) < 0.05;
+  const winnerId = isTie
+    ? null
+    : args.aiScoreP1 > args.aiScoreP2
+      ? match.player1_id
+      : match.player2_id;
+  const loserId = !isTie && winnerId
+    ? winnerId === match.player1_id ? match.player2_id : match.player1_id
+    : null;
 
   await supabase
     .from("matches")
@@ -1026,38 +1033,57 @@ export async function finalizeMatchResult(
     })
     .eq("id", match.id);
 
+  const playerIds = [match.player1_id, match.player2_id].filter(Boolean) as string[];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id,elo,wins,matches_played,total_credits")
-    .in("user_id", [winnerId, loserId]);
-  const winner = profiles?.find((p) => p.user_id === winnerId);
-  const loser = profiles?.find((p) => p.user_id === loserId);
-  if (!winner || !loser) {
-    return;
-  }
+    .in("user_id", playerIds);
+
+  const p1 = profiles?.find((p) => p.user_id === match.player1_id);
+  const p2 = profiles?.find((p) => p.user_id === match.player2_id);
+  if (!p1 || !p2) return;
 
   const k = 24;
-  const winnerExpected = expectedScore(winner.elo, loser.elo);
-  const loserExpected = expectedScore(loser.elo, winner.elo);
-  const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
-  const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
 
-  await supabase
-    .from("profiles")
-    .update({
+  if (isTie) {
+    // Refund both players their bet; ELO draw
+    const p1Expected = expectedScore(p1.elo, p2.elo);
+    const p2Expected = expectedScore(p2.elo, p1.elo);
+    const p1Elo = Math.round(p1.elo + k * (0.5 - p1Expected));
+    const p2Elo = Math.round(p2.elo + k * (0.5 - p2Expected));
+
+    await supabase.from("profiles").update({
+      total_credits: p1.total_credits + match.bet_amount,
+      matches_played: p1.matches_played + 1,
+      elo: p1Elo,
+    }).eq("user_id", match.player1_id);
+    await supabase.from("profiles").update({
+      total_credits: p2.total_credits + match.bet_amount,
+      matches_played: p2.matches_played + 1,
+      elo: p2Elo,
+    }).eq("user_id", match.player2_id);
+  } else {
+    const winner = winnerId === match.player1_id ? p1 : p2;
+    const loser = loserId === match.player1_id ? p1 : p2;
+    if (!winner || !loser) return;
+
+    const winnings = match.bet_amount * 2;
+    const winnerExpected = expectedScore(winner.elo, loser.elo);
+    const loserExpected = expectedScore(loser.elo, winner.elo);
+    const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
+    const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+
+    await supabase.from("profiles").update({
       total_credits: winner.total_credits + winnings,
       wins: winner.wins + 1,
       matches_played: winner.matches_played + 1,
       elo: winnerElo,
-    })
-    .eq("user_id", winnerId);
-  await supabase
-    .from("profiles")
-    .update({
+    }).eq("user_id", winnerId!);
+    await supabase.from("profiles").update({
       matches_played: loser.matches_played + 1,
       elo: loserElo,
-    })
-    .eq("user_id", loserId);
+    }).eq("user_id", loserId!);
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/battle");

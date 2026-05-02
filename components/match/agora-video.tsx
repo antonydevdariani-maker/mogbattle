@@ -225,7 +225,7 @@ function VideoShell({
 
   return (
     <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>
-      <div className="relative aspect-video bg-zinc-950 overflow-hidden">
+      <div className="relative aspect-[4/5] sm:aspect-[3/4] md:aspect-[4/5] bg-zinc-950 overflow-hidden">
         {/* Agora renders video into this div */}
         <div ref={containerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
 
