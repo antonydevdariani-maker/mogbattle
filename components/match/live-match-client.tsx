@@ -161,6 +161,8 @@ export function LiveMatchClient({
     setPhase("analyzing");
     setRevealedMetrics([]);
     setMetricScores([]);
+    setMyPartialPsl(5.0);
+    setOppPartialPsl(5.0);
 
     const myFrame = localVideoRef.current?.captureFrame() ?? null;
     const oppFrame = isTest ? myFrame : (remoteVideoRef.current?.captureFrame() ?? null);
@@ -186,15 +188,25 @@ export function LiveMatchClient({
       setMetricScores([...scores]);
       setRevealedMetrics((prev) => [...prev, i]);
 
-      // Drift toward real AI PSL when known; otherwise tiny random walk
+      // Start at 5.0, move toward AI PSL once known, wobble once arrived
       const driftToward = (prev: number | null, target: number | null): number => {
-        const fallback = target ?? 5.0;
-        const base = prev ?? fallback;
-        // Pull 15-25% of gap toward target, plus small noise
-        const gap = fallback - base;
-        const pull = gap * (0.15 + Math.random() * 0.10);
-        const noise = (Math.random() * 0.12 - 0.06);
-        return Number(Math.max(1, Math.min(9.9, base + pull + noise)).toFixed(2));
+        const current = prev ?? 5.0;
+        if (target === null) {
+          // AI not back yet — hold near 5 with micro drift
+          const noise = Math.random() * 0.04 - 0.02;
+          return Number(Math.max(4.85, Math.min(5.15, current + noise)).toFixed(2));
+        }
+        const gap = target - current;
+        const dist = Math.abs(gap);
+        if (dist < 0.12) {
+          // Arrived — tiny wobble around target
+          const wobble = Math.random() * 0.06 - 0.03;
+          return Number(Math.max(1, Math.min(9.9, current + wobble)).toFixed(2));
+        }
+        // Step ~35% of remaining gap + tiny noise
+        const step = Math.sign(gap) * Math.min(dist * 0.35, 0.4);
+        const noise = Math.random() * 0.04 - 0.02;
+        return Number(Math.max(1, Math.min(9.9, current + step + noise)).toFixed(2));
       };
       setMyPartialPsl((prev) => driftToward(prev, resolvedMyPsl));
       setOppPartialPsl((prev) => driftToward(prev, resolvedOppPsl));
