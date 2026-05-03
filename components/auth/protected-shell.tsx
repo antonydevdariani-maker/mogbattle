@@ -44,7 +44,9 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
 
       if (pathname !== "/verify") {
         const verified = localStorage.getItem(`mogbattle_verified_${user.userId}`);
-        if (!verified) {
+        const bypass = localStorage.getItem("mogbattle_verify_bypass");
+        const bypassActive = bypass && Date.now() < Number(bypass);
+        if (!verified && !bypassActive) {
           router.replace("/verify");
         }
       }
