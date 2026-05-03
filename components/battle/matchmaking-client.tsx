@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { queueForBattle, submitBetOffer } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -22,7 +22,7 @@ export function MatchmakingClient({
   opponentName: string | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  const { getAccessToken } = usePrivy();
+  const { authToken } = useDynamicContext();
   const [match, setMatch] = useState<MatchRow | null>(existingMatch);
   const [queueSeconds, setQueueSeconds] = useState(0);
   const [isPending, startTransition] = useTransition();
@@ -97,7 +97,7 @@ export function MatchmakingClient({
 
   function onQueue() {
     startTransition(async () => {
-      const token = await getAccessToken();
+      const token = authToken;
       if (!token) return;
       await queueForBattle(token, 1);
       await onRefresh?.();
@@ -113,7 +113,7 @@ export function MatchmakingClient({
     const amount = parseInt(cleaned, 10);
     if (amount < 1) return;
     submitTimerRef.current = setTimeout(async () => {
-      const token = await getAccessToken();
+      const token = authToken;
       if (!token) return;
       try {
         await submitBetOffer(token, match.id, amount);

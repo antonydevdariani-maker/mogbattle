@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
@@ -11,19 +11,17 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function DashboardPage() {
-  const { authenticated, getAccessToken } = usePrivy();
+  const { isAuthenticated, authToken } = useDynamicContext();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated || !authToken) return;
     (async () => {
       try {
-        const token = await getAccessToken();
-        if (!token) return;
-        const data = await loadDashboardData(token);
+        const data = await loadDashboardData(authToken);
         setProfile(data.profile as Profile | null);
         setMatches((data.matches ?? []) as Match[]);
         setUserId(data.userId);
@@ -31,7 +29,7 @@ export default function DashboardPage() {
         setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, [authenticated, getAccessToken]);
+  }, [isAuthenticated, authToken]);
 
   const winRate =
     profile && profile.matches_played > 0
@@ -106,7 +104,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <span className={`text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}>
-                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} MC
+                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} {m.is_free_match ? "mol" : "MC"}
                   </span>
                 </div>
               );

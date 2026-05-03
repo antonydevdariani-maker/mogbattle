@@ -1,24 +1,24 @@
 "use client";
 
 import { Suspense } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { Swords } from "lucide-react";
 
 function LoginContent() {
-  const { ready, authenticated, login } = usePrivy();
+  const { sdkHasLoaded, isAuthenticated, setShowAuthFlow } = useDynamicContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
 
   useEffect(() => {
-    if (ready && authenticated) {
+    if (sdkHasLoaded && isAuthenticated) {
       router.replace(next);
     }
-  }, [ready, authenticated, router, next]);
+  }, [sdkHasLoaded, isAuthenticated, router, next]);
 
-  if (!ready) {
+  if (!sdkHasLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black text-zinc-600 text-xs uppercase tracking-widest">
         Loading…
@@ -54,7 +54,7 @@ function LoginContent() {
         <button
           type="button"
           className="flex w-full items-center justify-center gap-2 h-14 bg-fuchsia-500 text-black text-base font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
-          onClick={() => login()}
+          onClick={() => setShowAuthFlow(true)}
         >
           <Swords className="size-5" />
           Connect

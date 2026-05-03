@@ -1,9 +1,22 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Sword, Zap, Trophy, Flame, Shield, TrendingUp } from "lucide-react";
+import { Sword, Zap, Trophy, Flame, Shield, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-export default function Home() {
+async function getAccountCount(): Promise<number> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { count } = await supabase.from("profiles").select("*", { count: "exact", head: true });
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export default async function Home() {
+  const accountCount = await getAccountCount();
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 relative overflow-hidden bg-black">
       {/* Grid bg */}
@@ -37,6 +50,17 @@ export default function Home() {
             Step into the arena. Bet Mog Credits. Let the AI judge your face.
             Winner takes the pot. No excuses.
           </p>
+
+          {/* Account count badge */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 border border-fuchsia-500/30 bg-fuchsia-500/5 px-5 py-2">
+              <Users className="size-3.5 text-fuchsia-400" />
+              <span className="text-sm font-black text-fuchsia-300 tabular-nums">
+                {accountCount.toLocaleString()}
+              </span>
+              <span className="text-xs text-zinc-500 uppercase tracking-widest">accounts created</span>
+            </div>
+          </div>
 
           <div className="flex justify-center">
             <Link

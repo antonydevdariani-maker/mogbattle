@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { finalizeMatchResult } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
@@ -92,7 +92,7 @@ export function LiveMatchClient({
   const [testMode, setTestMode] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
-  const { getAccessToken } = usePrivy();
+  const { authToken } = useDynamicContext();
 
   const iWon = winnerId
     ? winnerId === userId
@@ -172,7 +172,7 @@ export function LiveMatchClient({
 
     if (!isTest && isPlayer1) {
       startTransition(async () => {
-        const token = await getAccessToken();
+        const token = authToken;
         if (!token) return;
         await finalizeMatchResult(token, {
           matchId,

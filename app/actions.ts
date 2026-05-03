@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { verifyPrivyAccessToken } from "@/lib/privy/verify";
+import { verifyDynamicAccessToken } from "@/lib/dynamic/verify";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { verifyUsdcPlatformFeeTransaction } from "@/lib/solana/verify-fee-tx";
 import { mogCreditsFromGrossUsdc } from "@/lib/wallet/usdc-deposit";
@@ -9,7 +9,7 @@ import { mogCreditsFromGrossUsdc } from "@/lib/wallet/usdc-deposit";
 const MIN_DEPOSIT = 1;
 
 async function requirePrivyUser(accessToken: string | null | undefined) {
-  const userId = await verifyPrivyAccessToken(accessToken);
+  const userId = await verifyDynamicAccessToken(accessToken);
   return userId;
 }
 
@@ -281,12 +281,13 @@ export async function loadBattleQueueState(accessToken: string) {
       .maybeSingle();
     const myElo = myProfile?.elo ?? 1500;
 
-    // Find waiting opponents: same queue type, not self, ordered by ELO proximity
+    // Find waiting opponents: same queue type, same bet, not self, ordered by ELO proximity
     const { data: candidates } = await supabase
       .from("matches")
       .select("id, player1_id")
       .eq("status", "waiting")
       .eq("is_free_match", isFree)
+      .eq("bet_amount", activeMatch.bet_amount)
       .is("player2_id", null)
       .neq("player1_id", userId)
       .order("created_at", { ascending: true })
@@ -813,9 +814,9 @@ export async function finalizeFreeMatchResult(
   if (match.status === "completed") return;
   if (!match.is_free_match) throw new Error("Not a free match.");
 
-  const winnerId = args.aiScoreP1 >= args.aiScoreP2 ? match.player1_id : match.player2_id;
-  const loserId = winnerId === match.player1_id ? match.player2_id : match.player1_id;
-  const winnings = match.bet_amount * 2;
+  const isTie = Math.abs(args.aiScoreP1 - args.aiScoreP2) < 0.1;
+  const winnerId = isTie ? null : (args.aiScoreP1 > args.aiScoreP2 ? match.player1_id : match.player2_id);
+  const loserId = isTie ? null : (winnerId === match.player1_id ? match.player2_id : match.player1_id);
 
   await supabase.from("matches").update({
     status: "completed",
@@ -828,28 +829,42 @@ export async function finalizeFreeMatchResult(
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id,elo,wins,matches_played,molecules")
-    .in("user_id", [winnerId, loserId]);
-  const winner = profiles?.find((p) => p.user_id === winnerId);
-  const loser = profiles?.find((p) => p.user_id === loserId);
-  if (!winner || !loser) return;
+    .in("user_id", [match.player1_id, match.player2_id]);
+  const p1Profile = profiles?.find((p) => p.user_id === match.player1_id);
+  const p2Profile = profiles?.find((p) => p.user_id === match.player2_id);
+  if (!p1Profile || !p2Profile) return;
 
-  // 25% ELO gain for free matches
   const k = 6;
-  const winnerExpected = expectedScore(winner.elo, loser.elo);
-  const loserExpected = expectedScore(loser.elo, winner.elo);
-  const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
-  const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
 
-  await supabase.from("profiles").update({
-    molecules: (winner.molecules ?? 0) + winnings,
-    wins: winner.wins + 1,
-    matches_played: winner.matches_played + 1,
-    elo: winnerElo,
-  }).eq("user_id", winnerId);
-  await supabase.from("profiles").update({
-    matches_played: loser.matches_played + 1,
-    elo: loserElo,
-  }).eq("user_id", loserId);
+  if (isTie) {
+    // Tie: refund both players their bet, no ELO change
+    await supabase.from("profiles").update({
+      molecules: (p1Profile.molecules ?? 0) + match.bet_amount,
+      matches_played: p1Profile.matches_played + 1,
+    }).eq("user_id", match.player1_id);
+    await supabase.from("profiles").update({
+      molecules: (p2Profile.molecules ?? 0) + match.bet_amount,
+      matches_played: p2Profile.matches_played + 1,
+    }).eq("user_id", match.player2_id);
+  } else {
+    const winner = profiles?.find((p) => p.user_id === winnerId!);
+    const loser = profiles?.find((p) => p.user_id === loserId!);
+    if (!winner || !loser) return;
+    const winnerExpected = expectedScore(winner.elo, loser.elo);
+    const loserExpected = expectedScore(loser.elo, winner.elo);
+    const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
+    const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+    await supabase.from("profiles").update({
+      molecules: (winner.molecules ?? 0) + match.bet_amount * 2,
+      wins: winner.wins + 1,
+      matches_played: winner.matches_played + 1,
+      elo: winnerElo,
+    }).eq("user_id", winnerId!);
+    await supabase.from("profiles").update({
+      matches_played: loser.matches_played + 1,
+      elo: loserElo,
+    }).eq("user_id", loserId!);
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/arena");
@@ -1011,9 +1026,9 @@ export async function finalizeMatchResult(
     return;
   }
 
-  const winnerId = args.aiScoreP1 >= args.aiScoreP2 ? match.player1_id : match.player2_id;
-  const loserId = winnerId === match.player1_id ? match.player2_id : match.player1_id;
-  const winnings = match.bet_amount * 2;
+  const isTie = Math.abs(args.aiScoreP1 - args.aiScoreP2) < 0.1;
+  const winnerId = isTie ? null : (args.aiScoreP1 > args.aiScoreP2 ? match.player1_id : match.player2_id);
+  const loserId = isTie ? null : (winnerId === match.player1_id ? match.player2_id : match.player1_id);
 
   await supabase
     .from("matches")
@@ -1026,38 +1041,46 @@ export async function finalizeMatchResult(
     })
     .eq("id", match.id);
 
+  const bothIds = [match.player1_id, match.player2_id];
   const { data: profiles } = await supabase
     .from("profiles")
     .select("user_id,elo,wins,matches_played,total_credits")
-    .in("user_id", [winnerId, loserId]);
-  const winner = profiles?.find((p) => p.user_id === winnerId);
-  const loser = profiles?.find((p) => p.user_id === loserId);
-  if (!winner || !loser) {
-    return;
-  }
+    .in("user_id", bothIds);
+  const p1Profile = profiles?.find((p) => p.user_id === match.player1_id);
+  const p2Profile = profiles?.find((p) => p.user_id === match.player2_id);
+  if (!p1Profile || !p2Profile) return;
 
   const k = 24;
-  const winnerExpected = expectedScore(winner.elo, loser.elo);
-  const loserExpected = expectedScore(loser.elo, winner.elo);
-  const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
-  const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
 
-  await supabase
-    .from("profiles")
-    .update({
-      total_credits: winner.total_credits + winnings,
+  if (isTie) {
+    // Tie: refund both players their bet, no ELO change
+    await supabase.from("profiles").update({
+      total_credits: p1Profile.total_credits + match.bet_amount,
+      matches_played: p1Profile.matches_played + 1,
+    }).eq("user_id", match.player1_id);
+    await supabase.from("profiles").update({
+      total_credits: p2Profile.total_credits + match.bet_amount,
+      matches_played: p2Profile.matches_played + 1,
+    }).eq("user_id", match.player2_id);
+  } else {
+    const winner = profiles?.find((p) => p.user_id === winnerId!);
+    const loser = profiles?.find((p) => p.user_id === loserId!);
+    if (!winner || !loser) return;
+    const winnerExpected = expectedScore(winner.elo, loser.elo);
+    const loserExpected = expectedScore(loser.elo, winner.elo);
+    const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
+    const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+    await supabase.from("profiles").update({
+      total_credits: winner.total_credits + match.bet_amount * 2,
       wins: winner.wins + 1,
       matches_played: winner.matches_played + 1,
       elo: winnerElo,
-    })
-    .eq("user_id", winnerId);
-  await supabase
-    .from("profiles")
-    .update({
+    }).eq("user_id", winnerId!);
+    await supabase.from("profiles").update({
       matches_played: loser.matches_played + 1,
       elo: loserElo,
-    })
-    .eq("user_id", loserId);
+    }).eq("user_id", loserId!);
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/battle");

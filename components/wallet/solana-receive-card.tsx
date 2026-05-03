@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallets } from "@privy-io/react-auth/solana";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { QRCodeSVG } from "qrcode.react";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { USDC_MINT_MAINNET } from "@/lib/wallet/usdc-deposit";
 
 export function SolanaReceiveCard() {
-  const { wallets, ready } = useWallets();
+  const { primaryWallet, sdkHasLoaded } = useDynamicContext();
   const [copied, setCopied] = useState(false);
-  const address = wallets[0]?.address;
+  const address = primaryWallet?.address ?? null;
 
   async function copy() {
     if (!address) return;
@@ -19,7 +19,7 @@ export function SolanaReceiveCard() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (!ready) {
+  if (!sdkHasLoaded) {
     return <p className="text-sm text-muted-foreground">Loading Solana wallet…</p>;
   }
   if (!address) {

@@ -1,7 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
-import { useWallets } from "@privy-io/react-auth/solana";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadWalletData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
@@ -15,8 +14,7 @@ import { Suspense } from "react";
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 
 function WalletPageInner() {
-  const { authenticated, getAccessToken } = usePrivy();
-  const { wallets, ready: walletsReady } = useWallets();
+  const { isAuthenticated, authToken, primaryWallet, sdkHasLoaded } = useDynamicContext();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [copied, setCopied] = useState(false);
@@ -27,7 +25,7 @@ function WalletPageInner() {
   );
   const walletTabsRef = useRef<HTMLDivElement>(null);
 
-  const address = wallets[0]?.address;
+  const address = primaryWallet?.address ?? null;
 
   useEffect(() => {
     setSection(actionParam === "withdraw" ? "withdraw" : "deposit");
@@ -42,17 +40,16 @@ function WalletPageInner() {
   }, [section]);
 
   const refresh = useCallback(async () => {
-    const token = await getAccessToken();
-    if (!token) return;
-    const data = await loadWalletData(token);
+    if (!authToken) return;
+    const data = await loadWalletData(authToken);
     setBalance(data.balance);
     setTransactions(data.transactions as Transaction[]);
-  }, [getAccessToken]);
+  }, [authToken]);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated) return;
     void refresh();
-  }, [authenticated, refresh]);
+  }, [isAuthenticated, refresh]);
 
   async function copyAddress() {
     if (!address) return;
@@ -87,7 +84,7 @@ function WalletPageInner() {
           <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your Wallet</p>
         </div>
         <div className="p-5 space-y-4">
-          {walletsReady && address ? (
+          {sdkHasLoaded && address ? (
             <>
               <div className="flex items-start gap-2">
                 <p className="font-mono text-xs text-zinc-400 break-all flex-1 leading-relaxed">{address}</p>

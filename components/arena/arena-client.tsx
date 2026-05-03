@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   queueForBattle,
@@ -33,6 +33,8 @@ import {
   Wifi,
   WifiOff,
   Atom,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import type { ICameraVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
@@ -45,6 +47,7 @@ type ArenaPhase =
   | "countdown"
   | "analyzing"
   | "verdict"
+  | "overtime"
   | "done";
 
 const METRICS = [
@@ -96,7 +99,7 @@ export function ArenaClient({
   displayName: string | null;
   walletAddress: string | null;
 }) {
-  const { getAccessToken } = usePrivy();
+  const { authToken } = useDynamicContext();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [isPending, setIsPending] = useState(false);
@@ -133,7 +136,10 @@ export function ArenaClient({
   const queueTimedOutRef = useRef(false);
   const autoJudgeDone = useRef(false);
   const pslCaptures = useRef<number[]>([]);
+  const overtimeDone = useRef(false);
+  const [overtimeSecs, setOvertimeSecs] = useState(5);
   const [noFaceWarning, setNoFaceWarning] = useState(false);
+  const [tikTokMode, setTikTokMode] = useState(false);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -160,15 +166,15 @@ export function ArenaClient({
   const isP1 = match?.player1_id === userId;
   const myRawOffer = isP1 ? match?.player1_bet_offer : match?.player2_bet_offer;
   const oppRawOffer = isP1 ? match?.player2_bet_offer : match?.player1_bet_offer;
-  const displayMyOffer = myOfferStr || (myRawOffer ? String(myRawOffer) : "");
-  const displayOppOffer = oppRawOffer ? String(oppRawOffer) : "";
+  const displayMyOffer = myOfferStr || (myRawOffer ? String(myRawOffer) : "") || (lockedBet > 0 ? String(lockedBet) : "");
+  const displayOppOffer = oppRawOffer ? String(oppRawOffer) : (match?.bet_amount ? String(match.bet_amount) : "");
 
   const myScore = isP1 ? scoreP1 : scoreP2;
   const oppScore = isP1 ? scoreP2 : scoreP1;
   const iWon = match?.winner_id
     ? match.winner_id === userId
-    : myScore !== null && oppScore !== null
-    ? myScore >= oppScore
+    : myScore !== null && oppScore !== null && Math.abs(myScore - oppScore) >= 0.1
+    ? myScore > oppScore
     : false;
 
   /** Full channel participation — needs a match ID. */
@@ -189,15 +195,15 @@ export function ArenaClient({
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   const refreshBalance = useCallback(async () => {
-    const token = await getAccessToken();
+    const token = authToken;
     if (!token) return;
     const p = await loadProfileSummary(token);
     setBalance(p?.total_credits ?? 0);
     setMolecules(p?.molecules ?? 0);
-  }, [getAccessToken]);
+  }, [authToken]);
 
   const poll = useCallback(async () => {
-    const token = await getAccessToken();
+    const token = authToken;
     if (!token) return;
     const s = await loadBattleQueueState(token);
     const newMatch = s.activeMatch as MatchRow | null;
@@ -215,7 +221,7 @@ export function ArenaClient({
       if (matchmakingIntentRef.current) return "queued";
       return derived;
     });
-  }, [getAccessToken, derivePhase]);
+  }, [authToken, derivePhase]);
 
   // ── Effects ──────────────────────────────────────────────────────────────────
 
@@ -309,7 +315,7 @@ export function ArenaClient({
     matchmakingIntentRef.current = false;
     timedOutBattleRef.current = true;
     startTransition(async () => {
-      const token = await getAccessToken();
+      const token = authToken;
       if (token) {
         try {
           await cancelWaitingMatch(token);
@@ -319,7 +325,7 @@ export function ArenaClient({
       }
       setMatch(null);
     });
-  }, [queueTimedOut, phase, getAccessToken]);
+  }, [queueTimedOut, phase, authToken]);
 
   // Auto-capture at 2.5s and 4s — use best PSL, broadcast to opponent
   useEffect(() => {
@@ -431,9 +437,9 @@ export function ArenaClient({
     return () => { clearTimeout(warnTimer); clearTimeout(forfeitTimer); };
   }, [phase, localVideoTrack, match?.id, userId]);
 
-  // Keyboard number input while searching / negotiating
+  // Keyboard number input during negotiation only — bet is locked once queued
   useEffect(() => {
-    if (phase !== "negotiating" && phase !== "queued") return;
+    if (phase !== "negotiating") return;
     function onKey(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (/^\d$/.test(e.key)) {
@@ -464,7 +470,7 @@ export function ArenaClient({
     if (!amount || amount < 1 || !match?.id || match.status !== "matched") return;
     const capped = isFreeMode ? Math.min(amount, molecules) : Math.min(amount, balance);
     submitTimerRef.current = setTimeout(async () => {
-      const token = await getAccessToken();
+      const token = authToken;
       if (!token) return;
       try {
         if (isFreeMode) {
@@ -511,7 +517,7 @@ export function ArenaClient({
     autoJudgeDone.current = false;
     startTransition(async () => {
       try {
-        const token = await getAccessToken();
+        const token = authToken;
         if (!token) {
           matchmakingIntentRef.current = false;
           setPhase("idle");
@@ -537,7 +543,7 @@ export function ArenaClient({
     matchmakingIntentRef.current = false;
     setQueueTimedOut(false);
     setQueueSecs(0);
-    const token = await getAccessToken();
+    const token = authToken;
     if (token) {
       try {
         await cancelWaitingMatch(token);
@@ -554,6 +560,7 @@ export function ArenaClient({
   async function startAnalysis() {
     if (analysisRunning.current) return;
     analysisRunning.current = true;
+    setTikTokMode(false);
 
     setPhase("countdown");
     for (let i = 3; i >= 1; i--) { setCountdown(i); await pause(900); }
@@ -573,16 +580,36 @@ export function ArenaClient({
 
     await pause(900);
 
-    // Use actual PSL captures if available, else fall back to metric average
-    const p1Captures = isP1 ? pslCaptures.current : [];
-    const p2Captures = isP1 ? [] : pslCaptures.current;
-    const metricAvgP1 = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
-    const metricAvgP2 = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-    const p1Total = p1Captures.length > 0 ? Number(Math.max(...p1Captures).toFixed(2)) : metricAvgP1;
-    const p2Total = p2Captures.length > 0 ? Number(Math.max(...p2Captures).toFixed(2)) : metricAvgP2;
+    // Use actual PSL captures; oppPsl is the real AI score broadcast by the other player
+    const myCaptures = pslCaptures.current;
+    const metricAvgMe = Number((scores.reduce((a, s) => a + (isP1 ? s.p1 : s.p2), 0) / scores.length).toFixed(2));
+    const metricAvgOpp = Number((scores.reduce((a, s) => a + (isP1 ? s.p2 : s.p1), 0) / scores.length).toFixed(2));
+    const myScore = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvgMe;
+    const opponentScore = oppPsl !== null ? Number(oppPsl.toFixed(2)) : metricAvgOpp;
+    const p1Total = isP1 ? myScore : opponentScore;
+    const p2Total = isP1 ? opponentScore : myScore;
 
     setScoreP1(p1Total);
     setScoreP2(p2Total);
+
+    // Overtime: if tied on first attempt, give 5 more seconds then re-analyze
+    if (Math.abs(p1Total - p2Total) < 0.01 && !overtimeDone.current) {
+      overtimeDone.current = true;
+      analysisRunning.current = false;
+      setPhase("overtime");
+      setOvertimeSecs(5);
+      for (let i = 5; i >= 1; i--) {
+        setOvertimeSecs(i);
+        await pause(1000);
+      }
+      setPhase("live");
+      setMyReady(true);
+      setOppReady(true);
+      pslCaptures.current = [];
+      await pause(400);
+      await startAnalysis();
+      return;
+    }
 
     // P1 broadcasts final scores so P2 shows identical results
     if (isP1 && match) {
@@ -599,7 +626,7 @@ export function ArenaClient({
 
     if (isP1 && match) {
       startTransition(async () => {
-        const token = await getAccessToken();
+        const token = authToken;
         if (!token) return;
         if (isFreeMode) {
           await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
@@ -625,9 +652,11 @@ export function ArenaClient({
     setOppReady(false);
     analysisRunning.current = false;
     autoJudgeDone.current = false;
+    overtimeDone.current = false;
     setMyPsl(null);
     setOppPsl(null);
     pslCaptures.current = [];
+    setOvertimeSecs(5);
     refreshBalance();
   }
 
@@ -695,32 +724,7 @@ export function ArenaClient({
         mediaError={mediaError}
       />
 
-      {!queueTimedOut && phase === "queued" && (
-        <CompactYourBetStrip
-          myOffer={myOfferStr}
-          balance={isFreeMode ? molecules : balance}
-          isFreeMode={isFreeMode}
-          onOfferChange={onOfferChange}
-          onQuickBet={setQuickBet}
-          onMaxBet={setMaxBet}
-          displayMyOffer={displayMyOffer}
-        />
-      )}
-
-      {!queueTimedOut && phase === "negotiating" && match && (
-        <ThePotNegotiationStrip
-          match={match}
-          timeLeft={timeLeft}
-          myOffer={myOfferStr}
-          balance={isFreeMode ? molecules : balance}
-          isFreeMode={isFreeMode}
-          onOfferChange={onOfferChange}
-          onQuickBet={setQuickBet}
-          onMaxBet={setMaxBet}
-          displayMyOffer={displayMyOffer}
-          displayOppOffer={displayOppOffer}
-        />
-      )}
+      {/* Bet is locked before queue — no mid-match bet change UI */}
 
       {/* Split screen — Omegle-style; mobile stacks with VS between */}
       <div className="relative z-10 flex-1 grid grid-cols-1 items-stretch md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-1 md:pt-2">
@@ -759,6 +763,7 @@ export function ArenaClient({
               metricScores={metricScores}
               revealedMetrics={revealedMetrics}
               isP1={isP1}
+              overtimeSecs={overtimeSecs}
             />
           </div>
         </div>
@@ -807,6 +812,18 @@ export function ArenaClient({
             </motion.button>
           )}
 
+          {/* TikTok fullscreen button */}
+          {phase === "live" && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => setTikTokMode(true)}
+              className="w-full py-2 border border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 font-black uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Maximize2 className="size-3.5" /> Fullscreen
+            </motion.button>
+          )}
+
           {/* Your metrics during analysis (desktop: below your panel) */}
           {showAnalysis && (
             <div className="hidden md:block">
@@ -815,6 +832,37 @@ export function ArenaClient({
           )}
         </div>
       </div>
+
+      {/* Overtime overlay */}
+      <AnimatePresence>
+        {phase === "overtime" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-black/50 backdrop-blur-sm"
+          >
+            <motion.p
+              animate={{ scale: [1, 1.06, 1] }}
+              transition={{ duration: 0.6, repeat: Infinity }}
+              className="text-3xl font-black uppercase tracking-[0.25em] text-yellow-300"
+              style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 30px rgba(234,179,8,0.9)" }}
+            >
+              OVERTIME
+            </motion.p>
+            <motion.p
+              key={overtimeSecs}
+              initial={{ scale: 1.4, opacity: 0.6 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-7xl font-black tabular-nums text-white"
+              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            >
+              {overtimeSecs}
+            </motion.p>
+            <p className="text-xs text-yellow-500/70 uppercase tracking-widest">Scores tied — sudden death</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isQueued && queueTimedOut && (
@@ -850,14 +898,84 @@ export function ArenaClient({
         {isDone && (
           <DoneOverlay
             iWon={iWon}
+            isTie={myScore !== null && oppScore !== null && Math.abs(myScore - oppScore) < 0.1}
             betAmount={match?.bet_amount ?? 0}
             myScore={myScore}
             oppScore={oppScore}
+            isFreeMode={isFreeMode}
             onRematch={resetArena}
             onDashboard={() => router.push("/dashboard")}
           />
         )}
       </AnimatePresence>
+
+      {/* TikTok fullscreen overlay */}
+      <AnimatePresence>
+        {tikTokMode && phase === "live" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black flex"
+          >
+            <TikTokVideoPanel
+              videoTrack={remoteVideoTrack}
+              label={opponentName ?? "???"}
+              accentColor="cyan"
+              mirrored={false}
+            />
+            <TikTokVideoPanel
+              videoTrack={localVideoTrack}
+              label="YOU"
+              accentColor="fuchsia"
+              mirrored
+            />
+            <button
+              onClick={() => setTikTokMode(false)}
+              className="absolute top-4 right-4 z-[210] flex items-center gap-1.5 border border-zinc-700 bg-black/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-300 hover:text-white backdrop-blur-sm"
+            >
+              <Minimize2 className="size-4" /> Exit
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── TikTok Video Panel ───────────────────────────────────────────────────────
+
+function TikTokVideoPanel({
+  videoTrack,
+  label,
+  accentColor,
+  mirrored,
+}: {
+  videoTrack: ICameraVideoTrack | IRemoteVideoTrack | null;
+  label: string;
+  accentColor: "fuchsia" | "cyan";
+  mirrored: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const accent = accentColor === "fuchsia"
+    ? { text: "text-fuchsia-300", border: "border-fuchsia-500/60" }
+    : { text: "text-cyan-300", border: "border-cyan-500/60" };
+
+  useEffect(() => {
+    if (!videoTrack || !containerRef.current) return;
+    (videoTrack as ICameraVideoTrack).play(containerRef.current);
+    return () => { try { (videoTrack as ICameraVideoTrack).stop(); } catch {} };
+  }, [videoTrack]);
+
+  return (
+    <div className="relative flex-1 h-full overflow-hidden bg-zinc-950">
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${mirrored ? " [&>video]:scale-x-[-1]" : ""}`}
+      />
+      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10 border ${accent.border} bg-black/60 px-3 py-1 backdrop-blur-sm`}>
+        <span className={`text-xs font-black uppercase tracking-widest ${accent.text}`}>{label}</span>
+      </div>
     </div>
   );
 }
@@ -1112,29 +1230,29 @@ function IdleScreen({
 // ─── PSL Tier ────────────────────────────────────────────────────────────────
 
 function pslTier(psl: number): { label: string; color: string } {
-  if (psl >= 9.5) return { label: "GIGACHAD", color: "#f59e0b" };
-  if (psl >= 9)   return { label: "HIGH CHAD", color: "#f59e0b" };
-  if (psl >= 8)   return { label: "CHAD", color: "#22d3ee" };
-  if (psl >= 7.5) return { label: "CHADLITE", color: "#a78bfa" };
-  if (psl >= 6.5) return { label: "HTN", color: "#86efac" };
-  if (psl >= 5.5) return { label: "MTN", color: "#d4d4d8" };
-  if (psl >= 5)   return { label: "LTN", color: "#a1a1aa" };
-  return { label: "SUB5", color: "#f87171" };
+  if (psl >= 7.25) return { label: "ADAM LITE", color: "#f59e0b" };
+  if (psl >= 6.0)  return { label: "CHAD", color: "#22d3ee" };
+  if (psl >= 5.5)  return { label: "CHADLITE", color: "#a78bfa" };
+  if (psl >= 4.25) return { label: "HTN", color: "#86efac" };
+  if (psl >= 3.75) return { label: "MTN", color: "#d4d4d8" };
+  if (psl >= 3.25) return { label: "LTN", color: "#a1a1aa" };
+  return { label: "SB", color: "#f87171" };
 }
 
 // ─── PSL HUD ─────────────────────────────────────────────────────────────────
 
-function PslHud({ base, isYou }: { base: number; isYou: boolean }) {
+function PslHud({ base, isYou, faceDetected = true }: { base: number; isYou: boolean; faceDetected?: boolean }) {
   const [display, setDisplay] = useState(base);
   const tier = pslTier(display);
 
   useEffect(() => {
+    if (!faceDetected) return;
     const id = setInterval(() => {
       const delta = (Math.random() - 0.5) * 4;
       setDisplay(+(Math.max(1, Math.min(10, base + delta)).toFixed(1)));
     }, 1200);
     return () => clearInterval(id);
-  }, [base]);
+  }, [base, faceDetected]);
 
   return (
     <motion.div
@@ -1594,6 +1712,7 @@ function PlayerPanel({
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
+  const [faceDetected, setFaceDetected] = useState(true);
   const accentCss = isYou
     ? {
         border: "border-fuchsia-500",
@@ -1619,7 +1738,7 @@ function PlayerPanel({
   const showVideo = hasVideo && videoTrack;
   const showScore = score !== null && ["verdict", "done"].includes(phase);
 
-  const heroPhases = ["queued", "negotiating", "live", "countdown", "analyzing", "verdict", "done"] as const;
+  const heroPhases = ["queued", "negotiating"] as const;
   const showHeroNumber = heroPhases.includes(phase as (typeof heroPhases)[number]);
 
   const heroValue =
@@ -1631,7 +1750,7 @@ function PlayerPanel({
 
   const heroKey = isYou ? (displayOffer || "empty") : `${isSearching}-${displayOffer || "dash"}`;
 
-  const showTypeHint = isYou && (phase === "queued" || phase === "negotiating");
+  const showTypeHint = isYou && phase === "negotiating";
 
   return (
     <div
@@ -1691,6 +1810,7 @@ function PlayerPanel({
           <FaceMeshCanvas
             containerRef={videoRef}
             mirrored={isYou}
+            onFaceChange={setFaceDetected}
           />
         )}
 
@@ -1776,7 +1896,7 @@ function PlayerPanel({
           </div>
         )}
         {pslBadge !== null && pslBadge > 0 && (
-          <PslHud base={pslBadge} isYou={isYou} />
+          <PslHud base={pslBadge} isYou={isYou} faceDetected={faceDetected} />
         )}
 
         <AnimatePresence>
@@ -1857,15 +1977,40 @@ function CenterColumn({
   metricScores,
   revealedMetrics,
   isP1,
+  overtimeSecs,
 }: {
   phase: ArenaPhase;
   countdown: number;
   metricScores: { p1: number; p2: number }[];
   revealedMetrics: number[];
   isP1: boolean;
+  overtimeSecs?: number;
 }) {
   return (
     <div className="flex flex-col items-center justify-start gap-4 pt-2 w-full">
+      {/* Overtime indicator */}
+      {phase === "overtime" && (
+        <div className="flex flex-col items-center gap-1">
+          <motion.p
+            animate={{ scale: [1, 1.06, 1] }}
+            transition={{ duration: 0.6, repeat: Infinity }}
+            className="text-sm font-black uppercase tracking-widest text-yellow-300"
+            style={{ textShadow: "0 0 14px rgba(234,179,8,0.9)" }}
+          >
+            OVERTIME
+          </motion.p>
+          <motion.span
+            key={overtimeSecs}
+            initial={{ scale: 1.3, opacity: 0.5 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-4xl font-black tabular-nums text-yellow-400"
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            {overtimeSecs}
+          </motion.span>
+        </div>
+      )}
+
       {/* Countdown */}
       {phase === "countdown" && (
         <AnimatePresence mode="wait">
@@ -1986,20 +2131,24 @@ function Particle({ x, y, color }: { x: number; y: number; color: string }) {
 
 function DoneOverlay({
   iWon,
+  isTie = false,
   betAmount,
   myScore,
   oppScore,
+  isFreeMode = false,
   onRematch,
   onDashboard,
 }: {
   iWon: boolean;
+  isTie?: boolean;
   betAmount: number;
   myScore: number | null;
   oppScore: number | null;
+  isFreeMode?: boolean;
   onRematch: () => void;
   onDashboard: () => void;
 }) {
-  const particles = iWon
+  const particles = (iWon || isTie)
     ? Array.from({ length: 24 }, (_, i) => ({
         x: (Math.random() - 0.5) * 600,
         y: (Math.random() - 0.7) * 500,
@@ -2012,7 +2161,7 @@ function DoneOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
     >
       {/* Confetti */}
       {particles.map((p, i) => (
@@ -2023,20 +2172,24 @@ function DoneOverlay({
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 280, damping: 20, delay: 0.1 }}
-        className={`relative w-full max-w-sm border-2 ${iWon ? "border-fuchsia-500" : "border-red-500"} bg-black p-6 space-y-5 text-center`}
+        className={`relative w-full max-w-sm border-2 ${isTie ? "border-yellow-500" : iWon ? "border-fuchsia-500" : "border-red-500"} bg-black/60 backdrop-blur-md p-6 space-y-5 text-center`}
         style={{
-          boxShadow: iWon
+          boxShadow: isTie
+            ? "0 0 60px rgba(234,179,8,0.4)"
+            : iWon
             ? "0 0 60px rgba(168,85,247,0.5), 0 0 120px rgba(168,85,247,0.2)"
             : "0 0 60px rgba(239,68,68,0.4)",
         }}
       >
         {/* Corner accents */}
-        <div className={`absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 ${iWon ? "border-cyan-400" : "border-red-400"}`} />
-        <div className={`absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 ${iWon ? "border-cyan-400" : "border-red-400"}`} />
+        <div className={`absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 ${isTie ? "border-yellow-400" : iWon ? "border-cyan-400" : "border-red-400"}`} />
+        <div className={`absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 ${isTie ? "border-yellow-400" : iWon ? "border-cyan-400" : "border-red-400"}`} />
 
         {/* Icon */}
         <div className="flex justify-center">
-          {iWon ? (
+          {isTie ? (
+            <Swords className="size-14 text-yellow-400" style={{ filter: "drop-shadow(0 0 16px rgba(234,179,8,0.8))" }} />
+          ) : iWon ? (
             <motion.div
               animate={{ rotate: [0, -5, 5, -5, 0] }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -2054,16 +2207,16 @@ function DoneOverlay({
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className={`text-4xl font-black uppercase tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
+            className={`text-4xl font-black uppercase tracking-tight ${isTie ? "text-yellow-200" : iWon ? "text-fuchsia-200" : "text-red-300"}`}
             style={{
               fontFamily: "var(--font-ibm-plex-mono)",
-              textShadow: iWon ? "0 0 30px rgba(168,85,247,0.8)" : "0 0 20px rgba(239,68,68,0.6)",
+              textShadow: isTie ? "0 0 30px rgba(234,179,8,0.8)" : iWon ? "0 0 30px rgba(168,85,247,0.8)" : "0 0 20px rgba(239,68,68,0.6)",
             }}
           >
-            {iWon ? "YOU MOGGED" : "MOGGED"}
+            {isTie ? "DEAD HEAT" : iWon ? "YOU MOGGED" : "MOGGED"}
           </motion.h2>
           <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">
-            {iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie, king"}
+            {isTie ? "Identical PSL — bets refunded" : iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie, king"}
           </p>
         </div>
 
@@ -2104,16 +2257,16 @@ function DoneOverlay({
         {/* P&L */}
         {betAmount > 0 && (
           <div
-            className={`border px-4 py-3 ${iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/10"}`}
+            className={`border px-4 py-3 ${isTie ? "border-yellow-500/30 bg-yellow-500/10" : iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/10"}`}
           >
             <p
-              className={`text-3xl font-black tabular-nums ${iWon ? "text-green-300" : "text-red-400"}`}
+              className={`text-3xl font-black tabular-nums ${isTie ? "text-yellow-300" : iWon ? "text-green-300" : "text-red-400"}`}
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             >
-              {iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
+              {isTie ? `±0` : iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} {isFreeMode ? "mol" : "MC"}
             </p>
             <p className="text-xs text-zinc-500 mt-0.5">
-              {iWon ? "Deposited to your balance" : "Taken by winner"}
+              {isTie ? "Bet refunded to both players" : iWon ? "Deposited to your balance" : "Taken by winner"}
             </p>
           </div>
         )}

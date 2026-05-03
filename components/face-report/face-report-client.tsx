@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import { useSignAndSendTransaction, useWallets } from "@privy-io/react-auth/solana";
-import bs58 from "bs58";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { isSolanaWallet } from "@dynamic-labs/solana";
+import { VersionedTransaction } from "@solana/web3.js";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   buildFaceReportPaymentTx,
@@ -79,8 +79,6 @@ const TIER_COLOR: Record<string, string> = {
   chad: "text-fuchsia-400",
 };
 
-const MAINNET = "solana:mainnet" as const;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function captureFromVideo(video: HTMLVideoElement): string | null {
@@ -131,12 +129,12 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function FaceReportClient() {
-  const { getAccessToken } = usePrivy();
-  const { wallets, ready: walletsReady } = useWallets();
-  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { authToken, primaryWallet } = useDynamicContext();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const frontUploadRef = useRef<HTMLInputElement>(null);
+  const sideUploadRef = useRef<HTMLInputElement>(null);
 
   const [phase, setPhase] = useState<Phase>("capture-front");
   const [frontImage, setFrontImage] = useState<string | null>(null);
@@ -146,7 +144,7 @@ export function FaceReportClient() {
   const [error, setError] = useState<string | null>(null);
   const [payStep, setPayStep] = useState<"idle" | "building" | "signing" | "verifying">("idle");
 
-  const solWallet = wallets[0] ?? null;
+  const solWallet = primaryWallet && isSolanaWallet(primaryWallet) ? primaryWallet : null;
 
   // ── Camera ───────────────────────────────────────────────────────────────────
 
@@ -185,6 +183,21 @@ export function FaceReportClient() {
     }
   }
 
+  function uploadPhoto(target: "front" | "side", file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (target === "front") {
+        setFrontImage(dataUrl);
+        setPhase("capture-side");
+      } else {
+        setSideImage(dataUrl);
+        setPhase("preview");
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   function skipSide() {
     stopCamera();
     setPhase("preview");
@@ -205,29 +218,23 @@ export function FaceReportClient() {
 
   async function runPayment() {
     setError(null);
-    if (!solWallet || !walletsReady) {
-      setError("Solana wallet not ready. Make sure you have a wallet connected.");
+    if (!solWallet || !authToken) {
+      setError("Wallet or session not ready.");
       return;
     }
-    const token = await getAccessToken();
-    if (!token) { setError("Not signed in."); return; }
 
     setPhase("paying");
     setPayStep("building");
 
     let signature: string;
     try {
-      const { transactionBase64 } = await buildFaceReportPaymentTx(token, { ownerAddress: solWallet.address });
+      const { transactionBase64 } = await buildFaceReportPaymentTx(authToken, { ownerAddress: solWallet.address });
       setPayStep("signing");
-      const txBytes = Uint8Array.from(Buffer.from(transactionBase64, "base64"));
-      const result = await signAndSendTransaction({
-        transaction: txBytes,
-        wallet: solWallet,
-        chain: MAINNET,
-        options: { sponsor: true },
-      });
-      const sig = (result as { signature: unknown }).signature;
-      signature = typeof sig === "string" ? sig : bs58.encode(sig as Uint8Array);
+      const txBytes = Buffer.from(transactionBase64, "base64");
+      const tx = VersionedTransaction.deserialize(txBytes);
+      const signer = await solWallet.getSigner();
+      const result = await signer.signAndSendTransaction(tx);
+      signature = result.signature;
     } catch (e) {
       setPayStep("idle");
       setPhase("payment");
@@ -239,7 +246,7 @@ export function FaceReportClient() {
     setPayStep("verifying");
     await new Promise((r) => setTimeout(r, 3000));
 
-    const verify = await verifyFaceReportPayment(token, { txSignature: signature });
+    const verify = await verifyFaceReportPayment(authToken, { txSignature: signature });
     if (!verify.ok) {
       setPayStep("idle");
       setPhase("payment");
@@ -322,7 +329,7 @@ export function FaceReportClient() {
                 </div>
               </>
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
                 {phase === "capture-front" && frontImage === null && (
                   <div className="size-16 border border-zinc-700 flex items-center justify-center">
                     <Camera className="size-8 text-zinc-600" />
@@ -330,10 +337,30 @@ export function FaceReportClient() {
                 )}
                 <button
                   onClick={startCamera}
-                  className="px-6 py-3 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                  className="w-full py-3 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
                 >
                   Open Camera
                 </button>
+                <button
+                  onClick={() => (phase === "capture-front" ? frontUploadRef : sideUploadRef).current?.click()}
+                  className="w-full py-3 border border-zinc-700 text-zinc-300 font-black uppercase tracking-widest text-sm hover:border-zinc-500 transition-colors"
+                >
+                  Upload from Camera Roll
+                </button>
+                <input
+                  ref={frontUploadRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto("front", f); e.target.value = ""; }}
+                />
+                <input
+                  ref={sideUploadRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto("side", f); e.target.value = ""; }}
+                />
                 {phase === "capture-side" && (
                   <button onClick={skipSide} className="text-xs text-zinc-600 hover:text-zinc-400 uppercase tracking-widest transition-colors">
                     Skip side photo
@@ -443,7 +470,7 @@ export function FaceReportClient() {
 
           <button
             onClick={runPayment}
-            disabled={!solWallet || !walletsReady}
+            disabled={!solWallet || !authToken}
             className="w-full py-4 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-base shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 flex items-center justify-center gap-2"
           >
             <Zap className="size-5" /> Pay $5 USDC &amp; Get Report

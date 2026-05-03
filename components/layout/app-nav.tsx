@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
@@ -28,7 +28,7 @@ const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/spin", label: "Spin", icon: Atom },
-  { href: "/arena", label: "Arena", icon: Shield },
+  { href: "/arena", label: "Battle", icon: Shield },
   { href: "/face-report", label: "Report", icon: Scan },
   { href: "/admin", label: "Admin", icon: FlaskConical },
 ];
@@ -37,26 +37,24 @@ export function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const matchAtRisk = useArenaMatchLeaveRisk();
-  const { logout, authenticated, getAccessToken } = usePrivy();
+  const { handleLogOut, isAuthenticated, authToken } = useDynamicContext();
   const [credits, setCredits] = useState(0);
   const [molecules, setMolecules] = useState(0);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated || !authToken) return;
     (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
       try {
-        const row = await loadProfileSummary(token);
+        const row = await loadProfileSummary(authToken);
         setCredits(row?.total_credits ?? 0);
         setMolecules(row?.molecules ?? 0);
       } catch {
         setCredits(0);
       }
     })();
-  }, [authenticated, getAccessToken, pathname]);
+  }, [isAuthenticated, authToken, pathname]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -183,7 +181,7 @@ export function AppNav() {
             className="border border-white/10 text-zinc-500 hover:text-white hover:border-white/30 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"
             onClick={() => {
               if (matchAtRisk && !window.confirm(ARENA_LEAVE_WARNING)) return;
-              logout();
+              handleLogOut();
             }}
           >
             <LogOut className="size-3.5" />

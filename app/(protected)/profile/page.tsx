@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePrivy, type User } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadProfilePageData,
@@ -29,18 +29,8 @@ import {
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
-function linkedEmail(user: User | null): string | null {
-  if (!user?.linkedAccounts) return null;
-  for (const a of user.linkedAccounts) {
-    if (a.type === "email" && "address" in a && typeof (a as { address: string }).address === "string") {
-      return (a as { address: string }).address;
-    }
-  }
-  return null;
-}
-
 export default function ProfilePage() {
-  const { authenticated, getAccessToken, user, linkEmail, updateEmail } = usePrivy();
+  const { isAuthenticated, authToken, user } = useDynamicContext();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -52,16 +42,15 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    const token = await getAccessToken();
-    if (!token) return;
-    const data = await loadProfilePageData(token);
+    if (!authToken) return;
+    const data = await loadProfilePageData(authToken);
     setProfile(data.profile as Profile | null);
     setMatches((data.matches ?? []) as Match[]);
     setUserId(data.userId);
-  }, [getAccessToken]);
+  }, [authToken]);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated) return;
     (async () => {
       try {
         await refresh();
@@ -69,7 +58,7 @@ export default function ProfilePage() {
         setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, [authenticated, refresh]);
+  }, [isAuthenticated, refresh]);
 
   useEffect(() => {
     if (profile?.username) setUsernameDraft(profile.username);
@@ -80,15 +69,14 @@ export default function ProfilePage() {
       ? Math.round((profile.wins / profile.matches_played) * 100)
       : 0;
   const losses = (profile?.matches_played ?? 0) - (profile?.wins ?? 0);
-  const email = linkedEmail(user);
+  const email = user?.email ?? null;
 
   async function saveUsername() {
     setBanner(null);
-    const token = await getAccessToken();
-    if (!token) return;
+    if (!authToken) return;
     setUserBusy(true);
     try {
-      await updateProfileUsername(token, usernameDraft);
+      await updateProfileUsername(authToken, usernameDraft);
       await refresh();
       setBanner({ type: "ok", text: "Username saved." });
     } catch (e) {
@@ -101,15 +89,13 @@ export default function ProfilePage() {
   async function onAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    const token = await getAccessToken();
-    if (!token) return;
+    if (!file || !authToken) return;
     setBanner(null);
     setAvatarBusy(true);
     try {
       const fd = new FormData();
       fd.set("avatar", file);
-      await uploadProfileAvatar(token, fd);
+      await uploadProfileAvatar(authToken, fd);
       await refresh();
       setBanner({ type: "ok", text: "Profile picture updated." });
     } catch (e) {
@@ -268,9 +254,6 @@ export default function ProfilePage() {
       <div className="border border-white/10 bg-zinc-950">
         <div className="border-b border-white/10 px-5 py-4">
           <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Email</h2>
-          <p className="mt-1 text-[11px] text-zinc-600">
-            Optional — link an email through Privy if you want it on your account.
-          </p>
         </div>
         <div className="px-5 py-4 space-y-3">
           <div className="flex items-center gap-2 text-zinc-400">
@@ -278,26 +261,6 @@ export default function ProfilePage() {
             <span className="text-xs font-black uppercase tracking-widest">Linked address</span>
           </div>
           <p className="text-sm text-zinc-300 break-all">{email ?? "No email linked yet."}</p>
-          <div className="flex flex-wrap gap-2">
-            {email ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 border-zinc-600 bg-transparent text-xs font-black uppercase tracking-widest text-zinc-300"
-                onClick={() => updateEmail()}
-              >
-                Change email
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                className="h-9 bg-zinc-100 text-black text-xs font-black uppercase tracking-widest hover:bg-white"
-                onClick={() => linkEmail()}
-              >
-                Link email
-              </Button>
-            )}
-          </div>
         </div>
       </div>
 
@@ -334,7 +297,7 @@ export default function ProfilePage() {
                   <span
                     className={`shrink-0 text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}
                   >
-                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} MC
+                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} {m.is_free_match ? "mol" : "MC"}
                   </span>
                 </div>
               );

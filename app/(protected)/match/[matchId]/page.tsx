@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getMatchForUser } from "@/app/actions";
@@ -17,23 +17,21 @@ export default function MatchRoomPage() {
   const params = useParams();
   const matchId = params.matchId as string;
   const router = useRouter();
-  const { authenticated, getAccessToken } = usePrivy();
+  const { isAuthenticated, authToken } = useDynamicContext();
   const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
 
   useEffect(() => {
-    if (!authenticated || !matchId) return;
+    if (!isAuthenticated || !matchId || !authToken) return;
     (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const res = await getMatchForUser(token, matchId);
+      const res = await getMatchForUser(authToken, matchId);
       if (!res) {
         router.replace("/battle");
         return;
       }
       setData(res as { match: MatchRow; userId: string });
     })();
-  }, [authenticated, matchId, getAccessToken, router]);
+  }, [isAuthenticated, matchId, authToken, router]);
 
   const roomLeaveRisk =
     data != null &&

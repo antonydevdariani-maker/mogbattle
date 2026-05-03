@@ -1,49 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, usePathname } from "next/navigation";
 import { ensureProfile, loadProfileSummary } from "@/app/actions";
-import { deriveProfileUsername, getLinkedWalletAddress } from "@/lib/privy/user-display";
+import { deriveProfileUsername } from "@/lib/dynamic/user-display";
 import { AppNav } from "@/components/layout/app-nav";
 import { WalletSetupHud } from "@/components/wallet/wallet-setup-hud";
 import { ArenaMatchLeaveProvider } from "@/components/arena/arena-match-leave-context";
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
-  const { ready, authenticated, user, getAccessToken } = usePrivy();
+  const { sdkHasLoaded, isAuthenticated, user, primaryWallet, authToken } = useDynamicContext();
   const router = useRouter();
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!ready) return;
-    if (!authenticated) {
+    if (!sdkHasLoaded) return;
+    if (!isAuthenticated) {
       router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
     }
-  }, [ready, authenticated, router, pathname]);
+  }, [sdkHasLoaded, isAuthenticated, router, pathname]);
 
   useEffect(() => {
-    if (!ready || !authenticated || !user) return;
+    if (!sdkHasLoaded || !isAuthenticated || !user || !authToken) return;
     (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const wallet = getLinkedWalletAddress(user);
-      const username = deriveProfileUsername(user);
-      await ensureProfile(token, { walletAddress: wallet, username });
-      const profile = await loadProfileSummary(token);
+      const walletAddress = primaryWallet?.address ?? null;
+      const username = deriveProfileUsername(walletAddress, user.email);
+      await ensureProfile(authToken, { walletAddress, username });
+      const profile = await loadProfileSummary(authToken);
       setCredits(profile?.total_credits ?? 0);
 
-      // Gate: unverified users must complete liveness check before anything else
       if (pathname !== "/verify") {
-        const verified = localStorage.getItem(`mogbattle_verified_${user.id}`);
+        const verified = localStorage.getItem(`mogbattle_verified_${user.userId}`);
         if (!verified) {
           router.replace("/verify");
         }
       }
     })();
-  }, [ready, authenticated, user, user?.wallet?.address, user?.id, getAccessToken, pathname, router]);
+  }, [sdkHasLoaded, isAuthenticated, user, primaryWallet?.address, authToken, pathname, router]);
 
-  if (!ready || !authenticated) {
+  if (!sdkHasLoaded || !isAuthenticated) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-200">

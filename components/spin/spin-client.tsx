@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { claimDailySpin, loadSpinData } from "@/app/actions";
 import { Atom, Timer } from "lucide-react";
@@ -93,7 +93,7 @@ function Countdown({ nextSpinAt }: { nextSpinAt: number }) {
 }
 
 export function SpinClient() {
-  const { getAccessToken, authenticated, ready } = usePrivy();
+  const { authToken, isAuthenticated, sdkHasLoaded } = useDynamicContext();
   const [molecules, setMolecules] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
   const [nextSpinAt, setNextSpinAt] = useState<number | null>(null);
@@ -104,16 +104,14 @@ export function SpinClient() {
   const totalRotation = useRef(0);
 
   useEffect(() => {
-    if (!ready || !authenticated) return;
+    if (!sdkHasLoaded || !isAuthenticated || !authToken) return;
     (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      const data = await loadSpinData(token);
+      const data = await loadSpinData(authToken);
       setMolecules(data.molecules);
       setCanSpin(data.canSpin);
       setNextSpinAt(data.nextSpinAt);
     })();
-  }, [ready, authenticated, getAccessToken]);
+  }, [sdkHasLoaded, isAuthenticated, authToken]);
 
   async function spin() {
     if (!canSpin || spinning) return;
@@ -122,11 +120,11 @@ export function SpinClient() {
     setPrize(null);
 
     try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Not authenticated");
+      
+      if (!authToken) throw new Error("Not authenticated");
 
       // Claim prize first so wheel lands on the actual winning segment
-      const result = await claimDailySpin(token);
+      const result = await claimDailySpin(authToken);
 
       const prizeIndex = PRIZES.indexOf(result.prize);
       const targetDeg = (prizeIndex + 0.5) * SEG;
@@ -148,7 +146,7 @@ export function SpinClient() {
     }
   }
 
-  if (!ready || molecules === null) {
+  if (!sdkHasLoaded || molecules === null) {
     return (
       <div className="flex min-h-[calc(100dvh-6rem)] items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">
         Loading…

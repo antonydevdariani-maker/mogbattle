@@ -2,17 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion } from "framer-motion";
 import { Swords } from "lucide-react";
 
 export default function BeginPage() {
   const router = useRouter();
-  const { ready, authenticated, login } = usePrivy();
+  const { sdkHasLoaded, isAuthenticated, setShowAuthFlow } = useDynamicContext();
 
   useEffect(() => {
-    if (ready && authenticated) router.replace("/dashboard");
-  }, [ready, authenticated, router]);
+    if (sdkHasLoaded && isAuthenticated) router.replace("/dashboard");
+  }, [sdkHasLoaded, isAuthenticated, router]);
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-4">
@@ -60,7 +60,7 @@ export default function BeginPage() {
         <div className="space-y-3">
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={() => login()}
+            onClick={() => setShowAuthFlow(true)}
             className="w-full py-5 bg-fuchsia-500 text-black text-lg font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
           >
             Let&apos;s go

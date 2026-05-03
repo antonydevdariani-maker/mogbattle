@@ -1,6 +1,6 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useState } from "react";
 import { checkArenaState, loadProfileSummary } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
@@ -9,7 +9,7 @@ import { ArenaClient } from "@/components/arena/arena-client";
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ArenaPage() {
-  const { authenticated, getAccessToken } = usePrivy();
+  const { isAuthenticated, authToken } = useDynamicContext();
   const [ready, setReady] = useState(false);
   const [balance, setBalance] = useState(0);
   const [molecules, setMolecules] = useState(0);
@@ -20,7 +20,7 @@ export default function ArenaPage() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   const init = useCallback(async () => {
-    const token = await getAccessToken();
+    const token = authToken;
     if (!token) return;
     const [state, profile] = await Promise.all([
       checkArenaState(token),
@@ -34,12 +34,12 @@ export default function ArenaPage() {
     setUsername(profile?.username ?? null);
     setWalletAddress(profile?.wallet_address ?? null);
     setReady(true);
-  }, [getAccessToken]);
+  }, [authToken]);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated) return;
     init();
-  }, [authenticated, init]);
+  }, [isAuthenticated, init]);
 
   if (!ready || !userId) {
     return (

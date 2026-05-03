@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import bs58 from "bs58";
-import { PublicKey } from "@solana/web3.js";
-import { usePrivy } from "@privy-io/react-auth";
-import {
-  useCreateWallet,
-  useSignAndSendTransaction,
-  useWallets,
-} from "@privy-io/react-auth/solana";
+import { PublicKey, VersionedTransaction } from "@solana/web3.js";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { isSolanaWallet } from "@dynamic-labs/solana";
 import {
   ensureProfile,
   buildWithdrawTransaction,
@@ -27,7 +22,6 @@ import {
   Wallet,
 } from "lucide-react";
 
-const MAINNET = "solana:mainnet" as const;
 const QUICK = [50, 100, 250, 500, 1000];
 
 function isValidRecipient(addr: string, embedded: string): boolean {
@@ -44,19 +38,16 @@ function isValidRecipient(addr: string, embedded: string): boolean {
 type Props = { balance: number; onSettled: () => Promise<void> };
 
 export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
-  const { getAccessToken, ready: privyReady, authenticated } = usePrivy();
-  const { wallets, ready: walletsReady } = useWallets();
-  const { createWallet } = useCreateWallet();
-  const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { primaryWallet, sdkHasLoaded, isAuthenticated, authToken } = useDynamicContext();
 
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");
   const [copiedEmb, setCopiedEmb] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [pending, setPending] = useState<"create" | "send" | "server" | false>(false);
+  const [pending, setPending] = useState<"send" | "server" | false>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const solWallet = wallets[0] ?? null;
+  const solWallet = primaryWallet && isSolanaWallet(primaryWallet) ? primaryWallet : null;
   const parsedAmt = parseInt(amount.replace(/,/g, ""), 10);
   const validAmt = Number.isFinite(parsedAmt) && parsedAmt >= 2 && Number.isInteger(parsedAmt);
   const amountOk = validAmt && parsedAmt <= balance;
@@ -73,25 +64,9 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
   const embeddedAddr = solWallet?.address;
 
   useEffect(() => {
-    if (!authenticated || !embeddedAddr) return;
-    (async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-      await ensureProfile(token, { walletAddress: embeddedAddr });
-    })();
-  }, [authenticated, embeddedAddr, getAccessToken]);
-
-  async function handleCreateSolana() {
-    setError(null);
-    setPending("create");
-    try {
-      await createWallet();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create wallet");
-    } finally {
-      setPending(false);
-    }
-  }
+    if (!isAuthenticated || !embeddedAddr || !authToken) return;
+    void ensureProfile(authToken, { walletAddress: embeddedAddr });
+  }, [isAuthenticated, embeddedAddr, authToken]);
 
   function openSummary() {
     if (!canReview) {
@@ -104,48 +79,35 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
   }
 
   async function runWithdraw() {
-    if (!solWallet || !walletsReady) {
-      setError("Embedded Solana wallet not ready.");
+    if (!solWallet || !authToken) {
+      setError("Wallet or session not ready.");
       return;
     }
     setError(null);
     setPending("send");
-    const token = await getAccessToken();
-    if (!token) {
-      setPending(false);
-      setError("Not signed in.");
-      return;
-    }
     const destTrim = destination.trim();
     let signatureBase58: string;
     try {
-      const { transactionBase64 } = await buildWithdrawTransaction(token, {
+      const { transactionBase64 } = await buildWithdrawTransaction(authToken, {
         ownerAddress: solWallet.address,
         destinationAddress: destTrim,
         amountMc: parsedAmt,
       });
-      const transactionBytes = Uint8Array.from(Buffer.from(transactionBase64, "base64"));
-      const result = await signAndSendTransaction({
-        transaction: transactionBytes,
-        wallet: solWallet,
-        chain: MAINNET,
-        options: { sponsor: true },
-      });
-      const sig = (result as { signature: unknown }).signature;
-      signatureBase58 = typeof sig === "string" ? sig : bs58.encode(sig as Uint8Array);
+      const txBytes = Buffer.from(transactionBase64, "base64");
+      const tx = VersionedTransaction.deserialize(txBytes);
+      const signer = await solWallet.getSigner();
+      const result = await signer.signAndSendTransaction(tx);
+      signatureBase58 = result.signature;
     } catch (e) {
       setPending(false);
       const msg = e instanceof Error ? e.message : String(e);
-      setError(
-        msg +
-          " — Your embedded wallet must hold enough USDC (same amount as Mog Credits). If gas sponsorship is off, keep a little SOL for fees."
-      );
+      setError(msg + " — Your embedded wallet must hold enough USDC (same amount as Mog Credits).");
       return;
     }
 
     setPending("server");
     try {
-      await recordWithdrawalClaim(token, {
+      await recordWithdrawalClaim(authToken, {
         signature: signatureBase58,
         ownerAddress: solWallet.address,
         destinationAddress: destTrim,
@@ -183,21 +145,13 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
         <p className="text-zinc-500 pt-1">Withdrawal fee: <span className="text-white font-bold">0%</span> · Minimum withdrawal: <span className="text-white font-bold">2 MC</span></p>
       </div>
 
-      {(!privyReady || !walletsReady) && (
+      {!sdkHasLoaded && (
         <p className="text-xs text-zinc-500 uppercase tracking-widest">Loading wallet…</p>
       )}
 
-      {authenticated && walletsReady && !solWallet && (
-        <div className="border border-white/10 bg-zinc-900/40 p-4 space-y-2">
-          <p className="text-sm text-zinc-300">Create your embedded Solana wallet to withdraw USDC.</p>
-          <Button
-            type="button"
-            className="bg-fuchsia-600 text-white hover:bg-fuchsia-500"
-            onClick={() => void handleCreateSolana()}
-            disabled={pending === "create"}
-          >
-            {pending === "create" ? "Creating…" : "Create Solana wallet"}
-          </Button>
+      {isAuthenticated && sdkHasLoaded && !solWallet && (
+        <div className="border border-white/10 bg-zinc-900/40 p-4">
+          <p className="text-sm text-zinc-300">Your embedded Solana wallet is being created — refresh in a moment.</p>
         </div>
       )}
 
@@ -207,7 +161,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
             <ShieldAlert className="mt-0.5 size-4 shrink-0" />
             <p>
               Mainnet USDC only. Your embedded wallet must already hold enough USDC to cover this send (you cannot
-              withdraw more USDC than is in that wallet). Privy may sponsor fees when available.
+              withdraw more USDC than is in that wallet). Keep a small amount of SOL for network fees.
             </p>
           </div>
 

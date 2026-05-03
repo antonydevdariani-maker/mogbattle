@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useEffect, useMemo, useState } from "react";
 import { loadCreditsLeaderboard, loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
 import {
@@ -16,21 +16,19 @@ import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
 type Board = "elo" | "credits";
 
 export default function LeaderboardPage() {
-  const { authenticated, getAccessToken } = usePrivy();
+  const { isAuthenticated, authToken } = useDynamicContext();
   const [board, setBoard] = useState<Board>("elo");
   const [rows, setRows] = useState<LeaderboardProfileRow[]>([]);
   const [yourUserId, setYourUserId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!isAuthenticated || !authToken) return;
     let cancelled = false;
     (async () => {
       try {
-        const token = await getAccessToken();
-        if (!token) return;
         const data =
-          board === "elo" ? await loadLeaderboard(token) : await loadCreditsLeaderboard(token);
+          board === "elo" ? await loadLeaderboard(authToken) : await loadCreditsLeaderboard(authToken);
         if (cancelled) return;
         setRows(data.rows);
         setYourUserId(data.yourUserId);
@@ -42,7 +40,7 @@ export default function LeaderboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [authenticated, getAccessToken, board]);
+  }, [isAuthenticated, authToken, board]);
 
   const yourRank = useMemo(() => {
     if (!yourUserId) return null;

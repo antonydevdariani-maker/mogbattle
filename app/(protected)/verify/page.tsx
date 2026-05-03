@@ -2,20 +2,20 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { LivenessCheck } from "@/components/verify/liveness-check";
 import { Shield } from "lucide-react";
 
 export default function VerifyPage() {
   const router = useRouter();
-  const { user } = usePrivy();
+  const { user } = useDynamicContext();
 
   const handleVerified = useCallback(() => {
-    if (user?.id) {
-      localStorage.setItem(`mogbattle_verified_${user.id}`, "1");
+    if (user?.userId) {
+      localStorage.setItem(`mogbattle_verified_${user.userId}`, "1");
     }
     router.replace("/dashboard");
-  }, [user?.id, router]);
+  }, [user?.userId, router]);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8 px-4">

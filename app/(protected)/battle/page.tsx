@@ -1,73 +1,9 @@
 "use client";
-
-import { usePrivy } from "@privy-io/react-auth";
-import { useCallback, useEffect, useState } from "react";
-import { loadBattleQueueState } from "@/app/actions";
-import type { Database } from "@/lib/types/database";
-import { MatchmakingClient } from "@/components/battle/matchmaking-client";
-import {
-  useArenaMatchLeaveSetters,
-  useWarnBeforeUnloadIf,
-} from "@/components/arena/arena-match-leave-context";
-
-type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function BattlePage() {
-  const { authenticated, getAccessToken } = usePrivy();
-  const { setMatchAtRisk } = useArenaMatchLeaveSetters();
-  const [activeMatch, setActiveMatch] = useState<MatchRow | null>(null);
-  const [opponentName, setOpponentName] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-
-  const pull = useCallback(async () => {
-    const token = await getAccessToken();
-    if (!token) return;
-    const s = await loadBattleQueueState(token);
-    setActiveMatch(s.activeMatch as MatchRow | null);
-    setOpponentName(s.opponentName);
-    setUserId(s.userId);
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    if (!authenticated) return;
-    pull();
-    const id = setInterval(pull, 3000);
-    return () => clearInterval(id);
-  }, [authenticated, pull]);
-
-  const battleLeaveRisk =
-    activeMatch?.status === "matched" || activeMatch?.status === "live";
-  useWarnBeforeUnloadIf(battleLeaveRisk);
-
-  useEffect(() => {
-    setMatchAtRisk(!!battleLeaveRisk);
-    return () => setMatchAtRisk(false);
-  }, [battleLeaveRisk, setMatchAtRisk]);
-
-  if (!userId) {
-    return (
-      <div className="flex justify-center py-20 text-sm text-zinc-500">
-        Loading queue…
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex w-full justify-center">
-      <div className="w-full max-w-xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "var(--font-heading)" }}>
-            Find a Match
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">Enter the arena. Negotiate live. Mog or be mogged.</p>
-        </div>
-        <MatchmakingClient
-          existingMatch={activeMatch}
-          userId={userId}
-          opponentName={opponentName}
-          onRefresh={pull}
-        />
-      </div>
-    </div>
-  );
+  const router = useRouter();
+  useEffect(() => { router.replace("/arena"); }, [router]);
+  return null;
 }

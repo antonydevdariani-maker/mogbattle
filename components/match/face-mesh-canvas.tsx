@@ -3,10 +3,15 @@
 import { useEffect, useRef } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
-// Unique landmark indices along the jaw/chin contour
-const JAW_DOTS = [
-  356, 454, 323, 361, 288, 397, 365, 379, 378, 400,
-  377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
+// 7 landmark dots: forehead, eye corners (×2), jaw angles (×2), chin sides (×2)
+const FACE_DOTS = [
+  10,   // forehead top
+  33,   // left eye outer corner
+  263,  // right eye outer corner
+  234,  // left jaw angle
+  454,  // right jaw angle
+  148,  // left chin side
+  377,  // right chin side
 ];
 
 let landmarkerPromise: Promise<FaceLandmarker> | null = null;
@@ -34,13 +39,16 @@ function getLandmarker(): Promise<FaceLandmarker> {
 export function FaceMeshCanvas({
   containerRef,
   mirrored = false,
+  onFaceChange,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   mirrored?: boolean;
+  onFaceChange?: (detected: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(-1);
+  const faceDetectedRef = useRef<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -74,23 +82,34 @@ export function FaceMeshCanvas({
       const ctx = canvas.getContext("2d")!;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (!result.faceLandmarks?.length) return;
+      const hasFace = !!(result.faceLandmarks?.length);
+      if (hasFace !== faceDetectedRef.current) {
+        faceDetectedRef.current = hasFace;
+        onFaceChange?.(hasFace);
+      }
+      if (!hasFace) return;
 
       const lm = result.faceLandmarks[0];
       const W = canvas.width;
       const H = canvas.height;
 
-      // Draw green glowing dots along jawline/chin
-      for (const idx of JAW_DOTS) {
+      for (const idx of FACE_DOTS) {
         const x = lm[idx].x * W;
         const y = lm[idx].y * H;
         ctx.save();
-        ctx.shadowColor = "#22c55e";
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = "#4ade80";
-        ctx.globalAlpha = 0.9;
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = "#e879f9";
+        ctx.globalAlpha = 0.95;
         ctx.beginPath();
-        ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner bright core
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -102,7 +121,7 @@ export function FaceMeshCanvas({
       active = false;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [containerRef]);
+  }, [containerRef, onFaceChange]);
 
   return (
     <canvas

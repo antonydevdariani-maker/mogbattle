@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
-import { MogBattlePrivyProvider } from "@/components/providers/privy-provider";
+import { MogBattleDynamicProviderLazy } from "@/components/providers/dynamic-provider-lazy";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -50,7 +50,7 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark min-h-full antialiased`}
     >
       <body className="min-h-full flex flex-col pb-safe">
-        <MogBattlePrivyProvider>{children}</MogBattlePrivyProvider>
+        <MogBattleDynamicProviderLazy>{children}</MogBattleDynamicProviderLazy>
       </body>
     </html>
   );
