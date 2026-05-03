@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
-import { finalizeMatchResult, forfeitMatch } from "@/app/actions";
+import { finalizeMatchResult, finalizeFreeMatchResult, forfeitMatch } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 
@@ -54,6 +54,7 @@ export function LiveMatchClient({
   winnerId,
   userId,
   betAmount,
+  isFreeMatch,
   initialAiP1,
   initialAiP2,
 }: {
@@ -63,6 +64,7 @@ export function LiveMatchClient({
   winnerId: string | null;
   userId: string;
   betAmount: number;
+  isFreeMatch: boolean;
   initialAiP1: number | null;
   initialAiP2: number | null;
 }) {
@@ -189,11 +191,16 @@ export function LiveMatchClient({
       startTransition(async () => {
         const token = authToken;
         if (!token) return;
-        await finalizeMatchResult(token, {
+        const args = {
           matchId,
           aiScoreP1: isPlayer1 ? p1Total : p2Total,
           aiScoreP2: isPlayer1 ? p2Total : p1Total,
-        });
+        };
+        if (isFreeMatch) {
+          await finalizeFreeMatchResult(token, args);
+        } else {
+          await finalizeMatchResult(token, args);
+        }
         router.refresh();
       });
     }
