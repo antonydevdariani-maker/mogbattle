@@ -1358,10 +1358,16 @@ function ArenaTopBar({
       </div>
       {mediaError && (
         <div
-          className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-[11px] font-bold text-amber-200"
+          className="border-t border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-[11px] font-bold text-amber-200 flex items-center justify-center gap-3"
           role="alert"
         >
-          {mediaError}
+          <span>⚠ {mediaError}</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-[10px] font-black uppercase tracking-widest border border-amber-500/50 px-2 py-0.5 hover:bg-amber-500/20 transition-colors"
+          >
+            Reload
+          </button>
         </div>
       )}
     </div>

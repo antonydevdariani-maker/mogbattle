@@ -102,7 +102,7 @@ export function useAgoraVideo({
       }
     });
 
-    async function join() {
+    async function join(attempt = 0) {
       try {
         const res = await fetch(`/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${uid}`);
         const json = await res.json();
@@ -114,12 +114,24 @@ export function useAgoraVideo({
         setJoined(true);
         setMediaError(null);
       } catch (e) {
-        console.error("Agora join error:", e);
         const msg = e instanceof Error ? e.message : String(e);
+        const isTransient = /CAN_NOT_GET_GATEWAY|GATEWAY_SERVER|timeout|network/i.test(msg);
+        const isPerm = /Permission|NotAllowed|denied|NotReadable/i.test(msg);
+
+        // Auto-retry transient gateway errors up to 3 times
+        if (isTransient && attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          if (clientRef.current === client) void join(attempt + 1);
+          return;
+        }
+
+        console.error("Agora join error:", e);
         setMediaError(
-          /Permission|NotAllowed|denied|NotReadable/i.test(msg)
+          isPerm
             ? "Allow camera and microphone for this site to use the arena."
-            : msg
+            : isTransient
+            ? "Connection issue — retrying failed. Check your network and reload."
+            : "Could not connect to match server. Please reload."
         );
         setJoined(false);
       }
