@@ -119,7 +119,8 @@ export default function ProfilePage() {
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-500/90">Profile</p>
             {profile?.is_founder && (
               <span className="inline-flex items-center gap-1 border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
-                ⚡ Founder
+                <Zap className="size-2.5" />
+                Founder
               </span>
             )}
           </div>

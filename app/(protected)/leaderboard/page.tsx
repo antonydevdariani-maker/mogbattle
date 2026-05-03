@@ -198,7 +198,7 @@ export default function LeaderboardPage() {
                       <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
                     )}
                     {(r as unknown as { is_founder?: boolean }).is_founder && (
-                      <span className="ml-2 text-[10px] font-black text-amber-300/90 normal-case">⚡</span>
+                      <Zap className="inline ml-1.5 size-3 text-amber-300 shrink-0" />
                     )}
                   </p>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
