@@ -5,7 +5,8 @@ import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sd
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, ArrowRight } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, User as UserIcon, Camera } from "lucide-react";
+import { SpinClient } from "@/components/spin/spin-client";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -49,8 +50,23 @@ export default function DashboardPage() {
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
         <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start gap-4">
+          {/* Profile picture */}
+          <Link href="/profile" className="shrink-0 group relative size-16 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10">
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt="" className="size-full object-cover" />
+            ) : (
+              <div className="flex size-full items-center justify-center">
+                <UserIcon className="size-7 text-fuchsia-300/60" />
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera className="size-4 text-white" />
+            </div>
+          </Link>
+
+          <div className="min-w-0 flex-1">
             <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
             <h1
               className="mb-1 text-3xl font-black text-white uppercase truncate max-w-[220px]"
@@ -66,9 +82,10 @@ export default function DashboardPage() {
               <span className="text-zinc-400">{losses}L</span>
             </p>
           </div>
+
           <Link
             href="/battle"
-            className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+            className="shrink-0 flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
           >
             <Swords className="size-3.5" />
             Battle
@@ -83,6 +100,9 @@ export default function DashboardPage() {
         <StatCard icon={Trophy} label="Wins" value={String(profile?.wins ?? 0)} accent="yellow" />
         <StatCard icon={Swords} label="Win Rate" value={`${winRate}%`} accent={winRate >= 50 ? "green" : "red"} />
       </div>
+
+      {/* Daily spin */}
+      <SpinClient />
 
       {/* Recent battles */}
       {matches.length > 0 && userId && (
