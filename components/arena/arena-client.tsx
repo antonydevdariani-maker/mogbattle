@@ -149,6 +149,7 @@ export function ArenaClient({
   const oppVideoContainerRef = useRef<HTMLDivElement>(null);
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
+  const [oppIsFounder, setOppIsFounder] = useState(false);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -268,6 +269,11 @@ export function ArenaClient({
           setOppPsl((prev) => prev === null ? payload.psl : Math.max(prev, payload.psl));
         }
       })
+      .on("broadcast", { event: "presence" }, ({ payload }) => {
+        if (payload.userId !== userId && payload.isFounder) {
+          setOppIsFounder(true);
+        }
+      })
       .on("broadcast", { event: "result" }, ({ payload }) => {
         // P2 receives P1's authoritative final scores
         if (!isP1) {
@@ -278,7 +284,14 @@ export function ArenaClient({
           resultWaitRef.current = null;
         }
       })
-      .subscribe();
+      .subscribe(() => {
+        // Broadcast founder status so opponent can see badge
+        if (isFounder) {
+          setTimeout(() => {
+            channel.send({ type: "broadcast", event: "presence", payload: { userId, isFounder: true } });
+          }, 800);
+        }
+      });
     realtimeChannelRef.current = channel;
     return () => {
       supabase.removeChannel(channel);
@@ -845,6 +858,7 @@ export function ArenaClient({
             isFreeMode={isFreeMode}
             pslBadge={oppPsl}
             videoContainerRef={oppVideoContainerRef}
+            isFounder={oppIsFounder}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -1998,7 +2012,7 @@ function PlayerPanel({
         )}
         {showVideo && (
           <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-black/70 px-2 py-0.5 max-w-[70%]">
-            {isFounder && isYou && (
+            {isFounder && (
               <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 border border-yellow-500/60 px-1 leading-tight">FOUNDER</span>
             )}
             <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${isYou ? "text-fuchsia-300" : "text-cyan-300"}`}>
@@ -2065,7 +2079,7 @@ function PlayerPanel({
 
       <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black gap-2`}>
         <div className="flex items-center gap-1.5 min-w-0">
-          {isFounder && isYou && (
+          {isFounder && (
             <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 border border-yellow-500/60 px-1 leading-tight shrink-0">FOUNDER</span>
           )}
           <span
