@@ -241,7 +241,7 @@ export function ArenaClient({
   }, [phase, poll]);
 
   useEffect(() => {
-    if (!match?.id || !["queued", "negotiating", "live"].includes(phase)) return;
+    if (!match?.id) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`arena:${match.id}`)
@@ -284,7 +284,8 @@ export function ArenaClient({
       supabase.removeChannel(channel);
       realtimeChannelRef.current = null;
     };
-  }, [match?.id, phase, isP1, refreshBalance, poll, userId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match?.id, isP1, refreshBalance, poll, userId]);
 
   useEffect(() => {
     if (phase !== "negotiating" || !match?.negotiation_deadline) return;
