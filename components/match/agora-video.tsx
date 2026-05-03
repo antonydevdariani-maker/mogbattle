@@ -74,11 +74,13 @@ export function useAgoraVideo({
   useEffect(() => {
     if (!enabled || !channelName || !localReady) return;
 
+    let cancelled = false;
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
 
     client.on("user-published", async (user, mediaType) => {
       await client.subscribe(user, mediaType);
+      if (cancelled) return;
       if (mediaType === "video") setRemoteVideoTrack(user.videoTrack ?? null);
       if (mediaType === "audio") {
         const track = user.audioTrack;
@@ -98,17 +100,22 @@ export function useAgoraVideo({
     async function join() {
       try {
         const res = await fetch(`/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${uid}`);
+        if (cancelled) return;
         const json = await res.json();
         if (!res.ok) throw new Error(`Token fetch failed: ${json.error}`);
         const token: string = json.token;
         await client.join(APP_ID, channelName, token, uid);
+        if (cancelled) return;
         const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
         if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
+        if (cancelled) return;
         setJoined(true);
         setMediaError(null);
       } catch (e) {
-        console.error("Agora join error:", e);
+        if (cancelled) return; // cleanup already ran — suppress
         const msg = e instanceof Error ? e.message : String(e);
+        if (/cancel|abort/i.test(msg)) return; // Agora cancel token — not a real error
+        console.error("Agora join error:", e);
         setMediaError(
           /Permission|NotAllowed|denied|NotReadable/i.test(msg)
             ? "Allow camera and microphone for this site to use the arena."
@@ -121,6 +128,7 @@ export function useAgoraVideo({
     void join();
 
     return () => {
+      cancelled = true;
       client.leave().catch(() => {});
       setJoined(false);
       setRemoteVideoTrack(null);
