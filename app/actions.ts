@@ -47,7 +47,7 @@ export async function ensureProfile(
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 32;
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
 
 export async function updateProfileUsername(accessToken: string, rawUsername: string) {
   const userId = await requirePrivyUser(accessToken);
@@ -79,7 +79,7 @@ export async function uploadProfileAvatar(accessToken: string, formData: FormDat
     throw new Error("Choose an image file.");
   }
   if (file.size > AVATAR_MAX_BYTES) {
-    throw new Error("Image must be 2MB or smaller.");
+    throw new Error("Image must be 10MB or smaller.");
   }
   const mime = (file as File).type || "application/octet-stream";
   if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime)) {

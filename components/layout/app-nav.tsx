@@ -96,7 +96,7 @@ export function AppNav() {
       pathname === item.href ||
       pathname.startsWith(`${item.href}/`);
 
-    if (item.href === "/wallet" && hasCredits) {
+    if (item.href === "/wallet") {
       return {
         icon: item.icon,
         label: item.label,

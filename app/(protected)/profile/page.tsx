@@ -186,7 +186,7 @@ export default function ProfilePage() {
               </div>
             </button>
             <p className="text-center text-[10px] text-zinc-600 uppercase tracking-widest sm:text-left">
-              JPG · PNG · WebP · GIF · max 2MB
+              JPG · PNG · WebP · GIF · max 10MB
             </p>
           </div>
 

@@ -129,7 +129,7 @@ export function SpinClient() {
       const result = await claimDailySpin(authToken);
 
       const prizeIndex = PRIZES.indexOf(result.prize);
-      const targetDeg = (prizeIndex + 0.5) * SEG;
+      const targetDeg = (360 - (prizeIndex + 0.5) * SEG) % 360;
       const currentMod = ((totalRotation.current % 360) + 360) % 360;
       const diff = ((targetDeg - currentMod) + 360) % 360;
       totalRotation.current += 1800 + diff; // 5 full rotations + land on prize

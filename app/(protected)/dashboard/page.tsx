@@ -5,8 +5,7 @@ import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sd
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, User as UserIcon, Camera } from "lucide-react";
-import { SpinClient } from "@/components/spin/spin-client";
+import { Swords, TrendingUp, Trophy, Zap, User as UserIcon, Crown, Atom } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -46,35 +45,32 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-5">
-      {/* Hero identity card */}
-      <div className="relative border border-white/10 bg-zinc-950 p-6">
-        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
-        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
-        <div className="flex items-start gap-4">
-          {/* Profile picture */}
-          <Link href="/profile" className="shrink-0 group relative size-16 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10">
+      {/* Top row: profile card + leaderboard */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Profile card */}
+        <Link
+          href="/profile"
+          className="group relative flex items-center gap-4 border border-fuchsia-500/30 bg-zinc-950 p-4 hover:border-fuchsia-400/50 transition-colors"
+        >
+          <div className="shrink-0 size-14 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10">
             {profile?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.avatar_url} alt="" className="size-full object-cover" />
             ) : (
               <div className="flex size-full items-center justify-center">
-                <UserIcon className="size-7 text-fuchsia-300/60" />
+                <UserIcon className="size-6 text-fuchsia-300/60" />
               </div>
             )}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-              <Camera className="size-4 text-white" />
-            </div>
-          </Link>
-
-          <div className="min-w-0 flex-1">
-            <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
-            <h1
-              className="mb-1 text-3xl font-black text-white uppercase truncate max-w-[220px]"
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-500/80 mb-0.5">Profile</p>
+            <p
+              className="text-lg font-black text-white uppercase truncate max-w-[160px]"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {profile?.username ?? "…"}
-            </h1>
-            <p className="text-sm text-zinc-500">
+            </p>
+            <p className="text-xs text-zinc-500">
               ELO <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span>
               {" · "}
               <span className="text-white">{profile?.wins ?? 0}W</span>
@@ -82,14 +78,64 @@ export default function DashboardPage() {
               <span className="text-zinc-400">{losses}L</span>
             </p>
           </div>
+        </Link>
 
-          <Link
-            href="/battle"
-            className="shrink-0 flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
-          >
-            <Swords className="size-3.5" />
-            Battle
-          </Link>
+        {/* Leaderboard card */}
+        <Link
+          href="/leaderboard"
+          className="group flex items-center gap-4 border border-amber-500/30 bg-zinc-950 p-4 hover:border-amber-400/50 transition-colors"
+        >
+          <div className="shrink-0 flex size-14 items-center justify-center border border-amber-500/30 bg-amber-500/10">
+            <Crown className="size-6 text-amber-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500/80 mb-0.5">Rankings</p>
+            <p
+              className="text-lg font-black text-white uppercase"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Leaderboard
+            </p>
+            <p className="text-xs text-zinc-500">ELO · Mog Points</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Hero action card */}
+      <div className="relative border border-white/10 bg-zinc-950 p-6">
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
+            <h1
+              className="mb-1 text-3xl font-black text-white uppercase truncate max-w-[200px]"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {profile?.username ?? "…"}
+            </h1>
+            <p className="text-sm text-zinc-500">
+              <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span> ELO
+              {" · "}
+              <span className="text-fuchsia-300">{(profile?.total_credits ?? 0).toLocaleString()} MC</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/spin"
+              className="flex items-center gap-1.5 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-3 py-1.5 text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
+            >
+              <Atom className="size-3.5" />
+              Spin
+            </Link>
+            <Link
+              href="/arena"
+              className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+            >
+              <Swords className="size-3.5" />
+              Battle
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -100,9 +146,6 @@ export default function DashboardPage() {
         <StatCard icon={Trophy} label="Wins" value={String(profile?.wins ?? 0)} accent="yellow" />
         <StatCard icon={Swords} label="Win Rate" value={`${winRate}%`} accent={winRate >= 50 ? "green" : "red"} />
       </div>
-
-      {/* Daily spin */}
-      <SpinClient />
 
       {/* Recent battles */}
       {matches.length > 0 && userId && (
@@ -139,7 +182,7 @@ export default function DashboardPage() {
         <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center">
           <Swords className="mx-auto mb-3 size-8 text-zinc-700" />
           <p className="text-sm text-zinc-500 uppercase tracking-widest">No battles yet.</p>
-          <Link href="/battle" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
+          <Link href="/arena" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
             Enter the pit →
           </Link>
         </div>
