@@ -1,7 +1,6 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import AgoraRTC, {
   type IAgoraRTCClient,
   type ICameraVideoTrack,
@@ -262,14 +261,6 @@ function VideoShell({
           className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
           style={mirrored ? { transform: "scaleX(-1)" } : undefined}
         />
-
-        {/* Face mesh overlay */}
-        {showFaceMesh && hasTrack && (
-          <FaceMeshCanvas
-            containerRef={containerRef}
-            mirrored={mirrored}
-          />
-        )}
 
         {/* Placeholder when no track */}
         {!hasTrack && (

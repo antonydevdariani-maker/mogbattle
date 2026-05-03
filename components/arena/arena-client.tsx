@@ -18,7 +18,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useAgoraVideo } from "@/components/match/agora-video";
-import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import type { Database } from "@/lib/types/database";
 import {
   useArenaMatchLeaveSetters,
@@ -150,6 +149,11 @@ export function ArenaClient({
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
   const [oppIsFounder, setOppIsFounder] = useState(false);
+
+  // Auto-exit fullscreen when analysis begins
+  useEffect(() => {
+    if (phase !== "live") setTikTokMode(false);
+  }, [phase]);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -1828,7 +1832,7 @@ function PlayerPanel({
   const internalVideoRef = useRef<HTMLDivElement>(null);
   const videoRef = videoContainerRef ?? internalVideoRef;
   const isYou = side === "you";
-  const [faceDetected, setFaceDetected] = useState(true);
+  const faceDetected = true;
   const accentCss = isYou
     ? {
         border: "border-fuchsia-500",
@@ -1923,14 +1927,6 @@ function PlayerPanel({
           ref={videoRef}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}
         />
-
-        {showVideo && (
-          <FaceMeshCanvas
-            containerRef={videoRef}
-            mirrored={isYou}
-            onFaceChange={setFaceDetected}
-          />
-        )}
 
         {!showVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-950 to-black">
