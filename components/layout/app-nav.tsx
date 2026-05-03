@@ -37,7 +37,8 @@ export function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const matchAtRisk = useArenaMatchLeaveRisk();
-  const { handleLogOut, isAuthenticated, authToken } = useDynamicContext();
+  const { handleLogOut, authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [credits, setCredits] = useState(0);
   const [molecules, setMolecules] = useState(0);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);

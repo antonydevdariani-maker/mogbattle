@@ -38,7 +38,8 @@ function isValidRecipient(addr: string, embedded: string): boolean {
 type Props = { balance: number; onSettled: () => Promise<void> };
 
 export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
-  const { primaryWallet, sdkHasLoaded, isAuthenticated, authToken } = useDynamicContext();
+  const { primaryWallet, sdkHasLoaded, authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
 
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");

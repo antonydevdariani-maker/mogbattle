@@ -93,7 +93,8 @@ function Countdown({ nextSpinAt }: { nextSpinAt: number }) {
 }
 
 export function SpinClient() {
-  const { authToken, isAuthenticated, sdkHasLoaded } = useDynamicContext();
+  const { authToken, sdkHasLoaded, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [molecules, setMolecules] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
   const [nextSpinAt, setNextSpinAt] = useState<number | null>(null);

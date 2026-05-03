@@ -10,7 +10,8 @@ import { WalletSetupHud } from "@/components/wallet/wallet-setup-hud";
 import { ArenaMatchLeaveProvider } from "@/components/arena/arena-match-leave-context";
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
-  const { sdkHasLoaded, isAuthenticated, user, primaryWallet, authToken } = useDynamicContext();
+  const { sdkHasLoaded, user, primaryWallet, authToken } = useDynamicContext();
+  const isAuthenticated = !!user;
   const router = useRouter();
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);

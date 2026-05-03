@@ -16,7 +16,8 @@ import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
 type Board = "elo" | "credits";
 
 export default function LeaderboardPage() {
-  const { isAuthenticated, authToken } = useDynamicContext();
+  const { authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [board, setBoard] = useState<Board>("elo");
   const [rows, setRows] = useState<LeaderboardProfileRow[]>([]);
   const [yourUserId, setYourUserId] = useState<string | null>(null);

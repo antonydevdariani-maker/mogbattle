@@ -9,7 +9,8 @@ import { ArenaClient } from "@/components/arena/arena-client";
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ArenaPage() {
-  const { isAuthenticated, authToken } = useDynamicContext();
+  const { authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [ready, setReady] = useState(false);
   const [balance, setBalance] = useState(0);
   const [molecules, setMolecules] = useState(0);

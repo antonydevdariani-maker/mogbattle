@@ -18,7 +18,8 @@ function usdcToDisplay(n: number) {
 type Props = { onSettled: () => Promise<void> };
 
 export function ClaimUsdcDeposit({ onSettled }: Props) {
-  const { primaryWallet, sdkHasLoaded, isAuthenticated, authToken } = useDynamicContext();
+  const { primaryWallet, sdkHasLoaded, authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [amount, setAmount] = useState("");
   const [step, setStep] = useState<"form" | "summary">("form");
   const [pending, setPending] = useState<"send" | "server" | false>(false);

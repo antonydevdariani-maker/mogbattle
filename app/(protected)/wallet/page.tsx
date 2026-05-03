@@ -14,7 +14,8 @@ import { Suspense } from "react";
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 
 function WalletPageInner() {
-  const { isAuthenticated, authToken, primaryWallet, sdkHasLoaded } = useDynamicContext();
+  const { authToken, primaryWallet, sdkHasLoaded, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [copied, setCopied] = useState(false);

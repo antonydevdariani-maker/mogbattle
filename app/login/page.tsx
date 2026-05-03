@@ -7,7 +7,8 @@ import { useEffect } from "react";
 import { Swords } from "lucide-react";
 
 function LoginContent() {
-  const { sdkHasLoaded, isAuthenticated, setShowAuthFlow } = useDynamicContext();
+  const { sdkHasLoaded, setShowAuthFlow, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";

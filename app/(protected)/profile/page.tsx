@@ -30,7 +30,8 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ProfilePage() {
-  const { isAuthenticated, authToken, user } = useDynamicContext();
+  const { authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);

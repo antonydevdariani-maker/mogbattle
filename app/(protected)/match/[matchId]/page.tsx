@@ -17,7 +17,8 @@ export default function MatchRoomPage() {
   const params = useParams();
   const matchId = params.matchId as string;
   const router = useRouter();
-  const { isAuthenticated, authToken } = useDynamicContext();
+  const { authToken, user } = useDynamicContext();
+  const isAuthenticated = !!user;
   const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
 

@@ -8,7 +8,8 @@ import { Swords } from "lucide-react";
 
 export default function BeginPage() {
   const router = useRouter();
-  const { sdkHasLoaded, isAuthenticated, setShowAuthFlow } = useDynamicContext();
+  const { sdkHasLoaded, setShowAuthFlow, user } = useDynamicContext();
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     if (sdkHasLoaded && isAuthenticated) router.replace("/dashboard");
