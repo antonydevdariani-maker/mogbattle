@@ -16,6 +16,7 @@ import {
   cancelWaitingMatch,
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useAgoraVideo } from "@/components/match/agora-video";
 import { FaceMeshCanvas } from "@/components/match/face-mesh-canvas";
 import type { Database } from "@/lib/types/database";
@@ -140,6 +141,7 @@ export function ArenaClient({
   const pslCaptures = useRef<number[]>([]);
   const overtimeDone = useRef(false);
   const [overtimeSecs, setOvertimeSecs] = useState(5);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
 
@@ -266,11 +268,15 @@ export function ArenaClient({
         if (!isP1) {
           setScoreP1(payload.p1Total);
           setScoreP2(payload.p2Total);
-          setPhase((prev) => (prev === "analyzing" || prev === "verdict") ? "done" : prev);
+          setPhase((prev) => (prev === "analyzing" || prev === "verdict" || prev === "done") ? "done" : prev);
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    realtimeChannelRef.current = channel;
+    return () => {
+      supabase.removeChannel(channel);
+      realtimeChannelRef.current = null;
+    };
   }, [match?.id, phase, isP1, refreshBalance, poll, userId]);
 
   useEffect(() => {
@@ -361,14 +367,10 @@ export function ArenaClient({
         pslCaptures.current.push(psl);
         const best = Math.max(...pslCaptures.current);
         setMyPsl(best);
-        // Broadcast to opponent via realtime
-        if (match?.id) {
-          const supabase = createClient();
-          supabase.channel(`arena:${match.id}`).send({
-            type: "broadcast", event: "psl",
-            payload: { userId, psl: best },
-          });
-        }
+        realtimeChannelRef.current?.send({
+          type: "broadcast", event: "psl",
+          payload: { userId, psl: best },
+        });
       }
     }, 2500);
 
@@ -379,13 +381,10 @@ export function ArenaClient({
         pslCaptures.current.push(psl);
         const best = Math.max(...pslCaptures.current);
         setMyPsl(best);
-        if (match?.id) {
-          const supabase = createClient();
-          supabase.channel(`arena:${match.id}`).send({
-            type: "broadcast", event: "psl",
-            payload: { userId, psl: best },
-          });
-        }
+        realtimeChannelRef.current?.send({
+          type: "broadcast", event: "psl",
+          payload: { userId, psl: best },
+        });
       }
     }, 4000);
 
@@ -434,13 +433,10 @@ export function ArenaClient({
         // Force a PSL of 0 so opponent wins
         setMyPsl(0);
         pslCaptures.current = [0];
-        if (match?.id) {
-          const supabase = createClient();
-          supabase.channel(`arena:${match.id}`).send({
-            type: "broadcast", event: "psl",
-            payload: { userId, psl: 0 },
-          });
-        }
+        realtimeChannelRef.current?.send({
+          type: "broadcast", event: "psl",
+          payload: { userId, psl: 0 },
+        });
       } else {
         setNoFaceWarning(false);
       }
@@ -624,9 +620,8 @@ export function ArenaClient({
     }
 
     // P1 broadcasts final scores so P2 shows identical results
-    if (isP1 && match) {
-      const supabase = createClient();
-      supabase.channel(`arena:${match.id}`).send({
+    if (isP1) {
+      realtimeChannelRef.current?.send({
         type: "broadcast", event: "result",
         payload: { p1Total, p2Total },
       });

@@ -178,7 +178,8 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
   showFaceMesh?: boolean;
-}>(function RemoteVideoBox({ track, label, accentColor, overlay, showFaceMesh }, ref) {
+  mirrored?: boolean;
+}>(function RemoteVideoBox({ track, label, accentColor, overlay, showFaceMesh, mirrored = true }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -192,7 +193,7 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} mirrored={mirrored} />
   );
 });
 
@@ -235,7 +236,11 @@ function VideoShell({
     <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>
       <div className="relative aspect-video bg-zinc-950 overflow-hidden">
         {/* Agora renders video into this div */}
-        <div ref={containerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
+        <div
+          ref={containerRef}
+          className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
+          style={mirrored ? { transform: "scaleX(-1)" } : undefined}
+        />
 
         {/* Face mesh overlay */}
         {showFaceMesh && hasTrack && (
