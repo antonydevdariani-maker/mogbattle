@@ -105,9 +105,11 @@ export async function uploadProfileAvatar(accessToken: string, formData: FormDat
   }
 
   const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+  // Append cache-bust timestamp so CDN always serves the newly uploaded file
+  const avatarUrl = `${pub.publicUrl}?t=${Date.now()}`;
   const { error: dbErr } = await supabase
     .from("profiles")
-    .update({ avatar_url: pub.publicUrl })
+    .update({ avatar_url: avatarUrl })
     .eq("user_id", userId);
   if (dbErr) {
     throw new Error(dbErr.message);

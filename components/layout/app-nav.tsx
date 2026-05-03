@@ -40,6 +40,7 @@ export function AppNav() {
   const { logout, authenticated, getAccessToken } = usePrivy();
   const [credits, setCredits] = useState(0);
   const [molecules, setMolecules] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +53,7 @@ export function AppNav() {
         const row = await loadProfileSummary(token);
         setCredits(row?.total_credits ?? 0);
         setMolecules(row?.molecules ?? 0);
+        setAvatarUrl(row?.avatar_url ?? null);
       } catch {
         setCredits(0);
       }
@@ -101,6 +103,19 @@ export function AppNav() {
         label: item.label,
         active,
         onClick: () => setWalletMenuOpen((o) => !o),
+      };
+    }
+
+    if (item.href === "/profile" && avatarUrl) {
+      const AvatarIcon = ({ className }: { className?: string }) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" className={`rounded-full object-cover ${className ?? "size-5"}`} />
+      );
+      return {
+        icon: AvatarIcon as unknown as typeof item.icon,
+        label: item.label,
+        active,
+        onClick: () => tryNavigate(item.href),
       };
     }
 
