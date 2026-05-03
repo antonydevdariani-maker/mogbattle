@@ -23,12 +23,12 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "MogBattle — 1v1 Face-Off Arena",
+  title: "Omogger — 1v1 Face-Off Arena",
   description: "Queue. Bet. Mog. The highest-stakes 1v1 face rating arena on the internet.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MogBattle",
+    title: "Omogger",
   },
 };
 
