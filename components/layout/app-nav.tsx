@@ -16,6 +16,7 @@ import {
   Atom,
   User,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Dock } from "@/components/ui/dock-two";
 import { loadProfileSummary } from "@/app/actions";
@@ -29,7 +30,7 @@ const navItems = [
   { href: "/spin", label: "Spin", icon: Atom },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/arena", label: "Battle", icon: Shield },
-  { href: "/face-report", label: "Report", icon: Scan },
+  { href: "/profile", label: "Profile", icon: User },
 ];
 
 export function AppNav() {
@@ -179,25 +180,6 @@ export function AppNav() {
               <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
             </div>
           </div>
-          {/* Avatar */}
-          <Link
-            href="/profile"
-            onClick={(e) => {
-              if (!matchAtRisk) return;
-              e.preventDefault();
-              tryNavigate("/profile");
-            }}
-            className="size-8 shrink-0 overflow-hidden border border-fuchsia-500/40 bg-zinc-900 hover:border-fuchsia-400/60 transition-colors"
-          >
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="" className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center">
-                <User className="size-4 text-zinc-500" />
-              </div>
-            )}
-          </Link>
           <button
             type="button"
             className="border border-white/10 text-zinc-500 hover:text-white hover:border-white/30 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"
