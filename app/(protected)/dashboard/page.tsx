@@ -5,13 +5,13 @@ import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sd
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, User as UserIcon, Crown, Atom } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, Atom } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function DashboardPage() {
-  const { user } = useDynamicContext();
+  useDynamicContext();
   const authToken = getAuthToken();
   const isAuthenticated = useIsLoggedIn();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -45,62 +45,6 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-5">
-      {/* Top row: profile card + leaderboard */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Profile card */}
-        <Link
-          href="/profile"
-          className="group relative flex items-center gap-4 border border-fuchsia-500/30 bg-zinc-950 p-4 hover:border-fuchsia-400/50 transition-colors"
-        >
-          <div className="shrink-0 size-14 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10">
-            {profile?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt="" className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center">
-                <UserIcon className="size-6 text-fuchsia-300/60" />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-500/80 mb-0.5">Profile</p>
-            <p
-              className="text-lg font-black text-white uppercase truncate max-w-[160px]"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {profile?.username ?? "…"}
-            </p>
-            <p className="text-xs text-zinc-500">
-              ELO <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span>
-              {" · "}
-              <span className="text-white">{profile?.wins ?? 0}W</span>
-              {" / "}
-              <span className="text-zinc-400">{losses}L</span>
-            </p>
-          </div>
-        </Link>
-
-        {/* Leaderboard card */}
-        <Link
-          href="/leaderboard"
-          className="group flex items-center gap-4 border border-amber-500/30 bg-zinc-950 p-4 hover:border-amber-400/50 transition-colors"
-        >
-          <div className="shrink-0 flex size-14 items-center justify-center border border-amber-500/30 bg-amber-500/10">
-            <Crown className="size-6 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500/80 mb-0.5">Rankings</p>
-            <p
-              className="text-lg font-black text-white uppercase"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Leaderboard
-            </p>
-            <p className="text-xs text-zinc-500">ELO · Mog Points</p>
-          </div>
-        </Link>
-      </div>
-
       {/* Hero action card */}
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
