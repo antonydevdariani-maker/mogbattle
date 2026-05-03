@@ -145,6 +145,8 @@ export function ArenaClient({
   const [overtimeSecs, setOvertimeSecs] = useState(5);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const resultWaitRef = useRef<((r: { p1Total: number; p2Total: number }) => void) | null>(null);
+  const myVideoContainerRef = useRef<HTMLDivElement>(null);
+  const oppVideoContainerRef = useRef<HTMLDivElement>(null);
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
 
@@ -601,17 +603,16 @@ export function ArenaClient({
     router.push("/dashboard");
   }
 
-  async function judgeTrack(track: ICameraVideoTrack | IRemoteVideoTrack | null, mirror = false): Promise<number | null> {
-    if (!track) return null;
+  async function judgeContainer(containerRef: React.RefObject<HTMLDivElement | null>, mirror = false): Promise<number | null> {
+    const video = containerRef.current?.querySelector("video");
+    if (!video || !video.videoWidth) return null;
     try {
-      const frameData = (track as ICameraVideoTrack).getCurrentFrameData();
-      if (!frameData || frameData.width === 0) return null;
       const canvas = document.createElement("canvas");
-      canvas.width = frameData.width;
-      canvas.height = frameData.height;
+      canvas.width = 480;
+      canvas.height = 270;
       const ctx = canvas.getContext("2d")!;
       if (mirror) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-      ctx.putImageData(frameData, 0, 0);
+      ctx.drawImage(video, 0, 0, 480, 270);
       const base64 = canvas.toDataURL("image/jpeg", 0.9);
       const res = await fetch("/api/judge-face", {
         method: "POST",
@@ -635,9 +636,9 @@ export function ArenaClient({
     setRevealedMetrics([]);
     setMetricScores([]);
 
-    // P1 fires both AI calls immediately — in parallel with metric animation
-    const p1JudgePromise = isP1 ? judgeTrack(localVideoTrack, true) : Promise.resolve(null);
-    const p2JudgePromise = isP1 ? judgeTrack(remoteVideoTrack, false) : Promise.resolve(null);
+    // P1 fires both AI calls immediately — DOM capture works for both local and remote video
+    const p1JudgePromise = isP1 ? judgeContainer(myVideoContainerRef, true) : Promise.resolve(null);
+    const p2JudgePromise = isP1 ? judgeContainer(oppVideoContainerRef, false) : Promise.resolve(null);
 
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
@@ -842,6 +843,7 @@ export function ArenaClient({
             queueTimedOut={queueTimedOut}
             isFreeMode={isFreeMode}
             pslBadge={oppPsl}
+            videoContainerRef={oppVideoContainerRef}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -883,6 +885,7 @@ export function ArenaClient({
             pslBadge={myPsl}
             isFreeMode={isFreeMode}
             isFounder={isFounder}
+            videoContainerRef={myVideoContainerRef}
           />
 
           {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
@@ -1784,6 +1787,7 @@ function PlayerPanel({
   pslBadge = null,
   isFreeMode = false,
   isFounder = false,
+  videoContainerRef,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1801,8 +1805,10 @@ function PlayerPanel({
   pslBadge?: number | null;
   isFreeMode?: boolean;
   isFounder?: boolean;
+  videoContainerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  const videoRef = useRef<HTMLDivElement>(null);
+  const internalVideoRef = useRef<HTMLDivElement>(null);
+  const videoRef = videoContainerRef ?? internalVideoRef;
   const isYou = side === "you";
   const [faceDetected, setFaceDetected] = useState(true);
   const accentCss = isYou
