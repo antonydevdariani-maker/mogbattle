@@ -174,6 +174,8 @@ export function ArenaClient({
   });
 
   const isP1 = match?.player1_id === userId;
+  // Derive from match row so it survives page reload
+  const resolvedFreeMode = match?.is_free_match ?? isFreeMode;
   const myRawOffer = isP1 ? match?.player1_bet_offer : match?.player2_bet_offer;
   const oppRawOffer = isP1 ? match?.player2_bet_offer : match?.player1_bet_offer;
   const displayMyOffer = myOfferStr || (myRawOffer ? String(myRawOffer) : "") || (lockedBet > 0 ? String(lockedBet) : "");
@@ -1004,7 +1006,7 @@ export function ArenaClient({
             betAmount={match?.bet_amount ?? 0}
             myScore={myScore}
             oppScore={oppScore}
-            isFreeMode={isFreeMode}
+            isFreeMode={resolvedFreeMode}
             onRematch={resetArena}
             onDashboard={() => router.push("/dashboard")}
           />
@@ -1539,7 +1541,8 @@ function CompactYourBetStrip({
   );
 }
 
-function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: number }) {
+function PotMergeBurst({ perPlayer, potTotal, isFreeMode }: { perPlayer: number; potTotal: number; isFreeMode: boolean }) {
+  const unit = isFreeMode ? "mol" : "MC";
   return (
     <div className="relative flex h-24 w-full items-center justify-center overflow-hidden sm:h-28">
       <motion.span
@@ -1549,7 +1552,7 @@ function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: n
         animate={{ x: "28vw", opacity: 0, scale: 0.4 }}
         transition={{ duration: 0.85, ease: "easeInOut" }}
       >
-        {perPlayer} MC
+        {perPlayer} {unit}
       </motion.span>
       <motion.span
         className="absolute right-[8%] font-black tabular-nums text-fuchsia-300 sm:right-[12%] sm:text-lg"
@@ -1558,7 +1561,7 @@ function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: n
         animate={{ x: "-28vw", opacity: 0, scale: 0.4 }}
         transition={{ duration: 0.85, ease: "easeInOut" }}
       >
-        {perPlayer} MC
+        {perPlayer} {unit}
       </motion.span>
       <motion.div
         className="relative z-10 text-center font-black tabular-nums text-amber-300 sm:text-3xl"
@@ -1570,7 +1573,7 @@ function PotMergeBurst({ perPlayer, potTotal }: { perPlayer: number; potTotal: n
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.75, type: "spring", stiffness: 380, damping: 22 }}
       >
-        {potTotal} MC
+        {potTotal} {unit}
       </motion.div>
     </div>
   );
@@ -1691,7 +1694,7 @@ function ThePotNegotiationStrip({
 
         {agreed && perPlayer !== null && potTotal !== null && (
           <div className="mt-2">
-            <PotMergeBurst key={mergeKey} perPlayer={perPlayer} potTotal={potTotal} />
+            <PotMergeBurst key={mergeKey} perPlayer={perPlayer} potTotal={potTotal} isFreeMode={isFreeMode} />
             <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/90">
               Winner takes {potTotal} {unit}
             </p>
