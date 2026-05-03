@@ -15,6 +15,7 @@ export type Database = {
           elo: number;
           matches_played: number;
           wins: number;
+          is_founder: boolean;
           created_at: string;
         };
         Insert: {
@@ -28,6 +29,7 @@ export type Database = {
           elo?: number;
           matches_played?: number;
           wins?: number;
+          is_founder?: boolean;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;

@@ -166,7 +166,7 @@ export async function loadLeaderboard(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits")
+    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits, is_founder")
     .order("elo", { ascending: false })
     .order("wins", { ascending: false })
     .limit(100);
@@ -185,7 +185,7 @@ export async function loadCreditsLeaderboard(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits")
+    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits, is_founder")
     .order("total_credits", { ascending: false })
     .order("elo", { ascending: false })
     .limit(100);

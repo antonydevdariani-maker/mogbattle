@@ -197,6 +197,9 @@ export default function LeaderboardPage() {
                     {isYou && (
                       <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
                     )}
+                    {(r as unknown as { is_founder?: boolean }).is_founder && (
+                      <span className="ml-2 text-[10px] font-black text-amber-300/90 normal-case">⚡</span>
+                    )}
                   </p>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played

@@ -115,7 +115,14 @@ export default function ProfilePage() {
     <div className="w-full max-w-2xl mx-auto space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-500/90 mb-1">Profile</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-500/90">Profile</p>
+            {profile?.is_founder && (
+              <span className="inline-flex items-center gap-1 border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                ⚡ Founder
+              </span>
+            )}
+          </div>
           <h1
             className="text-3xl font-black text-white uppercase tracking-tight"
             style={{ fontFamily: "var(--font-heading)" }}
