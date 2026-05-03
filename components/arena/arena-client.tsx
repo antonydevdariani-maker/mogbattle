@@ -406,6 +406,37 @@ export function ArenaClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  // No opponent video after 15s → draw (fair — can't judge if can't see)
+  useEffect(() => {
+    if (phase !== "live" || !isP1) return;
+    const drawTimer = setTimeout(() => {
+      if (!remoteVideoTrack) {
+        const drawScore = 5.0;
+        setScoreP1(drawScore);
+        setScoreP2(drawScore);
+        realtimeChannelRef.current?.send({
+          type: "broadcast", event: "result",
+          payload: { p1Total: drawScore, p2Total: drawScore, draw: true },
+        });
+        setPhase("verdict");
+        void (async () => {
+          await pause(2800);
+          setPhase("done");
+          if (match && authToken) {
+            if (isFreeMode) {
+              await finalizeFreeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
+            } else {
+              await finalizeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
+            }
+            refreshBalance();
+          }
+        })();
+      }
+    }, 15000);
+    return () => clearTimeout(drawTimer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, remoteVideoTrack, isP1]);
+
   // Face presence check — warn at 5s, auto-forfeit (score 0) at 10s if no face
   useEffect(() => {
     if (phase !== "live" || !localVideoTrack) return;
@@ -570,6 +601,28 @@ export function ArenaClient({
     router.push("/dashboard");
   }
 
+  async function judgeTrack(track: ICameraVideoTrack | IRemoteVideoTrack | null, mirror = false): Promise<number | null> {
+    if (!track) return null;
+    try {
+      const frameData = (track as ICameraVideoTrack).getCurrentFrameData();
+      if (!frameData || frameData.width === 0) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = frameData.width;
+      canvas.height = frameData.height;
+      const ctx = canvas.getContext("2d")!;
+      if (mirror) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+      ctx.putImageData(frameData, 0, 0);
+      const base64 = canvas.toDataURL("image/jpeg", 0.9);
+      const res = await fetch("/api/judge-face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64 }),
+      });
+      const data = await res.json();
+      return (data.psl && data.psl > 0) ? Number((data.psl as number).toFixed(2)) : null;
+    } catch { return null; }
+  }
+
   async function startAnalysis() {
     if (analysisRunning.current) return;
     analysisRunning.current = true;
@@ -581,10 +634,14 @@ export function ArenaClient({
     setPhase("analyzing");
     setRevealedMetrics([]);
     setMetricScores([]);
+
+    // P1 fires both AI calls immediately — in parallel with metric animation
+    const p1JudgePromise = isP1 ? judgeTrack(localVideoTrack, true) : Promise.resolve(null);
+    const p2JudgePromise = isP1 ? judgeTrack(remoteVideoTrack, false) : Promise.resolve(null);
+
     const scores: { p1: number; p2: number }[] = [];
     for (let i = 0; i < METRICS.length; i++) {
       await pause(1400 + Math.random() * 700);
-      // Visual metric scores on 1–10 scale
       const ms = { p1: 5 + Math.random() * 5, p2: 5 + Math.random() * 5 };
       scores.push(ms);
       setMetricScores([...scores]);
@@ -594,14 +651,18 @@ export function ArenaClient({
     await pause(900);
 
     if (isP1) {
-      // P1 calculates canonical scores and broadcasts to P2
-      const myCaptures = pslCaptures.current;
-      const metricAvgMe = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
-      const metricAvgOpp = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-      // oppPsl is what P2 broadcast — P1 uses it as P2's score
-      const p1Total = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvgMe;
-      const p2Total = oppPsl !== null ? Number(oppPsl.toFixed(2)) : metricAvgOpp;
+      // Wait for both AI results — already running in parallel with animation
+      const [p1Psl, p2Psl] = await Promise.all([p1JudgePromise, p2JudgePromise]);
 
+      // AI PSL is canonical. Only fall back to metric avg if AI returned nothing.
+      const metricAvgP1 = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
+      const metricAvgP2 = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
+      const p1Total = p1Psl ?? metricAvgP1;
+      const p2Total = p2Psl ?? metricAvgP2;
+
+      // Update live PSL HUDs with canonical values
+      setMyPsl(p1Total);
+      setOppPsl(p2Total);
       setScoreP1(p1Total);
       setScoreP2(p2Total);
 
@@ -624,7 +685,7 @@ export function ArenaClient({
         return;
       }
 
-      // Broadcast canonical result to P2 before showing verdict
+      // Broadcast canonical result — P2 receives and displays same numbers
       realtimeChannelRef.current?.send({
         type: "broadcast", event: "result",
         payload: { p1Total, p2Total },
@@ -647,24 +708,25 @@ export function ArenaClient({
         });
       }
     } else {
-      // P2: wait for P1's authoritative result broadcast (up to 8s fallback)
+      // P2: wait for P1's authoritative result broadcast (up to 12s)
       setPhase("verdict");
       const received = await new Promise<{ p1Total: number; p2Total: number } | null>((resolve) => {
         resultWaitRef.current = resolve;
         setTimeout(() => {
           resultWaitRef.current = null;
           resolve(null);
-        }, 8000);
+        }, 12000);
       });
 
       if (received) {
-        // Scores already set by the broadcast listener — just go to done
+        // Scores already set by broadcast listener — update HUDs too
+        setMyPsl(received.p2Total);
+        setOppPsl(received.p1Total);
         setPhase("done");
       } else {
-        // Fallback: use local PSL captures
+        // Fallback only if broadcast never arrived
         const myCaptures = pslCaptures.current;
-        const metricAvg = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-        const p2Total = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvg;
+        const p2Total = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
         const p1Total = oppPsl !== null ? Number(oppPsl.toFixed(2)) : Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
         setScoreP1(p1Total);
         setScoreP2(p2Total);
