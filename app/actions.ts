@@ -160,6 +160,7 @@ export type LeaderboardProfileRow = {
   wins: number;
   matches_played: number;
   total_credits: number;
+  is_founder: boolean | null;
 };
 
 export async function loadLeaderboard(accessToken: string) {
