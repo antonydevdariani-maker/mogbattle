@@ -14,6 +14,7 @@ import {
   Shield,
   Crown,
   User,
+  Atom,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
