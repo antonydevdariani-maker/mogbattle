@@ -3,8 +3,9 @@
 import { Suspense } from "react";
 import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Swords } from "lucide-react";
+import { getPlayerCount } from "@/app/actions";
 
 function LoginContent() {
   const { sdkHasLoaded, setShowAuthFlow, user } = useDynamicContext();
@@ -12,6 +13,11 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
+  const [playerCount, setPlayerCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    getPlayerCount().then(setPlayerCount).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (sdkHasLoaded && isAuthenticated) {
@@ -50,6 +56,11 @@ function LoginContent() {
           <p className="text-sm text-zinc-500">
             Face off 1v1. Bet. Mog or be mogged.
           </p>
+          {playerCount !== null && (
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-600">
+              <span className="text-fuchsia-400">{playerCount.toLocaleString()}</span> moggers in the pit
+            </p>
+          )}
         </div>
 
         <button

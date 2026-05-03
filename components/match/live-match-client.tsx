@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
-import { finalizeMatchResult } from "@/app/actions";
+import { finalizeMatchResult, finalizeFreeMatchResult, forfeitMatch } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 
@@ -54,6 +54,7 @@ export function LiveMatchClient({
   winnerId,
   userId,
   betAmount,
+  isFreeMatch,
   initialAiP1,
   initialAiP2,
 }: {
@@ -63,12 +64,13 @@ export function LiveMatchClient({
   winnerId: string | null;
   userId: string;
   betAmount: number;
+  isFreeMatch: boolean;
   initialAiP1: number | null;
   initialAiP2: number | null;
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, opponentLeft } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -90,6 +92,7 @@ export function LiveMatchClient({
   const [myAiResult, setMyAiResult] = useState<AiResult>(null);
   const [oppAiResult, setOppAiResult] = useState<AiResult>(null);
   const [testMode, setTestMode] = useState(false);
+  const [opponentAbandoned, setOpponentAbandoned] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const {  } = useDynamicContext();
@@ -116,6 +119,19 @@ export function LiveMatchClient({
       );
     }
   }, [isCompleted, initialAiP1, initialAiP2]);
+
+  useEffect(() => {
+    if (!opponentLeft || isCompleted || opponentAbandoned || phase === "done") return;
+    setOpponentAbandoned(true);
+    setPhase("done");
+    setScoreP1(isPlayer1 ? 10 : 0);
+    setScoreP2(isPlayer1 ? 0 : 10);
+    startTransition(async () => {
+      if (!authToken) return;
+      await forfeitMatch(authToken, matchId);
+      router.refresh();
+    });
+  }, [opponentLeft, isCompleted, opponentAbandoned, phase, isPlayer1, authToken, matchId, router]);
 
   async function startAnalysis(isTest = false) {
     setPhase("countdown");
@@ -175,11 +191,16 @@ export function LiveMatchClient({
       startTransition(async () => {
         const token = authToken;
         if (!token) return;
-        await finalizeMatchResult(token, {
+        const args = {
           matchId,
           aiScoreP1: isPlayer1 ? p1Total : p2Total,
           aiScoreP2: isPlayer1 ? p2Total : p1Total,
-        });
+        };
+        if (isFreeMatch) {
+          await finalizeFreeMatchResult(token, args);
+        } else {
+          await finalizeMatchResult(token, args);
+        }
         router.refresh();
       });
     }
@@ -482,10 +503,14 @@ export function LiveMatchClient({
                 className={`text-4xl font-black tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                {iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
+                {opponentAbandoned && iWon ? "OPPONENT FLED" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
               </h2>
               <p className="text-zinc-500 text-sm">
-                {iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie"}
+                {opponentAbandoned && iWon
+                  ? "Opponent left the match — their bet is yours"
+                  : iWon
+                    ? "Facial superiority confirmed by AI"
+                    : "The numbers don't lie"}
               </p>
             </div>
 

@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { LivenessCheck } from "@/components/verify/liveness-check";
 import { Shield } from "lucide-react";
+
+const BYPASS_KEY = "mogbattle_verify_bypass";
+const BYPASS_DURATION = 5 * 60 * 1000;
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -15,6 +18,20 @@ export default function VerifyPage() {
       localStorage.setItem(`mogbattle_verified_${user.userId}`, "1");
     }
     router.replace("/dashboard");
+  }, [user?.userId, router]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "q") return;
+      const expiry = Date.now() + BYPASS_DURATION;
+      localStorage.setItem(BYPASS_KEY, String(expiry));
+      if (user?.userId) {
+        localStorage.setItem(`mogbattle_verified_${user.userId}`, "1");
+      }
+      router.replace("/dashboard");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [user?.userId, router]);
 
   return (

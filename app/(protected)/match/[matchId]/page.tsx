@@ -66,6 +66,7 @@ export default function MatchRoomPage() {
         winnerId={match.winner_id}
         userId={userId}
         betAmount={match.bet_amount}
+        isFreeMatch={match.is_free_match ?? false}
         initialAiP1={match.ai_score_p1}
         initialAiP2={match.ai_score_p2}
       />

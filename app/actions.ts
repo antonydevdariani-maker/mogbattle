@@ -160,6 +160,7 @@ export type LeaderboardProfileRow = {
   wins: number;
   matches_played: number;
   total_credits: number;
+  is_founder: boolean | null;
 };
 
 export async function loadLeaderboard(accessToken: string) {
@@ -1126,4 +1127,66 @@ export async function buildDepositTransaction(
     transactionBase64: Buffer.from(transactionBytes).toString("base64"),
     expectedFeeRaw: expectedFeeRaw.toString(),
   };
+}
+
+export async function getPlayerCount(): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  const { count } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true });
+  return count ?? 0;
+}
+
+export async function forfeitMatch(accessToken: string, matchId: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+
+  const { data: match } = await supabase.from("matches").select("*").eq("id", matchId).single();
+  if (!match) throw new Error("Match not found.");
+  if (match.status === "completed") return;
+  if (match.player1_id !== userId && match.player2_id !== userId) throw new Error("Not your match.");
+
+  const winnerId = match.player1_id === userId ? match.player2_id : match.player1_id;
+  const loserId = userId;
+  if (!winnerId) return;
+
+  await supabase.from("matches").update({
+    status: "completed",
+    winner_id: winnerId,
+    ended_at: new Date().toISOString(),
+    ai_score_p1: match.player1_id === loserId ? 0 : 10,
+    ai_score_p2: match.player2_id === loserId ? 0 : 10,
+  }).eq("id", matchId);
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id,elo,wins,matches_played,total_credits,molecules")
+    .in("user_id", [winnerId, loserId]);
+
+  const winner = profiles?.find((p) => p.user_id === winnerId);
+  const loser = profiles?.find((p) => p.user_id === loserId);
+  if (!winner || !loser) return;
+
+  if (match.is_free_match) {
+    await supabase.from("profiles").update({
+      molecules: (winner.molecules ?? 0) + match.bet_amount * 2,
+      wins: winner.wins + 1,
+      matches_played: winner.matches_played + 1,
+    }).eq("user_id", winnerId);
+    await supabase.from("profiles").update({
+      matches_played: loser.matches_played + 1,
+    }).eq("user_id", loserId);
+  } else {
+    await supabase.from("profiles").update({
+      total_credits: winner.total_credits + match.bet_amount * 2,
+      wins: winner.wins + 1,
+      matches_played: winner.matches_played + 1,
+    }).eq("user_id", winnerId);
+    await supabase.from("profiles").update({
+      matches_played: loser.matches_played + 1,
+    }).eq("user_id", loserId);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/match/${matchId}`);
 }

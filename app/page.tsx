@@ -1,21 +1,26 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Sword, Zap, Trophy, Flame, Shield, TrendingUp, Users } from "lucide-react";
+import { Sword, Zap, Trophy, Flame, Shield, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-async function getAccountCount(): Promise<number> {
+async function getHomeStats(): Promise<{ accounts: number; battles: number; wagered: number }> {
   try {
     const supabase = getSupabaseAdmin();
-    const { count } = await supabase.from("profiles").select("*", { count: "exact", head: true });
-    return count ?? 0;
+    const [{ count: accounts }, { count: battles }, { data: wageredData }] = await Promise.all([
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("matches").select("*", { count: "exact", head: true }).eq("status", "completed"),
+      supabase.from("matches").select("bet_amount").eq("status", "completed"),
+    ]);
+    const wagered = (wageredData ?? []).reduce((sum, m) => sum + (Number(m.bet_amount) * 2), 0);
+    return { accounts: accounts ?? 0, battles: battles ?? 0, wagered };
   } catch {
-    return 0;
+    return { accounts: 0, battles: 0, wagered: 0 };
   }
 }
 
 export default async function Home() {
-  const accountCount = await getAccountCount();
+  const { accounts: accountCount, battles, wagered } = await getHomeStats();
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 relative overflow-hidden bg-black">
@@ -51,17 +56,6 @@ export default async function Home() {
             Winner takes the pot. No excuses.
           </p>
 
-          {/* Account count badge */}
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 border border-fuchsia-500/30 bg-fuchsia-500/5 px-5 py-2">
-              <Users className="size-3.5 text-fuchsia-400" />
-              <span className="text-sm font-black text-fuchsia-300 tabular-nums">
-                {accountCount.toLocaleString()}
-              </span>
-              <span className="text-xs text-zinc-500 uppercase tracking-widest">accounts created</span>
-            </div>
-          </div>
-
           <div className="flex justify-center">
             <Link
               href="/begin"
@@ -79,9 +73,9 @@ export default async function Home() {
         {/* Stats bar */}
         <div className="grid grid-cols-3 divide-x divide-white/10 border border-white/10 bg-zinc-950 mb-10">
           {[
-            { value: "1,247", label: "Battles Today" },
-            { value: "84K", label: "Credits Wagered" },
-            { value: "< 1s", label: "Avg Queue Time" },
+            { value: battles.toLocaleString(), label: "Battles Fought" },
+            { value: wagered >= 1000 ? `${(wagered / 1000).toFixed(1)}K` : wagered.toLocaleString(), label: "MC Wagered" },
+            { value: accountCount.toLocaleString(), label: "Moggers" },
           ].map((s) => (
             <div key={s.label} className="py-7 text-center">
               <p

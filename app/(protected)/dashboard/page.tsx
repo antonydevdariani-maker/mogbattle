@@ -5,13 +5,13 @@ import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sd
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, User as UserIcon, Crown, Atom } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, Atom, Crown } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function DashboardPage() {
-  const { user } = useDynamicContext();
+  useDynamicContext();
   const authToken = getAuthToken();
   const isAuthenticated = useIsLoggedIn();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -45,62 +45,6 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-5">
-      {/* Top row: profile card + leaderboard */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Profile card */}
-        <Link
-          href="/profile"
-          className="group relative flex items-center gap-4 border border-fuchsia-500/30 bg-zinc-950 p-4 hover:border-fuchsia-400/50 transition-colors"
-        >
-          <div className="shrink-0 size-14 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10">
-            {profile?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt="" className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center">
-                <UserIcon className="size-6 text-fuchsia-300/60" />
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-500/80 mb-0.5">Profile</p>
-            <p
-              className="text-lg font-black text-white uppercase truncate max-w-[160px]"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {profile?.username ?? "…"}
-            </p>
-            <p className="text-xs text-zinc-500">
-              ELO <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span>
-              {" · "}
-              <span className="text-white">{profile?.wins ?? 0}W</span>
-              {" / "}
-              <span className="text-zinc-400">{losses}L</span>
-            </p>
-          </div>
-        </Link>
-
-        {/* Leaderboard card */}
-        <Link
-          href="/leaderboard"
-          className="group flex items-center gap-4 border border-amber-500/30 bg-zinc-950 p-4 hover:border-amber-400/50 transition-colors"
-        >
-          <div className="shrink-0 flex size-14 items-center justify-center border border-amber-500/30 bg-amber-500/10">
-            <Crown className="size-6 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500/80 mb-0.5">Rankings</p>
-            <p
-              className="text-lg font-black text-white uppercase"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Leaderboard
-            </p>
-            <p className="text-xs text-zinc-500">ELO · Mog Points</p>
-          </div>
-        </Link>
-      </div>
-
       {/* Hero action card */}
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
@@ -120,20 +64,27 @@ export default function DashboardPage() {
               <span className="text-fuchsia-300">{(profile?.total_credits ?? 0).toLocaleString()} MC</span>
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Link
               href="/spin"
-              className="flex items-center gap-1.5 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-3 py-1.5 text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
+              className="flex items-center gap-1 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
             >
-              <Atom className="size-3.5" />
-              Spin
+              <Atom className="size-3" />
+              <span>Spin</span>
             </Link>
             <Link
               href="/arena"
-              className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              className="flex items-center gap-1 bg-fuchsia-500 text-black px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
             >
-              <Swords className="size-3.5" />
-              Battle
+              <Swords className="size-3" />
+              <span>Battle</span>
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="hidden sm:flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-200 hover:bg-amber-500/20 transition-colors"
+            >
+              <Crown className="size-3" />
+              Ranks
             </Link>
           </div>
         </div>
