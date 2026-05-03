@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isSolanaWallet } from "@dynamic-labs/solana";
 import { VersionedTransaction } from "@solana/web3.js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -129,7 +129,8 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function FaceReportClient() {
-  const { authToken, primaryWallet } = useDynamicContext();
+  const { primaryWallet } = useDynamicContext();
+  const authToken = getAuthToken();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -233,7 +234,7 @@ export function FaceReportClient() {
       const txBytes = Buffer.from(transactionBase64, "base64");
       const tx = VersionedTransaction.deserialize(txBytes);
       const signer = await solWallet.getSigner();
-      const result = await signer.signAndSendTransaction(tx);
+      const result = await signer.signAndSendTransaction(tx as never);
       signature = result.signature;
     } catch (e) {
       setPayStep("idle");

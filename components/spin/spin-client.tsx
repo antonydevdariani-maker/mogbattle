@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { claimDailySpin, loadSpinData } from "@/app/actions";
 import { Atom, Timer } from "lucide-react";
@@ -93,8 +93,9 @@ function Countdown({ nextSpinAt }: { nextSpinAt: number }) {
 }
 
 export function SpinClient() {
-  const { authToken, sdkHasLoaded, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { sdkHasLoaded, user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [molecules, setMolecules] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
   const [nextSpinAt, setNextSpinAt] = useState<number | null>(null);
@@ -182,7 +183,7 @@ export function SpinClient() {
           onClick={spin}
           disabled={spinning}
           whileTap={{ scale: 0.96 }}
-          className="w-40 h-12 bg-cyan-500 text-black font-black uppercase tracking-widest text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-28 h-9 sm:w-40 sm:h-12 bg-cyan-500 text-black font-black uppercase tracking-widest text-xs sm:text-sm shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {spinning ? "Spinning…" : "Spin"}
         </motion.button>

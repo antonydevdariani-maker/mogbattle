@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
@@ -37,8 +37,9 @@ export function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const matchAtRisk = useArenaMatchLeaveRisk();
-  const { handleLogOut, authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { handleLogOut, user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [credits, setCredits] = useState(0);
   const [molecules, setMolecules] = useState(0);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);

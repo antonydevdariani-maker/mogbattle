@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, usePathname } from "next/navigation";
 import { ensureProfile, loadProfileSummary } from "@/app/actions";
 import { deriveProfileUsername } from "@/lib/dynamic/user-display";
@@ -10,8 +10,9 @@ import { WalletSetupHud } from "@/components/wallet/wallet-setup-hud";
 import { ArenaMatchLeaveProvider } from "@/components/arena/arena-match-leave-context";
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
-  const { sdkHasLoaded, user, primaryWallet, authToken } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { sdkHasLoaded, user, primaryWallet } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const router = useRouter();
   const pathname = usePathname();
   const [credits, setCredits] = useState<number | null>(null);

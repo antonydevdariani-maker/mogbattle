@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { finalizeMatchResult } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
@@ -92,7 +92,8 @@ export function LiveMatchClient({
   const [testMode, setTestMode] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
-  const { authToken } = useDynamicContext();
+  const {  } = useDynamicContext();
+  const authToken = getAuthToken();
 
   const iWon = winnerId
     ? winnerId === userId

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadWalletData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
@@ -14,8 +14,9 @@ import { Suspense } from "react";
 type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 
 function WalletPageInner() {
-  const { authToken, primaryWallet, sdkHasLoaded, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { primaryWallet, sdkHasLoaded, user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [copied, setCopied] = useState(false);

@@ -1,14 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { Swords } from "lucide-react";
 
 function LoginContent() {
   const { sdkHasLoaded, setShowAuthFlow, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const isAuthenticated = useIsLoggedIn();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";

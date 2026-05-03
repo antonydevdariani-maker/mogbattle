@@ -1,6 +1,6 @@
 "use client";
 
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useState } from "react";
 import { checkArenaState, loadProfileSummary } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
@@ -9,8 +9,9 @@ import { ArenaClient } from "@/components/arena/arena-client";
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ArenaPage() {
-  const { authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [ready, setReady] = useState(false);
   const [balance, setBalance] = useState(0);
   const [molecules, setMolecules] = useState(0);

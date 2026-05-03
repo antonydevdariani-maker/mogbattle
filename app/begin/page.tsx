@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion } from "framer-motion";
 import { Swords } from "lucide-react";
 
 export default function BeginPage() {
   const router = useRouter();
   const { sdkHasLoaded, setShowAuthFlow, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const isAuthenticated = useIsLoggedIn();
 
   useEffect(() => {
     if (sdkHasLoaded && isAuthenticated) router.replace("/dashboard");

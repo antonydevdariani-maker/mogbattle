@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PublicKey, VersionedTransaction } from "@solana/web3.js";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isSolanaWallet } from "@dynamic-labs/solana";
 import {
   ensureProfile,
@@ -38,8 +38,9 @@ function isValidRecipient(addr: string, embedded: string): boolean {
 type Props = { balance: number; onSettled: () => Promise<void> };
 
 export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
-  const { primaryWallet, sdkHasLoaded, authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { primaryWallet, sdkHasLoaded, user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
 
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");
@@ -97,7 +98,7 @@ export function WithdrawUsdcPanel({ balance, onSettled }: Props) {
       const txBytes = Buffer.from(transactionBase64, "base64");
       const tx = VersionedTransaction.deserialize(txBytes);
       const signer = await solWallet.getSigner();
-      const result = await signer.signAndSendTransaction(tx);
+      const result = await signer.signAndSendTransaction(tx as never);
       signatureBase58 = result.signature;
     } catch (e) {
       setPending(false);

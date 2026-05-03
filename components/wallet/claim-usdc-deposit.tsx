@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isSolanaWallet } from "@dynamic-labs/solana";
 import { VersionedTransaction } from "@solana/web3.js";
 import { recordUsdcDepositClaim, buildDepositTransaction } from "@/app/actions";
@@ -18,8 +18,9 @@ function usdcToDisplay(n: number) {
 type Props = { onSettled: () => Promise<void> };
 
 export function ClaimUsdcDeposit({ onSettled }: Props) {
-  const { primaryWallet, sdkHasLoaded, authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { primaryWallet, sdkHasLoaded, user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [amount, setAmount] = useState("");
   const [step, setStep] = useState<"form" | "summary">("form");
   const [pending, setPending] = useState<"send" | "server" | false>(false);
@@ -58,7 +59,7 @@ export function ClaimUsdcDeposit({ onSettled }: Props) {
       const txBytes = Buffer.from(transactionBase64, "base64");
       const tx = VersionedTransaction.deserialize(txBytes);
       const signer = await solWallet.getSigner();
-      const result = await signer.signAndSendTransaction(tx);
+      const result = await signer.signAndSendTransaction(tx as never);
       signature = result.signature;
     } catch (e) {
       setPending(false);

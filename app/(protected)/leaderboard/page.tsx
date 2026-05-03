@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useEffect, useMemo, useState } from "react";
 import { loadCreditsLeaderboard, loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
 import {
@@ -16,8 +16,9 @@ import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
 type Board = "elo" | "credits";
 
 export default function LeaderboardPage() {
-  const { authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [board, setBoard] = useState<Board>("elo");
   const [rows, setRows] = useState<LeaderboardProfileRow[]>([]);
   const [yourUserId, setYourUserId] = useState<string | null>(null);

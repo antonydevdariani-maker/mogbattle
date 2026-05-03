@@ -1,6 +1,6 @@
 "use client";
 
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getMatchForUser } from "@/app/actions";
@@ -17,8 +17,9 @@ export default function MatchRoomPage() {
   const params = useParams();
   const matchId = params.matchId as string;
   const router = useRouter();
-  const { authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
 

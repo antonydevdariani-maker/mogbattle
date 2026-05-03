@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import { queueForBattle, submitBetOffer } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -22,7 +22,8 @@ export function MatchmakingClient({
   opponentName: string | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  const { authToken } = useDynamicContext();
+  const {  } = useDynamicContext();
+  const authToken = getAuthToken();
   const [match, setMatch] = useState<MatchRow | null>(existingMatch);
   const [queueSeconds, setQueueSeconds] = useState(0);
   const [isPending, startTransition] = useTransition();

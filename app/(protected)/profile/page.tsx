@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadProfilePageData,
@@ -30,8 +30,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ProfilePage() {
-  const { authToken, user } = useDynamicContext();
-  const isAuthenticated = !!user;
+  const { user } = useDynamicContext();
+  const authToken = getAuthToken();
+  const isAuthenticated = useIsLoggedIn();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);

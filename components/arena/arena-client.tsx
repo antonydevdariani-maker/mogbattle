@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   queueForBattle,
@@ -100,7 +100,8 @@ export function ArenaClient({
   displayName: string | null;
   walletAddress: string | null;
 }) {
-  const { authToken } = useDynamicContext();
+  const {  } = useDynamicContext();
+  const authToken = getAuthToken();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [isPending, setIsPending] = useState(false);
@@ -1167,7 +1168,7 @@ function IdleScreen({
       {/* Step 3 — Camera */}
       <div className="w-full max-w-sm space-y-2">
         <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 3 — Enable camera</p>
-        <div className={`relative w-full h-44 border-2 overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50") : "border-white/10"}`}>
+        <div className={`relative w-full h-44 border-2 rounded-xl overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50") : "border-white/10"}`}>
           {camOn ? (
             <>
               <video ref={idleVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
@@ -1755,7 +1756,7 @@ function PlayerPanel({
 
   return (
     <div
-      className={`relative flex h-full min-h-[18rem] flex-col border-2 md:h-[26rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+      className={`relative flex h-full min-h-[18rem] flex-col border-2 rounded-xl md:h-[26rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
     >
       {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (

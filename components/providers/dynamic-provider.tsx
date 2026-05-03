@@ -18,9 +18,6 @@ export function MogBattleDynamicProvider({ children }: { children: React.ReactNo
       settings={{
         environmentId: envId,
         walletConnectors: [SolanaWalletConnectors],
-        embeddedWallets: {
-          createOnLogin: "all-users",
-        },
       }}
     >
       {children}
