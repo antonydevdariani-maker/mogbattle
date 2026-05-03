@@ -20,6 +20,7 @@ export default function ArenaPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isFounder, setIsFounder] = useState(false);
 
   const init = useCallback(async () => {
     const token = authToken;
@@ -35,6 +36,7 @@ export default function ArenaPage() {
     setMolecules(profile?.molecules ?? 0);
     setUsername(profile?.username ?? null);
     setWalletAddress(profile?.wallet_address ?? null);
+    setIsFounder(profile?.is_founder ?? false);
     setReady(true);
   }, [authToken]);
 
@@ -72,6 +74,7 @@ export default function ArenaPage() {
       userId={userId}
       displayName={username}
       walletAddress={walletAddress}
+      isFounder={isFounder}
     />
   );
 }

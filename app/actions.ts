@@ -122,7 +122,7 @@ export async function loadProfileSummary(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from("profiles")
-    .select("total_credits, molecules, last_spin_at, username, wallet_address, avatar_url")
+    .select("total_credits, molecules, last_spin_at, username, wallet_address, avatar_url, is_founder")
     .eq("user_id", userId)
     .maybeSingle();
   return data as {
@@ -132,6 +132,7 @@ export async function loadProfileSummary(accessToken: string) {
     username: string | null;
     wallet_address: string | null;
     avatar_url: string | null;
+    is_founder: boolean | null;
   } | null;
 }
 

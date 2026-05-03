@@ -92,6 +92,7 @@ export function ArenaClient({
   userId,
   displayName,
   walletAddress,
+  isFounder = false,
 }: {
   initialBalance: number;
   initialMolecules?: number;
@@ -100,6 +101,7 @@ export function ArenaClient({
   userId: string;
   displayName: string | null;
   walletAddress: string | null;
+  isFounder?: boolean;
 }) {
   const {  } = useDynamicContext();
   const authToken = getAuthToken();
@@ -142,6 +144,7 @@ export function ArenaClient({
   const overtimeDone = useRef(false);
   const [overtimeSecs, setOvertimeSecs] = useState(5);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const resultWaitRef = useRef<((r: { p1Total: number; p2Total: number }) => void) | null>(null);
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
 
@@ -268,7 +271,9 @@ export function ArenaClient({
         if (!isP1) {
           setScoreP1(payload.p1Total);
           setScoreP2(payload.p2Total);
-          setPhase((prev) => (prev === "analyzing" || prev === "verdict" || prev === "done") ? "done" : prev);
+          setPhase((prev) => ["analyzing", "verdict", "done"].includes(prev) ? "done" : prev);
+          resultWaitRef.current?.(payload);
+          resultWaitRef.current = null;
         }
       })
       .subscribe();
@@ -588,60 +593,83 @@ export function ArenaClient({
 
     await pause(900);
 
-    // Use actual PSL captures; oppPsl is the real AI score broadcast by the other player
-    const myCaptures = pslCaptures.current;
-    const metricAvgMe = Number((scores.reduce((a, s) => a + (isP1 ? s.p1 : s.p2), 0) / scores.length).toFixed(2));
-    const metricAvgOpp = Number((scores.reduce((a, s) => a + (isP1 ? s.p2 : s.p1), 0) / scores.length).toFixed(2));
-    const myScore = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvgMe;
-    const opponentScore = oppPsl !== null ? Number(oppPsl.toFixed(2)) : metricAvgOpp;
-    const p1Total = isP1 ? myScore : opponentScore;
-    const p2Total = isP1 ? opponentScore : myScore;
-
-    setScoreP1(p1Total);
-    setScoreP2(p2Total);
-
-    // Overtime: if tied on first attempt, give 5 more seconds then re-analyze
-    if (Math.abs(p1Total - p2Total) < 0.01 && !overtimeDone.current) {
-      overtimeDone.current = true;
-      analysisRunning.current = false;
-      setPhase("overtime");
-      setOvertimeSecs(5);
-      for (let i = 5; i >= 1; i--) {
-        setOvertimeSecs(i);
-        await pause(1000);
-      }
-      setPhase("live");
-      setMyReady(true);
-      setOppReady(true);
-      pslCaptures.current = [];
-      await pause(400);
-      await startAnalysis();
-      return;
-    }
-
-    // P1 broadcasts final scores so P2 shows identical results
     if (isP1) {
+      // P1 calculates canonical scores and broadcasts to P2
+      const myCaptures = pslCaptures.current;
+      const metricAvgMe = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
+      const metricAvgOpp = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
+      // oppPsl is what P2 broadcast — P1 uses it as P2's score
+      const p1Total = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvgMe;
+      const p2Total = oppPsl !== null ? Number(oppPsl.toFixed(2)) : metricAvgOpp;
+
+      setScoreP1(p1Total);
+      setScoreP2(p2Total);
+
+      // Overtime: if tied on first attempt, give 5 more seconds then re-analyze
+      if (Math.abs(p1Total - p2Total) < 0.01 && !overtimeDone.current) {
+        overtimeDone.current = true;
+        analysisRunning.current = false;
+        setPhase("overtime");
+        setOvertimeSecs(5);
+        for (let i = 5; i >= 1; i--) {
+          setOvertimeSecs(i);
+          await pause(1000);
+        }
+        setPhase("live");
+        setMyReady(true);
+        setOppReady(true);
+        pslCaptures.current = [];
+        await pause(400);
+        await startAnalysis();
+        return;
+      }
+
+      // Broadcast canonical result to P2 before showing verdict
       realtimeChannelRef.current?.send({
         type: "broadcast", event: "result",
         payload: { p1Total, p2Total },
       });
-    }
 
-    setPhase("verdict");
-    await pause(2800);
-    setPhase("done");
+      setPhase("verdict");
+      await pause(2800);
+      setPhase("done");
 
-    if (isP1 && match) {
-      startTransition(async () => {
-        const token = authToken;
-        if (!token) return;
-        if (isFreeMode) {
-          await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
-        } else {
-          await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
-        }
-        refreshBalance();
+      if (match) {
+        startTransition(async () => {
+          const token = authToken;
+          if (!token) return;
+          if (isFreeMode) {
+            await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+          } else {
+            await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+          }
+          refreshBalance();
+        });
+      }
+    } else {
+      // P2: wait for P1's authoritative result broadcast (up to 8s fallback)
+      setPhase("verdict");
+      const received = await new Promise<{ p1Total: number; p2Total: number } | null>((resolve) => {
+        resultWaitRef.current = resolve;
+        setTimeout(() => {
+          resultWaitRef.current = null;
+          resolve(null);
+        }, 8000);
       });
+
+      if (received) {
+        // Scores already set by the broadcast listener — just go to done
+        setPhase("done");
+      } else {
+        // Fallback: use local PSL captures
+        const myCaptures = pslCaptures.current;
+        const metricAvg = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
+        const p2Total = myCaptures.length > 0 ? Number(Math.max(...myCaptures).toFixed(2)) : metricAvg;
+        const p1Total = oppPsl !== null ? Number(oppPsl.toFixed(2)) : Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
+        setScoreP1(p1Total);
+        setScoreP2(p2Total);
+        setPhase("done");
+      }
     }
   }
 
@@ -792,6 +820,7 @@ export function ArenaClient({
             queueTimedOut={queueTimedOut}
             pslBadge={myPsl}
             isFreeMode={isFreeMode}
+            isFounder={isFounder}
           />
 
           {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
@@ -1686,6 +1715,7 @@ function PlayerPanel({
   queueTimedOut = false,
   pslBadge = null,
   isFreeMode = false,
+  isFounder = false,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1702,6 +1732,7 @@ function PlayerPanel({
   queueTimedOut?: boolean;
   pslBadge?: number | null;
   isFreeMode?: boolean;
+  isFounder?: boolean;
 }) {
   const videoRef = useRef<HTMLDivElement>(null);
   const isYou = side === "you";
@@ -1888,6 +1919,21 @@ function PlayerPanel({
             <span className="text-xs font-mono text-red-400 font-bold">LIVE</span>
           </div>
         )}
+        {showVideo && (
+          <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-black/70 px-2 py-0.5 max-w-[70%]">
+            {isFounder && isYou && (
+              <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 border border-yellow-500/60 px-1 leading-tight">FOUNDER</span>
+            )}
+            <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${isYou ? "text-fuchsia-300" : "text-cyan-300"}`}>
+              {footerText}
+            </span>
+            {pslBadge !== null && pslBadge > 0 && (
+              <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>
+                · {pslBadge.toFixed(1)}
+              </span>
+            )}
+          </div>
+        )}
         {pslBadge !== null && pslBadge > 0 && (
           <PslHud base={pslBadge} isYou={isYou} faceDetected={faceDetected} />
         )}
@@ -1940,20 +1986,30 @@ function PlayerPanel({
         </AnimatePresence>
       </div>
 
-      <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black`}>
-        <span
-          className={`text-[10px] sm:text-xs font-black uppercase tracking-widest truncate max-w-[85%] ${accentCss.text}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        >
-          {footerText}
-        </span>
+      <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black gap-2`}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isFounder && isYou && (
+            <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 border border-yellow-500/60 px-1 leading-tight shrink-0">FOUNDER</span>
+          )}
+          <span
+            className={`text-[10px] sm:text-xs font-black uppercase tracking-widest truncate ${accentCss.text}`}
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            {footerText}
+          </span>
+          {pslBadge !== null && pslBadge > 0 && (
+            <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>
+              PSL {pslBadge.toFixed(1)}
+            </span>
+          )}
+        </div>
         {isReady && phase !== "idle" && (
-          <span className="flex items-center gap-1 text-xs text-green-400 font-bold">
+          <span className="flex items-center gap-1 text-xs text-green-400 font-bold shrink-0">
             <CheckCircle2 className="size-3" /> Ready
           </span>
         )}
         {!isReady && phase === "live" && (
-          <span className="flex items-center gap-1 text-xs text-zinc-600">
+          <span className="flex items-center gap-1 text-xs text-zinc-600 shrink-0">
             <Wifi className="size-3" /> Waiting…
           </span>
         )}
@@ -2228,12 +2284,12 @@ function DoneOverlay({
                 {pslTier(myScore).label}
               </p>
             )}
-            {iWon && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
+            {iWon && !isTie && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
           </div>
-          <div className={`border ${!iWon ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-zinc-800"} p-3`}>
+          <div className={`border ${!iWon && !isTie ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-zinc-800"} p-3`}>
             <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">OPP</p>
             <p
-              className={`text-3xl font-black tabular-nums ${!iWon ? "text-fuchsia-300" : "text-zinc-400"}`}
+              className={`text-3xl font-black tabular-nums ${!iWon && !isTie ? "text-fuchsia-300" : "text-zinc-400"}`}
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             >
               {oppScore !== null ? <>{oppScore.toFixed(1)}<span className="text-lg opacity-50">/10</span></> : "—"}
@@ -2243,7 +2299,7 @@ function DoneOverlay({
                 {pslTier(oppScore).label}
               </p>
             )}
-            {!iWon && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
+            {!iWon && !isTie && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
           </div>
         </div>
 
