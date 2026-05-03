@@ -1128,3 +1128,11 @@ export async function buildDepositTransaction(
     expectedFeeRaw: expectedFeeRaw.toString(),
   };
 }
+
+export async function getPlayerCount(): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  const { count } = await supabase
+    .from("profiles")
+    .select("*", { count: "exact", head: true });
+  return count ?? 0;
+}
