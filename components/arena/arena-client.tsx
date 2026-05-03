@@ -149,11 +149,7 @@ export function ArenaClient({
   const [noFaceWarning, setNoFaceWarning] = useState(false);
   const [tikTokMode, setTikTokMode] = useState(false);
   const [oppIsFounder, setOppIsFounder] = useState(false);
-
-  // Auto-exit fullscreen when analysis begins
-  useEffect(() => {
-    if (phase !== "live") setTikTokMode(false);
-  }, [phase]);
+  const lastResultRef = useRef<{ p1Total: number; p2Total: number } | null>(null);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -176,6 +172,11 @@ export function ArenaClient({
     }
     return base;
   });
+
+  // Auto-exit fullscreen when analysis begins
+  useEffect(() => {
+    if (phase !== "live") setTikTokMode(false);
+  }, [phase]);
 
   const isP1 = match?.player1_id === userId;
   // Derive from match row so it survives page reload
@@ -283,6 +284,7 @@ export function ArenaClient({
       .on("broadcast", { event: "result" }, ({ payload }) => {
         // P2 receives P1's authoritative final scores
         if (!isP1) {
+          lastResultRef.current = payload;
           setScoreP1(payload.p1Total);
           setScoreP2(payload.p2Total);
           setPhase((prev) => ["analyzing", "verdict", "done"].includes(prev) ? "done" : prev);
@@ -706,11 +708,11 @@ export function ArenaClient({
         return;
       }
 
-      // Broadcast canonical result — P2 receives and displays same numbers
-      realtimeChannelRef.current?.send({
-        type: "broadcast", event: "result",
-        payload: { p1Total, p2Total },
-      });
+      // Broadcast canonical result — send twice to guarantee delivery
+      const resultPayload = { p1Total, p2Total };
+      realtimeChannelRef.current?.send({ type: "broadcast", event: "result", payload: resultPayload });
+      await pause(1500);
+      realtimeChannelRef.current?.send({ type: "broadcast", event: "result", payload: resultPayload });
 
       setPhase("verdict");
       await pause(2800);
@@ -732,10 +734,12 @@ export function ArenaClient({
       // P2: wait for P1's authoritative result broadcast (up to 12s)
       setPhase("verdict");
       const received = await new Promise<{ p1Total: number; p2Total: number } | null>((resolve) => {
+        // Broadcast may have arrived before we got here — use cached value immediately
+        if (lastResultRef.current) { resolve(lastResultRef.current); return; }
         resultWaitRef.current = resolve;
         setTimeout(() => {
           resultWaitRef.current = null;
-          resolve(null);
+          resolve(lastResultRef.current); // use cached result if it arrived during wait
         }, 12000);
       });
 
