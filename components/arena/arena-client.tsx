@@ -392,6 +392,16 @@ export function ArenaClient({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, localVideoTrack, match?.id, userId]);
 
+  // Auto-start analysis 3s after match goes live
+  useEffect(() => {
+    if (phase !== "live") return;
+    setMyReady(true);
+    setOppReady(true);
+    const t = setTimeout(() => { void startAnalysis(); }, 3000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   // Face presence check — warn at 5s, auto-forfeit (score 0) at 10s if no face
   useEffect(() => {
     if (phase !== "live" || !localVideoTrack) return;
@@ -789,29 +799,15 @@ export function ArenaClient({
             isFreeMode={isFreeMode}
           />
 
-          {/* Ready button during live */}
-          {phase === "live" && !myReady && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => { setMyReady(true); setOppReady(true); }}
-              className="w-full py-5 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
+          {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
+          {phase === "live" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full py-3 text-center text-xs font-black uppercase tracking-widest text-zinc-500"
             >
-              ⚔️ Begin AI Judgment
-            </motion.button>
-          )}
-
-          {phase === "live" && myReady && (
-            <motion.button
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={startAnalysis}
-              className="w-full py-5 bg-red-600 text-white font-black uppercase tracking-widest text-base sm:text-lg shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[60px]"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Swords className="size-5 sm:size-6" /> SCAN FACES
-              </span>
-            </motion.button>
+              AI judging in 3s…
+            </motion.div>
           )}
 
           {/* TikTok fullscreen button */}
@@ -2215,7 +2211,7 @@ function DoneOverlay({
               textShadow: isTie ? "0 0 30px rgba(234,179,8,0.8)" : iWon ? "0 0 30px rgba(168,85,247,0.8)" : "0 0 20px rgba(239,68,68,0.6)",
             }}
           >
-            {isTie ? "DEAD HEAT" : iWon ? "YOU MOGGED" : "MOGGED"}
+            {isTie ? "DEAD HEAT" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
           </motion.h2>
           <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">
             {isTie ? "Identical PSL — bets refunded" : iWon ? "Facial superiority confirmed by AI" : "The numbers don't lie, king"}
