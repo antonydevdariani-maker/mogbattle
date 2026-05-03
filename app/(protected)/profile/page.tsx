@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const [banner, setBanner] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [userBusy, setUserBusy] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarTs, setAvatarTs] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -99,6 +100,7 @@ export default function ProfilePage() {
       fd.set("avatar", file);
       await uploadProfileAvatar(authToken, fd);
       await refresh();
+      setAvatarTs(Date.now());
       setBanner({ type: "ok", text: "Profile picture updated." });
     } catch (e) {
       setBanner({ type: "err", text: e instanceof Error ? e.message : "Upload failed" });
@@ -165,7 +167,7 @@ export default function ProfilePage() {
               {profile?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={profile.avatar_url}
+                  src={`${profile.avatar_url}${avatarTs ? `?t=${avatarTs}` : ""}`}
                   alt=""
                   className="size-full object-cover"
                 />

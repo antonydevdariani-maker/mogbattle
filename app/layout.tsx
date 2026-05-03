@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 import { MogBattleDynamicProviderLazy } from "@/components/providers/dynamic-provider-lazy";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -51,6 +52,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col pb-safe">
         <MogBattleDynamicProviderLazy>{children}</MogBattleDynamicProviderLazy>
+        <Analytics />
       </body>
     </html>
   );
