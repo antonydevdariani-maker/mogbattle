@@ -69,7 +69,8 @@ function formatQueueHandle(username: string | null, wallet: string | null): stri
       return `${core.slice(0, 4).toUpperCase()}…${core.slice(-4).toUpperCase()}`;
     }
   }
-  return username?.trim() || "MOGGER";
+  const u = username?.trim() || "MOGGER";
+  return u.length > 14 ? u.slice(0, 13) + "…" : u;
 }
 
 function queueMonogram(username: string | null, wallet: string | null): string {

@@ -52,7 +52,7 @@ export default function DashboardPage() {
           <div>
             <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
             <h1
-              className="mb-1 text-3xl font-black text-white uppercase"
+              className="mb-1 text-3xl font-black text-white uppercase truncate max-w-[220px]"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {profile?.username ?? "…"}
