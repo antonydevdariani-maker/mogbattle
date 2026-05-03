@@ -12,8 +12,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Shield,
-  Scan,
-  Atom,
+  Crown,
   User,
 } from "lucide-react";
 
@@ -27,7 +26,7 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/spin", label: "Spin", icon: Atom },
+  { href: "/leaderboard", label: "Ranks", icon: Crown },
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/arena", label: "Battle", icon: Shield },
   { href: "/profile", label: "Profile", icon: User },
