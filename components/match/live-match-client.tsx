@@ -95,7 +95,7 @@ export function LiveMatchClient({
   const [opponentAbandoned, setOpponentAbandoned] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
-  const {  } = useDynamicContext();
+  useDynamicContext();
   const authToken = getAuthToken();
 
   const iWon = winnerId
