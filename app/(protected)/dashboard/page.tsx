@@ -5,7 +5,7 @@ import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sd
 import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { Swords, TrendingUp, Trophy, Zap, Atom } from "lucide-react";
+import { Swords, TrendingUp, Trophy, Zap, Atom, Crown } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -64,20 +64,27 @@ export default function DashboardPage() {
               <span className="text-fuchsia-300">{(profile?.total_credits ?? 0).toLocaleString()} MC</span>
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Link
               href="/spin"
-              className="flex items-center gap-1.5 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-3 py-1.5 text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
+              className="flex items-center gap-1 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
             >
-              <Atom className="size-3.5" />
-              Spin
+              <Atom className="size-3" />
+              <span>Spin</span>
             </Link>
             <Link
               href="/arena"
-              className="flex items-center gap-1.5 bg-fuchsia-500 text-black px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              className="flex items-center gap-1 bg-fuchsia-500 text-black px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
             >
-              <Swords className="size-3.5" />
-              Battle
+              <Swords className="size-3" />
+              <span>Battle</span>
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="hidden sm:flex items-center gap-1 border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-amber-200 hover:bg-amber-500/20 transition-colors"
+            >
+              <Crown className="size-3" />
+              Ranks
             </Link>
           </div>
         </div>

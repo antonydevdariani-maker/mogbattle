@@ -199,7 +199,7 @@ export default function LeaderboardPage() {
                     )}
                     {r.is_founder && (
                       <span className="ml-2 inline-flex items-center gap-0.5 border border-amber-400/60 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-300 normal-case">
-                        <Zap className="size-2.5" />
+                        <Crown className="size-2.5" />
                         Founder
                       </span>
                     )}

@@ -33,6 +33,7 @@ export function useAgoraVideo({
   const [localReady, setLocalReady] = useState(false);
   const [joined, setJoined] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [opponentLeft, setOpponentLeft] = useState(false);
 
   // Create local tracks as soon as localOnly or enabled — gives instant cam preview.
   useEffect(() => {
@@ -76,6 +77,12 @@ export function useAgoraVideo({
 
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
+
+    client.on("user-left", () => {
+      setOpponentLeft(true);
+      setRemoteVideoTrack(null);
+      setRemoteAudioTrack(null);
+    });
 
     client.on("user-published", async (user, mediaType) => {
       await client.subscribe(user, mediaType);
@@ -135,6 +142,7 @@ export function useAgoraVideo({
     remoteAudioTrack,
     joined,
     mediaError,
+    opponentLeft,
   };
 }
 
