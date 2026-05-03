@@ -85,12 +85,21 @@ export function useAgoraVideo({
     });
 
     client.on("user-published", async (user, mediaType) => {
-      await client.subscribe(user, mediaType);
+      try {
+        await client.subscribe(user, mediaType);
+      } catch (e) {
+        console.warn("Agora subscribe failed, retrying:", e);
+        try { await client.subscribe(user, mediaType); } catch { return; }
+      }
       if (mediaType === "video") setRemoteVideoTrack(user.videoTrack ?? null);
       if (mediaType === "audio") {
         const track = user.audioTrack;
         setRemoteAudioTrack(track ?? null);
-        track?.play();
+        try { track?.play(); } catch {
+          // autoplay blocked — retry on next user gesture
+          const resume = () => { try { track?.play(); } catch { /* ignore */ } document.removeEventListener("click", resume); };
+          document.addEventListener("click", resume, { once: true });
+        }
       }
     });
 

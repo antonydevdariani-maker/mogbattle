@@ -1828,10 +1828,12 @@ function PlayerPanel({
   const circleLetters = queueMonogram ?? name.slice(0, 2);
 
   useEffect(() => {
-    if (!videoTrack || !videoRef.current) return;
-    (videoTrack as ICameraVideoTrack).play(videoRef.current);
+    if (!videoTrack) return;
+    const el = videoRef.current;
+    if (!el) return;
+    try { (videoTrack as ICameraVideoTrack).play(el); } catch { /* ignore */ }
     return () => { try { (videoTrack as ICameraVideoTrack).stop(); } catch {} };
-  }, [videoTrack]);
+  }, [videoTrack, videoRef]);
 
   const showVideo = hasVideo && videoTrack;
   const showScore = score !== null && ["verdict", "done"].includes(phase);
