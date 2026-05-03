@@ -344,6 +344,7 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
             style={{ left: `${eloToPercentOnGraph(yourElo)}%` }}
             title={`Your ELO: ${yourElo}`}
           >
+            <span className="text-[8px] font-black text-fuchsia-400 uppercase leading-none mb-0.5">YOU</span>
             <div className="size-0 border-x-[5px] border-x-transparent border-t-[6px] border-t-fuchsia-400 drop-shadow-[0_0_6px_rgba(217,70,239,0.9)]" />
           </div>
         )}
