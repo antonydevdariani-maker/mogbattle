@@ -188,22 +188,24 @@ export default function LeaderboardPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`font-bold uppercase truncate ${isTop3 ? "text-white" : "text-zinc-300"} ${
-                      isYou ? "text-fuchsia-200" : ""
-                    }`}
-                  >
-                    {r.username ?? "Mogger"}
-                    {isYou && (
-                      <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p
+                      className={`font-bold uppercase truncate ${isTop3 ? "text-white" : "text-zinc-300"} ${
+                        isYou ? "text-fuchsia-200" : ""
+                      }`}
+                    >
+                      {r.username ?? "Mogger"}
+                      {isYou && (
+                        <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
+                      )}
+                    </p>
                     {r.is_founder && (
-                      <span className="ml-2 inline-flex items-center gap-0.5 border border-amber-400/60 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-300 normal-case">
+                      <span className="inline-flex shrink-0 items-center gap-0.5 border border-amber-400/60 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-300">
                         <Crown className="size-2.5" />
                         Founder
                       </span>
                     )}
-                  </p>
+                  </div>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played
                     {board === "credits" && (

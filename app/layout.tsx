@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 import { MogBattleDynamicProviderLazy } from "@/components/providers/dynamic-provider-lazy";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -22,12 +23,12 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "MogBattle — 1v1 Face-Off Arena",
+  title: "Omogger — 1v1 Face-Off Arena",
   description: "Queue. Bet. Mog. The highest-stakes 1v1 face rating arena on the internet.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MogBattle",
+    title: "Omogger",
   },
 };
 
@@ -51,6 +52,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col pb-safe">
         <MogBattleDynamicProviderLazy>{children}</MogBattleDynamicProviderLazy>
+        <Analytics />
       </body>
     </html>
   );
