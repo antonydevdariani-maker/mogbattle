@@ -125,6 +125,19 @@ export function LiveMatchClient({
     }
   }, [isCompleted, initialAiP1, initialAiP2]);
 
+  // Keep cameras/mics alive for 10 s after results so players can see each other's
+  // reactions, then auto-disconnect. Navigating away cancels the timer early.
+  useEffect(() => {
+    if (phase !== "done" || !rtcEnabled) return;
+    const timer = setTimeout(() => {
+      setRtcEnabled(false);
+      leaveChannel();
+    }, 10_000);
+    return () => clearTimeout(timer);
+  // leaveChannel is stable for the lifetime of this effect run — no need in deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, rtcEnabled]);
+
   useEffect(() => {
     // Guard: ignore if already finished — the game was decided before opponent left Agora.
     // We intentionally do NOT null remoteVideoTrack here so the video feed can linger
