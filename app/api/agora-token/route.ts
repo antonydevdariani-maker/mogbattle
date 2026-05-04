@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
   const uid = parseInt(searchParams.get("uid") ?? "0", 10);
 
   if (!channel) return NextResponse.json({ error: "missing channel" }, { status: 400 });
-  if (!APP_CERT) return NextResponse.json({ error: "AGORA_APP_CERTIFICATE not set" }, { status: 500 });
+
+  // No certificate → no-auth mode (Primary Certificate disabled on Agora console).
+  if (!APP_CERT) return NextResponse.json({ token: null });
 
   const expiry = Math.floor(Date.now() / 1000) + 3600;
   const token = RtcTokenBuilder.buildTokenWithUid(APP_ID, APP_CERT, channel, uid, RtcRole.PUBLISHER, expiry, expiry);
