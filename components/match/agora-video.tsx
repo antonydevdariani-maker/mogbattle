@@ -119,6 +119,38 @@ export function useAgoraVideo({
         await client.join(APP_ID, channelName, token, uid);
         const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
         if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
+        // Late joiner: subscribe users already publishing before our handlers attached
+        for (const remote of client.remoteUsers) {
+          try {
+            await client.subscribe(remote, "video");
+          } catch {
+            /* not published yet */
+          }
+          try {
+            await client.subscribe(remote, "audio");
+          } catch {
+            /* not published yet */
+          }
+          const v = remote.videoTrack;
+          if (v) setRemoteVideoTrack(v);
+          const a = remote.audioTrack;
+          if (a) {
+            setRemoteAudioTrack(a);
+            try {
+              a.play();
+            } catch {
+              const resume = () => {
+                try {
+                  a.play();
+                } catch {
+                  /* ignore */
+                }
+                document.removeEventListener("click", resume);
+              };
+              document.addEventListener("click", resume, { once: true });
+            }
+          }
+        }
         setJoined(true);
         setMediaError(null);
       } catch (e) {

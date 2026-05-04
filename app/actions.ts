@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { verifyDynamicAccessToken } from "@/lib/dynamic/verify";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { verifyUsdcPlatformFeeTransaction } from "@/lib/solana/verify-fee-tx";
@@ -118,6 +118,7 @@ export async function uploadProfileAvatar(accessToken: string, formData: FormDat
 }
 
 export async function loadProfileSummary(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
@@ -137,6 +138,7 @@ export async function loadProfileSummary(accessToken: string) {
 }
 
 export async function loadDashboardData(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const [{ data: profile }, { data: matches }] = await Promise.all([
@@ -165,6 +167,7 @@ export type LeaderboardProfileRow = {
 };
 
 export async function loadLeaderboard(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -184,6 +187,7 @@ export async function loadLeaderboard(accessToken: string) {
 
 /** Richest moggers by Mog Credits balance. */
 export async function loadCreditsLeaderboard(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -203,6 +207,7 @@ export async function loadCreditsLeaderboard(accessToken: string) {
 
 /** Full profile + more match history for the profile page. */
 export async function loadProfilePageData(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const [{ data: profile }, { data: matches }] = await Promise.all([
@@ -219,6 +224,7 @@ export async function loadProfilePageData(accessToken: string) {
 }
 
 export async function loadWalletData(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const [{ data: profile }, { data: txs }] = await Promise.all([
@@ -234,6 +240,7 @@ export async function loadWalletData(accessToken: string) {
 
 /** Read-only check — returns existing active match without attempting to pair. Used on page load. */
 export async function checkArenaState(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data: activeMatch } = await supabase
@@ -262,6 +269,7 @@ export async function checkArenaState(accessToken: string) {
 }
 
 export async function loadBattleQueueState(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data: activeMatch } = await supabase
@@ -674,6 +682,7 @@ export async function claimDailySpin(accessToken: string) {
 }
 
 export async function loadSpinData(accessToken: string) {
+  noStore();
   const userId = await requirePrivyUser(accessToken);
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
@@ -1190,4 +1199,27 @@ export async function forfeitMatch(accessToken: string, matchId: string) {
 
   revalidatePath("/dashboard");
   revalidatePath(`/match/${matchId}`);
+}
+
+/** Each player writes only their own PSL column (`ai_score_p1` or `ai_score_p2`) while status is live. */
+export async function submitMyPslScore(
+  accessToken: string,
+  args: { matchId: string; psl: number }
+) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: match } = await supabase
+    .from("matches")
+    .select("player1_id, player2_id, status")
+    .eq("id", args.matchId)
+    .maybeSingle();
+  if (!match || (match.player1_id !== userId && match.player2_id !== userId)) {
+    throw new Error("Invalid match.");
+  }
+  if (match.status !== "live") return;
+  const col = match.player1_id === userId ? "ai_score_p1" : "ai_score_p2";
+  await supabase
+    .from("matches")
+    .update({ [col]: Number(args.psl.toFixed(2)) })
+    .eq("id", args.matchId);
 }

@@ -14,6 +14,7 @@ import {
   loadBattleQueueState,
   loadProfileSummary,
   cancelWaitingMatch,
+  submitMyPslScore,
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -400,6 +401,14 @@ export function ArenaClient({
           type: "broadcast", event: "psl",
           payload: { userId, psl: best },
         });
+        const token = authToken;
+        if (token && match?.id) {
+          try {
+            await submitMyPslScore(token, { matchId: match.id, psl: best });
+          } catch {
+            /* non-fatal */
+          }
+        }
       }
     }, 2500);
 
@@ -414,11 +423,19 @@ export function ArenaClient({
           type: "broadcast", event: "psl",
           payload: { userId, psl: best },
         });
+        const token = authToken;
+        if (token && match?.id) {
+          try {
+            await submitMyPslScore(token, { matchId: match.id, psl: best });
+          } catch {
+            /* non-fatal */
+          }
+        }
       }
     }, 4000);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase, localVideoTrack, match?.id, userId]);
+  }, [phase, localVideoTrack, match?.id, userId, authToken]);
 
   // Auto-start analysis 3s after match goes live
   useEffect(() => {
@@ -497,13 +514,21 @@ export function ArenaClient({
           type: "broadcast", event: "psl",
           payload: { userId, psl: 0 },
         });
+        const token = authToken;
+        if (token && match?.id) {
+          try {
+            await submitMyPslScore(token, { matchId: match.id, psl: 0 });
+          } catch {
+            /* non-fatal */
+          }
+        }
       } else {
         setNoFaceWarning(false);
       }
     }, 10000);
 
     return () => { clearTimeout(warnTimer); clearTimeout(forfeitTimer); };
-  }, [phase, localVideoTrack, match?.id, userId]);
+  }, [phase, localVideoTrack, match?.id, userId, authToken]);
 
   // Keyboard number input during negotiation only — bet is locked once queued
   useEffect(() => {
