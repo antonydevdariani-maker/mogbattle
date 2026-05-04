@@ -9,32 +9,61 @@ interface VonageCredentials {
 }
 
 export interface UseVonageVideoReturn {
+  startPreview: () => void;
   connect: (creds: VonageCredentials) => void;
   disconnect: () => void;
   captureLocalFrame: () => string | null;
 }
 
+const PUBLISHER_OPTS = {
+  insertMode: "append" as const,
+  width: "100%",
+  height: "100%",
+  mirror: true,
+  style: {
+    buttonDisplayMode: "off" as const,
+    nameDisplayMode: "off" as const,
+    audioLevelDisplayMode: "off" as const,
+  },
+};
+
 export function useVonageVideo(): UseVonageVideoReturn {
   const sessionRef = useRef<Session | null>(null);
   const publisherRef = useRef<Publisher | null>(null);
+  const otRef = useRef<typeof import("@opentok/client") | null>(null);
 
-  const connect = useCallback(({ sessionId, token, apiKey }: VonageCredentials) => {
-    import("@opentok/client").then((OT) => {
+  // Load OT SDK once
+  const getOT = useCallback(async () => {
+    if (!otRef.current) {
+      otRef.current = await import("@opentok/client");
+    }
+    return otRef.current;
+  }, []);
+
+  // Start local camera preview without a session (queue / negotiating phase)
+  const startPreview = useCallback(() => {
+    if (publisherRef.current) return; // already running
+    getOT().then((OT) => {
       const publisher = OT.initPublisher(
         "vonage-local-video",
-        {
-          insertMode: "append",
-          width: "100%",
-          height: "100%",
-          mirror: true,
-          style: {
-            buttonDisplayMode: "off",
-            nameDisplayMode: "off",
-            audioLevelDisplayMode: "off",
-          },
-        },
+        PUBLISHER_OPTS,
         (err: OTError | undefined) => {
-          if (err) console.error("[Vonage] publisher init error:", err.message);
+          if (err) console.error("[Vonage] preview error:", err.message);
+        }
+      );
+      publisherRef.current = publisher;
+    });
+  }, [getOT]);
+
+  // Join session and publish existing (or new) publisher
+  const connect = useCallback(({ sessionId, token, apiKey }: VonageCredentials) => {
+    getOT().then((OT) => {
+      // Reuse publisher started during preview, or create a new one
+      const publisher = publisherRef.current ?? OT.initPublisher(
+        "vonage-local-video",
+        PUBLISHER_OPTS,
+        (err: OTError | undefined) => {
+          if (err) console.error("[Vonage] publisher error:", err.message);
         }
       );
       publisherRef.current = publisher;
@@ -72,7 +101,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
         });
       });
     });
-  }, []);
+  }, [getOT]);
 
   const disconnect = useCallback(() => {
     try { publisherRef.current?.destroy(); } catch { /* ignore */ }
@@ -99,5 +128,5 @@ export function useVonageVideo(): UseVonageVideoReturn {
     return () => { disconnect(); };
   }, [disconnect]);
 
-  return { connect, disconnect, captureLocalFrame };
+  return { startPreview, connect, disconnect, captureLocalFrame };
 }

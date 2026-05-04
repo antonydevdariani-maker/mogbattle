@@ -207,7 +207,7 @@ export function ArenaClient({
   const remoteVideoTrack = null;
   const mediaError: string | null = null;
 
-  const { connect: vonageConnect, disconnect: vonageDisconnect } = useVonageVideo();
+  const { startPreview: vonagePreview, connect: vonageConnect, disconnect: vonageDisconnect } = useVonageVideo();
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -322,6 +322,13 @@ export function ArenaClient({
   useEffect(() => {
     queueTimedOutRef.current = queueTimedOut;
   }, [queueTimedOut]);
+
+  // Start local camera preview as soon as user enters queue
+  useEffect(() => {
+    if (phase === "queued" || phase === "negotiating") {
+      vonagePreview();
+    }
+  }, [phase, vonagePreview]);
 
   useEffect(() => {
     if (phase !== "queued") {
