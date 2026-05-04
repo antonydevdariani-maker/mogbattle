@@ -76,6 +76,7 @@ export type Database = {
           started_at: string | null;
           ended_at: string | null;
           created_at: string;
+          vonage_session_id: string | null;
         };
         Insert: {
           id?: string;
@@ -95,6 +96,7 @@ export type Database = {
           started_at?: string | null;
           ended_at?: string | null;
           created_at?: string;
+          vonage_session_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["matches"]["Insert"]>;
         Relationships: [];
