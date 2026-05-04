@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED = ["Ryan_rrv", "vibecodedthis"];
+const ALLOWED = ["iloveryan", "vibecodedthis"];
 
 export async function GET() {
   const supabase = getSupabaseAdmin();
