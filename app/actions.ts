@@ -894,6 +894,7 @@ export async function submitBetOffer(accessToken: string, matchId: string, amoun
     throw new Error("Not your match.");
   }
   if (match.status !== "matched") throw new Error("Not in negotiation phase.");
+  if (match.is_free_match) throw new Error("Use submitMoleculeBetOffer for molecule matches.");
 
   // Check deadline
   if (match.negotiation_deadline && new Date() > new Date(match.negotiation_deadline)) {
