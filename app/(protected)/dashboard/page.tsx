@@ -7,6 +7,7 @@ import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { Swords, TrendingUp, Trophy, Zap, Atom, Crown } from "lucide-react";
 import { BroadcastPopup } from "@/components/dashboard/broadcast-popup";
+import { FounderMessageButton } from "@/components/dashboard/founder-message-button";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -66,7 +67,8 @@ export default function DashboardPage() {
               <span className="text-fuchsia-300">{(profile?.total_credits ?? 0).toLocaleString()} MC</span>
             </p>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+            {profile?.is_founder && <FounderMessageButton />}
             <Link
               href="/spin"
               className="flex items-center gap-1 border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide hover:bg-cyan-500/20 transition-colors"
