@@ -444,7 +444,8 @@ export function ArenaClient({
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [phase, match?.id, userId, authToken]);
 
-  // Connect Vonage when match goes live; disconnect on cleanup
+  // Connect Vonage once when match goes live — do NOT disconnect on phase change
+  // (countdown/analyzing/verdict all need the video still running)
   useEffect(() => {
     if (phase !== "live" || !match?.id) return;
     let cancelled = false;
@@ -454,11 +455,15 @@ export function ArenaClient({
         if (!cancelled) vonageConnect(creds);
       })
       .catch((err) => console.error("[Vonage] token fetch error:", err));
-    return () => {
-      cancelled = true;
+    return () => { cancelled = true; };
+  }, [phase, match?.id, vonageConnect]);
+
+  // Only disconnect when truly done with the match
+  useEffect(() => {
+    if (phase === "done" || phase === "idle") {
       vonageDisconnect();
-    };
-  }, [phase, match?.id, vonageConnect, vonageDisconnect]);
+    }
+  }, [phase, vonageDisconnect]);
 
   // Auto-start analysis 3s after match goes live
   useEffect(() => {

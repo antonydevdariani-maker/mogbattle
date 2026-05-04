@@ -71,24 +71,31 @@ export function useVonageVideo(): UseVonageVideoReturn {
       const session = OT.initSession(apiKey, sessionId);
       sessionRef.current = session;
 
-      session.on("streamCreated", (event: { stream: Stream }) => {
+      const subscribeOpts = {
+        insertMode: "append" as const,
+        width: "100%",
+        height: "100%",
+        style: {
+          buttonDisplayMode: "off" as const,
+          nameDisplayMode: "off" as const,
+          audioLevelDisplayMode: "off" as const,
+        },
+      };
+
+      function subscribeToStream(stream: Stream) {
         session.subscribe(
-          event.stream,
+          stream,
           "vonage-remote-video",
-          {
-            insertMode: "append",
-            width: "100%",
-            height: "100%",
-            style: {
-              buttonDisplayMode: "off",
-              nameDisplayMode: "off",
-              audioLevelDisplayMode: "off",
-            },
-          },
+          subscribeOpts,
           (err: OTError | undefined) => {
             if (err) console.error("[Vonage] subscribe error:", err.message);
           }
         );
+      }
+
+      // Catch streams published after we join
+      session.on("streamCreated", (event: { stream: Stream }) => {
+        subscribeToStream(event.stream);
       });
 
       session.connect(token, (err: OTError | undefined) => {
@@ -96,6 +103,14 @@ export function useVonageVideo(): UseVonageVideoReturn {
           console.error("[Vonage] connect error:", err.message);
           return;
         }
+
+        // Subscribe to any streams already in the session (opponent joined first)
+        // @ts-expect-error — streams is a OTObject collection, not in official types
+        const existing = session.streams as Record<string, Stream> | undefined;
+        if (existing) {
+          Object.values(existing).forEach(subscribeToStream);
+        }
+
         session.publish(publisher, (pubErr: OTError | undefined) => {
           if (pubErr) console.error("[Vonage] publish error:", pubErr.message);
         });
