@@ -1,35 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-interface OTSession { sessionId: string }
-interface OTError { message: string; code: number }
-interface OpenTokInstance {
-  createSession(
-    options: { mediaMode: string },
-    callback: (err: OTError | null, session: OTSession | undefined) => void
-  ): void;
-  generateToken(
-    sessionId: string,
-    options: { role: string; expireTime: number; data: string }
-  ): string;
+const API_KEY = process.env.VONAGE_API_KEY!;
+const API_SECRET = process.env.VONAGE_API_SECRET!;
+
+/** Create a Vonage Video session via REST (no SDK — avoids bundler issues). */
+async function createVonageSession(): Promise<string> {
+  const auth = Buffer.from(`${API_KEY}:${API_SECRET}`).toString("base64");
+  const res = await fetch("https://api.opentok.com/session/create", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: "p2p.preference=disabled",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Vonage session create failed: ${res.status} ${body}`);
+  }
+  const data = (await res.json()) as Array<{ session_id: string }>;
+  return data[0].session_id;
 }
 
-const apiKey = process.env.VONAGE_API_KEY!;
-const apiSecret = process.env.VONAGE_API_SECRET!;
+/**
+ * Generate a Vonage Video publisher token manually.
+ * Format: T1==base64(partner_id=<key>&sig=<hmac>:<dataString>)
+ */
+function generateToken(
+  sessionId: string,
+  role = "publisher",
+  expireSeconds = 7200
+): string {
+  const now = Math.floor(Date.now() / 1000);
+  const nonce = Math.floor(Math.random() * 999999);
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OpenTok = require("opentok") as new (apiKey: string, apiSecret: string) => OpenTokInstance;
-const ot = new OpenTok(apiKey, apiSecret);
+  const parts = [
+    `role=${role}`,
+    `session_id=${sessionId}`,
+    `create_time=${now}`,
+    `expire_time=${now + expireSeconds}`,
+    `nonce=${nonce}`,
+  ];
+  const dataString = parts.join("&");
 
-function createVonageSession(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    ot.createSession({ mediaMode: "routed" }, (err, session) => {
-      if (err || !session) reject(err ?? new Error("no session"));
-      else resolve(session.sessionId);
-    });
-  });
+  const sig = crypto
+    .createHmac("sha1", API_SECRET)
+    .update(dataString)
+    .digest("hex");
+
+  const tokenData = `partner_id=${API_KEY}&sig=${sig}:${dataString}`;
+  return `T1==${Buffer.from(tokenData).toString("base64")}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -40,9 +66,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "missing matchId" }, { status: 400 });
   }
 
+  if (!API_KEY || !API_SECRET) {
+    console.error("[Vonage] VONAGE_API_KEY or VONAGE_API_SECRET is not set");
+    return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
+  }
+
   const supabase = getSupabaseAdmin();
 
-  // Read existing session for this match
   const { data: match } = await supabase
     .from("matches")
     .select("vonage_session_id")
@@ -55,12 +85,11 @@ export async function GET(req: NextRequest) {
 
   let sessionId = match.vonage_session_id as string | null;
 
-  // Create session once — first caller wins, second caller reads it
   if (!sessionId) {
     try {
       const newSessionId = await createVonageSession();
 
-      // Upsert: only write if still null (prevents race where both players create simultaneously)
+      // Only write if still null — prevents race between both players
       const { data: updated } = await supabase
         .from("matches")
         .update({ vonage_session_id: newSessionId })
@@ -69,7 +98,6 @@ export async function GET(req: NextRequest) {
         .select("vonage_session_id")
         .single();
 
-      // If update returned nothing, another request beat us — re-fetch the winner
       if (updated?.vonage_session_id) {
         sessionId = updated.vonage_session_id;
       } else {
@@ -87,14 +115,9 @@ export async function GET(req: NextRequest) {
   }
 
   if (!sessionId) {
-    return NextResponse.json({ error: "session create failed" }, { status: 500 });
+    return NextResponse.json({ error: "no session id" }, { status: 500 });
   }
 
-  const token = ot.generateToken(sessionId, {
-    role: "publisher",
-    expireTime: Math.floor(Date.now() / 1000) + 7200,
-    data: `matchId=${matchId}`,
-  });
-
-  return NextResponse.json({ sessionId, token, apiKey });
+  const token = generateToken(sessionId);
+  return NextResponse.json({ sessionId, token, apiKey: API_KEY });
 }
