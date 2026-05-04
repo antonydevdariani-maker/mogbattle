@@ -174,7 +174,7 @@ export function AppNav() {
               <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
             </div>
           </div>
-          {(username === "Ryan_rrv" || username === "vibecodedthis") && (
+          {(username === "iloveryan" || username === "vibecodedthis") && (
             <button
               type="button"
               className="border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"

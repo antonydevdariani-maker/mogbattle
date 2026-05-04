@@ -16,6 +16,7 @@ export type Database = {
           matches_played: number;
           wins: number;
           is_founder: boolean;
+          is_og: boolean;
           created_at: string;
         };
         Insert: {
@@ -30,6 +31,7 @@ export type Database = {
           matches_played?: number;
           wins?: number;
           is_founder?: boolean;
+          is_og?: boolean;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
