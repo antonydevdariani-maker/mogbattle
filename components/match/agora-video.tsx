@@ -284,11 +284,9 @@ export type VideoBoxHandle = { captureFrame: () => string | null };
 /** Left panel — always YOUR local camera. Mirrored like a selfie. */
 export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   track: ICameraVideoTrack | null;
-  label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-  showFaceMesh?: boolean;
-}>(function LocalVideoBox({ track, label, accentColor, overlay }, ref) {
+}>(function LocalVideoBox({ track, accentColor, overlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -301,28 +299,23 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
     return () => { try { track?.stop(); } catch { /* ignore */ } };
   }, [track]);
 
-  // mirrored=true so local preview feels like looking in a mirror
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} mirrored />
+    <VideoShell containerRef={containerRef} accentColor={accentColor} overlay={overlay} mirrored />
   );
 });
 
 /** Right panel — always the OPPONENT's remote video. Uses stable DOM id so Agora can play immediately. */
 export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   track: IRemoteVideoTrack | null;
-  label: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-  showFaceMesh?: boolean;
-  mirrored?: boolean;
-}>(function RemoteVideoBox({ track, label, accentColor, overlay, mirrored = false }, ref) {
+}>(function RemoteVideoBox({ track, accentColor, overlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     captureFrame: () => captureFrameFromContainer(containerRef.current),
   }));
 
-  // Fallback: if the track arrives via React state, also play it here.
   useEffect(() => {
     if (!track || !containerRef.current) return;
     try { track.play(containerRef.current); } catch { /* ignore — already played via direct DOM call */ }
@@ -333,11 +326,8 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
     <VideoShell
       containerRef={containerRef}
       containerId={REMOTE_VIDEO_EL_ID}
-      label={label}
       accentColor={accentColor}
-      hasTrack={!!track}
       overlay={overlay}
-      mirrored={mirrored}
     />
   );
 });
@@ -357,26 +347,17 @@ function captureFrameFromContainer(container: HTMLDivElement | null): string | n
 function VideoShell({
   containerRef,
   containerId,
-  label,
   accentColor,
-  hasTrack,
   overlay,
   mirrored,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   containerId?: string;
-  label: string;
   accentColor: "fuchsia" | "red";
-  hasTrack: boolean;
   overlay?: React.ReactNode;
-  showFaceMesh?: boolean;
   mirrored?: boolean;
 }) {
-  const borderClass = hasTrack
-    ? accentColor === "fuchsia"
-      ? "border-fuchsia-500/50"
-      : "border-red-500/50"
-    : "border-zinc-800";
+  const borderClass = accentColor === "fuchsia" ? "border-fuchsia-500/50" : "border-red-500/50";
 
   return (
     <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>
@@ -388,36 +369,11 @@ function VideoShell({
           style={mirrored ? { transform: "scaleX(-1)" } : undefined}
         />
 
-        {!hasTrack && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div
-              className={`size-16 rounded-full border-2 opacity-20 ${
-                accentColor === "fuchsia" ? "border-fuchsia-400" : "border-red-400"
-              }`}
-            />
-          </div>
-        )}
-
         {overlay && (
           <div className="absolute inset-x-0 top-0 flex justify-center pt-3 z-10">
             {overlay}
           </div>
         )}
-
-        {hasTrack && (
-          <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-1 z-10">
-            <span className="size-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-mono text-red-400">LIVE</span>
-          </div>
-        )}
-
-        <div className="absolute bottom-2 right-2 z-10">
-          <span className={`text-xs font-bold tracking-widest opacity-60 ${
-            accentColor === "fuchsia" ? "text-fuchsia-300" : "text-red-300"
-          }`}>
-            {label}
-          </span>
-        </div>
       </div>
     </div>
   );
