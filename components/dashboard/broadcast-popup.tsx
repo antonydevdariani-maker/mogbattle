@@ -10,7 +10,7 @@ type Broadcast = {
   created_at: string;
 };
 
-export function BroadcastPopup() {
+export function BroadcastBanner() {
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -41,24 +41,27 @@ export function BroadcastPopup() {
   if (!visible || !broadcast) return null;
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
-      <div className="border border-fuchsia-500/40 bg-zinc-950 shadow-[4px_4px_0_#a21caf] p-4 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Megaphone className="size-4 text-fuchsia-400 shrink-0 mt-0.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400">
+    <div className="border border-fuchsia-500/40 bg-fuchsia-500/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
+          <Megaphone className="size-4 text-fuchsia-400 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400 block">
               Message from {broadcast.sender_username}
             </span>
+            <p className="text-sm text-zinc-200 leading-relaxed mt-0.5">{broadcast.message}</p>
           </div>
-          <button
-            onClick={dismiss}
-            className="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
-          >
-            <X className="size-4" />
-          </button>
         </div>
-        <p className="text-sm text-zinc-200 leading-relaxed pl-6">{broadcast.message}</p>
+        <button
+          onClick={dismiss}
+          className="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+        >
+          <X className="size-4" />
+        </button>
       </div>
     </div>
   );
 }
+
+// Keep old name as alias so nothing else breaks
+export { BroadcastBanner as BroadcastPopup };
