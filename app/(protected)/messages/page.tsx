@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { loadProfileSummary } from "@/app/actions";
 import { Send, CheckCircle2 } from "lucide-react";
 
-const ALLOWED = ["iloveryan", "vibecodedthis"];
+const ALLOWED = ["4kxo", "vibecodedthis"];
 
 export default function MessagesPage() {
   useDynamicContext();
