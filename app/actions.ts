@@ -883,7 +883,9 @@ export async function finalizeFreeMatchResult(
   const p2Profile = profiles?.find((p) => p.user_id === match.player2_id);
   if (!p1Profile || !p2Profile) return;
 
-  const k = 6;
+  // Molecule game: +10 ELO for win, -5 ELO for loss
+  const ELO_WIN = 10;
+  const ELO_LOSS = 5;
 
   if (isTie) {
     // Tie: refund both players their bet, no ELO change
@@ -899,10 +901,8 @@ export async function finalizeFreeMatchResult(
     const winner = profiles?.find((p) => p.user_id === winnerId!);
     const loser = profiles?.find((p) => p.user_id === loserId!);
     if (!winner || !loser) return;
-    const winnerExpected = expectedScore(winner.elo, loser.elo);
-    const loserExpected = expectedScore(loser.elo, winner.elo);
-    const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
-    const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+    const winnerElo = (winner.elo ?? 1500) + ELO_WIN;
+    const loserElo = Math.max(0, (loser.elo ?? 1500) - ELO_LOSS);
     await supabase.from("profiles").update({
       molecules: (winner.molecules ?? 0) + match.bet_amount * 2,
       wins: winner.wins + 1,
@@ -1100,7 +1100,9 @@ export async function finalizeMatchResult(
   const p2Profile = profiles?.find((p) => p.user_id === match.player2_id);
   if (!p1Profile || !p2Profile) return;
 
-  const k = 24;
+  // Mog Coin game: +20 ELO for win, -5 ELO for loss
+  const ELO_WIN = 20;
+  const ELO_LOSS = 5;
 
   if (isTie) {
     // Tie: refund both players their bet, no ELO change
@@ -1116,10 +1118,8 @@ export async function finalizeMatchResult(
     const winner = profiles?.find((p) => p.user_id === winnerId!);
     const loser = profiles?.find((p) => p.user_id === loserId!);
     if (!winner || !loser) return;
-    const winnerExpected = expectedScore(winner.elo, loser.elo);
-    const loserExpected = expectedScore(loser.elo, winner.elo);
-    const winnerElo = Math.round(winner.elo + k * (1 - winnerExpected));
-    const loserElo = Math.round(loser.elo + k * (0 - loserExpected));
+    const winnerElo = (winner.elo ?? 1500) + ELO_WIN;
+    const loserElo = Math.max(0, (loser.elo ?? 1500) - ELO_LOSS);
     await supabase.from("profiles").update({
       total_credits: winner.total_credits + match.bet_amount * 2,
       wins: winner.wins + 1,
