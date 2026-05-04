@@ -70,7 +70,7 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack, opponentLeft } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -206,8 +206,9 @@ export function LiveMatchClient({
     }
   }
 
-  const myDisplayResult = isPlayer1 ? myAiResult : oppAiResult;
-  const oppDisplayResult = isPlayer1 ? oppAiResult : myAiResult;
+  // myAiResult is always from localVideoRef (my camera); oppAiResult from remoteVideoRef (opponent's camera)
+  const myDisplayResult = myAiResult;
+  const oppDisplayResult = oppAiResult;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
@@ -294,6 +295,16 @@ export function LiveMatchClient({
             label="OPPONENT"
             accentColor="red"
             showFaceMesh
+            overlay={
+              audioMuted ? (
+                <button
+                  className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/90 transition-colors"
+                  onClick={() => document.dispatchEvent(new MouseEvent("click", { bubbles: true }))}
+                >
+                  🔇 Click to unmute
+                </button>
+              ) : undefined
+            }
           />
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">

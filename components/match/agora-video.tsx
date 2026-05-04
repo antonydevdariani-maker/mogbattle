@@ -11,20 +11,6 @@ import AgoraRTC, {
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
 
-/** Safe audio play — handles autoplay policy by retrying on next user gesture. */
-function safePlay(track: IRemoteAudioTrack | IMicrophoneAudioTrack | null | undefined) {
-  if (!track) return;
-  try {
-    track.play();
-  } catch {
-    const resume = () => {
-      try { track.play(); } catch { /* ignore */ }
-      document.removeEventListener("click", resume);
-    };
-    document.addEventListener("click", resume, { once: true });
-  }
-}
-
 export function useAgoraVideo({
   channelName,
   uid,
@@ -47,6 +33,23 @@ export function useAgoraVideo({
   const [joined, setJoined] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [opponentLeft, setOpponentLeft] = useState(false);
+  const [audioMuted, setAudioMuted] = useState(false);
+
+  /** Play audio; if blocked by autoplay policy, mark muted and retry on next click. */
+  function safePlayAudio(track: IRemoteAudioTrack | null | undefined) {
+    if (!track) return;
+    try {
+      track.play();
+      setAudioMuted(false);
+    } catch {
+      setAudioMuted(true);
+      const resume = () => {
+        try { track.play(); setAudioMuted(false); } catch { /* ignore */ }
+        document.removeEventListener("click", resume);
+      };
+      document.addEventListener("click", resume, { once: true });
+    }
+  }
 
   // Create local tracks as soon as localOnly or enabled — gives instant cam preview.
   useEffect(() => {
@@ -125,7 +128,7 @@ export function useAgoraVideo({
       if (mediaType === "audio") {
         const track = user.audioTrack;
         setRemoteAudioTrack(track ?? null);
-        safePlay(track);
+        safePlayAudio(track);
       }
     });
 
@@ -167,7 +170,7 @@ export function useAgoraVideo({
           const a = remote.audioTrack;
           if (a) {
             setRemoteAudioTrack(a);
-            safePlay(a);
+            safePlayAudio(a);
           }
         }
 
@@ -215,6 +218,7 @@ export function useAgoraVideo({
     joined,
     mediaError,
     opponentLeft,
+    audioMuted,
   };
 }
 
