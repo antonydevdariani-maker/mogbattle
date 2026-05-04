@@ -16,12 +16,12 @@ interface OpenTokInstance {
   ): string;
 }
 
-const privateKey = process.env.VONAGE_PRIVATE_KEY!.replace(/\\n/g, "\n");
-const appId = process.env.VONAGE_APP_ID!;
+const apiKey = process.env.VONAGE_API_KEY!;
+const apiSecret = process.env.VONAGE_API_SECRET!;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const OpenTok = require("opentok") as new (appId: string, key: string) => OpenTokInstance;
-const ot = new OpenTok(appId, privateKey);
+const OpenTok = require("opentok") as new (apiKey: string, apiSecret: string) => OpenTokInstance;
+const ot = new OpenTok(apiKey, apiSecret);
 
 function createVonageSession(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -96,5 +96,5 @@ export async function GET(req: NextRequest) {
     data: `matchId=${matchId}`,
   });
 
-  return NextResponse.json({ sessionId, token, apiKey: appId });
+  return NextResponse.json({ sessionId, token, apiKey });
 }
