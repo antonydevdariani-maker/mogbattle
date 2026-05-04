@@ -62,9 +62,11 @@ export function useVonageVideo(): UseVonageVideoReturn {
 
         // Subscribe to remote user when they publish
         client.on("user-published", async (user, mediaType) => {
+          console.log("[Video] user-published uid:", user.uid, "type:", mediaType);
           await client.subscribe(user, mediaType);
           if (mediaType === "video") {
             remoteVideoRef.current = user.videoTrack ?? null;
+            console.log("[Video] playing remote video to vonage-remote-video");
             user.videoTrack?.play("vonage-remote-video");
           }
           if (mediaType === "audio") {
@@ -89,8 +91,10 @@ export function useVonageVideo(): UseVonageVideoReturn {
 
         // Join channel
         if (!joinedRef.current) {
+          console.log("[Video] joining channel", sessionId, "appId", apiKey, "token", token ? token.slice(0, 20) + "…" : null);
           await client.join(apiKey, sessionId, token ?? null, 0);
           joinedRef.current = true;
+          console.log("[Video] joined channel successfully");
         }
 
         // Ensure local tracks exist before publishing

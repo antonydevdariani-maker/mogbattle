@@ -9,18 +9,18 @@ const APP_CERT = process.env.AGORA_APP_CERTIFICATE!;
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const matchId = searchParams.get("matchId");
-  const uid = parseInt(searchParams.get("uid") ?? "0", 10);
 
   if (!matchId) {
     return NextResponse.json({ error: "missing matchId" }, { status: 400 });
   }
 
   const expiry = Math.floor(Date.now() / 1000) + 3600;
+  // uid=0 = wildcard token — works for any UID joining the channel
   const token = RtcTokenBuilder.buildTokenWithUid(
     APP_ID,
     APP_CERT,
     matchId,
-    uid,
+    0,
     RtcRole.PUBLISHER,
     expiry,
     expiry

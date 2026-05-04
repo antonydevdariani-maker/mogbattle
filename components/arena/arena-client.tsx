@@ -449,8 +449,7 @@ export function ArenaClient({
   useEffect(() => {
     if (phase !== "live" || !match?.id) return;
     let cancelled = false;
-    const uid = isP1 ? 1 : 2;
-    fetch(`/api/vonage-token?matchId=${match.id}&uid=${uid}`)
+    fetch(`/api/vonage-token?matchId=${match.id}`)
       .then((r) => r.json())
       .then((creds) => {
         if (!cancelled) vonageConnect(creds);
