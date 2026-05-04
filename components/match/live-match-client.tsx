@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion, AnimatePresence } from "framer-motion";
-import { finalizeMatchResult, finalizeFreeMatchResult, forfeitMatch } from "@/app/actions";
+import { finalizeMatchResult, finalizeFreeMatchResult, forfeitMatch, rematchSameOpponent } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 
@@ -53,6 +53,7 @@ export function LiveMatchClient({
   initialStatus,
   winnerId,
   userId,
+  opponentId,
   betAmount,
   isFreeMatch,
   initialAiP1,
@@ -63,6 +64,7 @@ export function LiveMatchClient({
   initialStatus: string;
   winnerId: string | null;
   userId: string;
+  opponentId: string | null;
   betAmount: number;
   isFreeMatch: boolean;
   initialAiP1: number | null;
@@ -612,26 +614,65 @@ export function LiveMatchClient({
             )}
 
             <div className="relative flex gap-3">
-              <button
-                onClick={() => {
-                  setRtcEnabled(false);
-                  leaveChannel();
-                  router.push("/battle");
-                }}
-                className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
-              >
-                {testMode ? "Battle for real" : "Rematch"}
-              </button>
-              <button
-                onClick={() => {
-                  setRtcEnabled(false);
-                  leaveChannel();
-                  router.push("/dashboard");
-                }}
-                className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
-              >
-                Dashboard
-              </button>
+              {isFreeMatch ? (
+                <>
+                  {/* Molecule battle: rematch same person */}
+                  <button
+                    onClick={() => {
+                      setRtcEnabled(false);
+                      leaveChannel();
+                      if (!authToken || !opponentId) { router.push("/arena"); return; }
+                      startTransition(async () => {
+                        try {
+                          const { matchId: newId } = await rematchSameOpponent(authToken, matchId);
+                          if (newId) router.push(`/match/${newId}`);
+                          else router.push("/arena");
+                        } catch {
+                          router.push("/arena");
+                        }
+                      });
+                    }}
+                    className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                  >
+                    Rematch
+                  </button>
+                  {/* Molecule battle: go to arena (ranked) */}
+                  <button
+                    onClick={() => {
+                      setRtcEnabled(false);
+                      leaveChannel();
+                      router.push("/arena");
+                    }}
+                    className="flex-1 bg-cyan-600 hover:bg-cyan-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                  >
+                    Next
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Paid battle: standard rematch flow */}
+                  <button
+                    onClick={() => {
+                      setRtcEnabled(false);
+                      leaveChannel();
+                      router.push("/battle");
+                    }}
+                    className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                  >
+                    {testMode ? "Battle for real" : "Rematch"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRtcEnabled(false);
+                      leaveChannel();
+                      router.push("/dashboard");
+                    }}
+                    className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
+                  >
+                    Dashboard
+                  </button>
+                </>
+              )}
             </div>
           </motion.div>
         )}

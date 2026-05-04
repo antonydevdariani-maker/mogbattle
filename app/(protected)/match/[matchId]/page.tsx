@@ -57,6 +57,9 @@ export default function MatchRoomPage() {
 
   const { match, userId } = data;
 
+  const opponentId =
+    match.player1_id === userId ? match.player2_id : match.player1_id;
+
   return (
     <div className="w-full">
       <LiveMatchClient
@@ -65,6 +68,7 @@ export default function MatchRoomPage() {
         initialStatus={match.status}
         winnerId={match.winner_id}
         userId={userId}
+        opponentId={opponentId ?? null}
         betAmount={match.bet_amount}
         isFreeMatch={match.is_free_match ?? false}
         initialAiP1={match.ai_score_p1}

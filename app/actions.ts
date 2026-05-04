@@ -808,6 +808,99 @@ export async function queueForFreeMatch(accessToken: string, betAmount: number) 
   return { matchId: created?.id, state: "queued" as const };
 }
 
+/**
+ * Rematch the same opponent in a molecule (free) match.
+ * If the opponent already posted a waiting free match, we join it directly.
+ * Otherwise we create a waiting match and wait for them to join.
+ */
+export async function rematchSameOpponent(accessToken: string, originalMatchId: string) {
+  const userId = await requirePrivyUser(accessToken);
+  const supabase = getSupabaseAdmin();
+
+  const { data: original } = await supabase
+    .from("matches")
+    .select("player1_id, player2_id, bet_amount, is_free_match")
+    .eq("id", originalMatchId)
+    .maybeSingle();
+
+  if (!original?.is_free_match) throw new Error("Rematch only available for molecule battles.");
+
+  const opponentId =
+    original.player1_id === userId ? original.player2_id : original.player1_id;
+  if (!opponentId) throw new Error("Opponent not found.");
+
+  const bet = original.bet_amount;
+
+  const { data: myProfile } = await supabase
+    .from("profiles")
+    .select("molecules")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!myProfile || (myProfile.molecules ?? 0) < bet) {
+    throw new Error(`Need at least ${bet} molecules to rematch.`);
+  }
+
+  // Check if the opponent already posted a waiting free rematch.
+  const { data: opponentWaiting } = await supabase
+    .from("matches")
+    .select("id, player1_id")
+    .eq("status", "waiting")
+    .eq("is_free_match", true)
+    .eq("player1_id", opponentId)
+    .is("player2_id", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (opponentWaiting?.id) {
+    const { data: oppProfile } = await supabase
+      .from("profiles")
+      .select("molecules")
+      .eq("user_id", opponentId)
+      .maybeSingle();
+
+    if (oppProfile && (oppProfile.molecules ?? 0) >= bet) {
+      const { data: matched } = await supabase
+        .from("matches")
+        .update({
+          player2_id: userId,
+          status: "live",
+          player1_bet_offer: bet,
+          player2_bet_offer: bet,
+          started_at: new Date().toISOString(),
+        })
+        .eq("id", opponentWaiting.id)
+        .is("player2_id", null)
+        .select("id, bet_amount")
+        .maybeSingle();
+
+      if (matched?.id) {
+        const actualBet = matched.bet_amount;
+        await supabase
+          .from("profiles")
+          .update({ molecules: (oppProfile.molecules ?? 0) - actualBet })
+          .eq("user_id", opponentId);
+        await supabase
+          .from("profiles")
+          .update({ molecules: (myProfile.molecules ?? 0) - actualBet })
+          .eq("user_id", userId);
+        revalidatePath("/arena");
+        return { matchId: matched.id, state: "found" as const };
+      }
+    }
+  }
+
+  // Opponent hasn't queued yet — create a waiting match for them to join.
+  const { data: created } = await supabase
+    .from("matches")
+    .insert({ player1_id: userId, bet_amount: bet, status: "waiting", is_free_match: true })
+    .select("id")
+    .single();
+
+  revalidatePath("/arena");
+  return { matchId: created?.id, state: "queued" as const };
+}
+
 export async function submitMoleculeBetOffer(accessToken: string, matchId: string, amount: number) {
   const userId = await requirePrivyUser(accessToken);
   if (!Number.isFinite(amount) || amount < 1) throw new Error("Invalid bet amount.");
