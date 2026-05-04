@@ -10,6 +10,8 @@ import AgoraRTC, {
 } from "agora-rtc-sdk-ng";
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
+/** Stable DOM id Agora uses to render the remote video — must match RemoteVideoBox */
+const REMOTE_VIDEO_EL_ID = "agora-remote-video-container";
 
 export function useAgoraVideo({
   channelName,
@@ -20,13 +22,14 @@ export function useAgoraVideo({
   channelName: string;
   uid: number;
   enabled: boolean;
-  /** If true, creates local cam+mic tracks immediately for self-preview without joining a channel. */
   localOnly?: boolean;
 }) {
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localVideoRef = useRef<ICameraVideoTrack | null>(null);
   const localAudioRef = useRef<IMicrophoneAudioTrack | null>(null);
+  const remoteAudioRef = useRef<IRemoteAudioTrack | null>(null);
   const tracksCreated = useRef(false);
+
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<IRemoteVideoTrack | null>(null);
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<IRemoteAudioTrack | null>(null);
   const [localReady, setLocalReady] = useState(false);
@@ -35,7 +38,7 @@ export function useAgoraVideo({
   const [opponentLeft, setOpponentLeft] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
 
-  /** Play audio; if blocked by autoplay policy, mark muted and retry on next click. */
+  /** Play a remote audio track; marks muted and retries on next user click if autoplay is blocked. */
   function safePlayAudio(track: IRemoteAudioTrack | null | undefined) {
     if (!track) return;
     try {
@@ -51,7 +54,24 @@ export function useAgoraVideo({
     }
   }
 
-  // Create local tracks as soon as localOnly or enabled — gives instant cam preview.
+  /**
+   * Play the remote video track immediately into the stable DOM element.
+   * Calling this right in the Agora callback avoids the async React re-render delay.
+   */
+  function playRemoteVideo(track: IRemoteVideoTrack | null | undefined) {
+    if (!track) return;
+    const el = document.getElementById(REMOTE_VIDEO_EL_ID);
+    if (el) {
+      try { track.play(el); } catch { /* ignore */ }
+    }
+  }
+
+  /** Called from the UI "Start Audio" button so the user gesture unlocks AudioContext. */
+  function unlockAudio() {
+    safePlayAudio(remoteAudioRef.current);
+  }
+
+  // Create local tracks as soon as localOnly or enabled.
   useEffect(() => {
     if (!localOnly && !enabled) return;
     if (tracksCreated.current) return;
@@ -109,25 +129,33 @@ export function useAgoraVideo({
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
 
+    // Attach listeners BEFORE joining so no events are missed.
     client.on("user-left", () => {
       setOpponentLeft(true);
       setRemoteVideoTrack(null);
       setRemoteAudioTrack(null);
+      remoteAudioRef.current = null;
     });
 
     client.on("user-published", async (user, mediaType) => {
-      if (!client) return;
       try {
         await client.subscribe(user, mediaType);
       } catch (e) {
-        console.warn("Agora subscribe (user-published) failed, retrying:", e);
+        console.warn("Agora subscribe failed, retrying:", e);
         try { await client.subscribe(user, mediaType); } catch { return; }
       }
       if (cancelled) return;
-      if (mediaType === "video") setRemoteVideoTrack(user.videoTrack ?? null);
+
+      if (mediaType === "video") {
+        const track = user.videoTrack ?? null;
+        setRemoteVideoTrack(track);
+        // Play immediately into the stable DOM element — no React re-render delay.
+        playRemoteVideo(track);
+      }
       if (mediaType === "audio") {
-        const track = user.audioTrack;
-        setRemoteAudioTrack(track ?? null);
+        const track = user.audioTrack ?? null;
+        remoteAudioRef.current = track;
+        setRemoteAudioTrack(track);
         safePlayAudio(track);
       }
     });
@@ -136,6 +164,7 @@ export function useAgoraVideo({
       if (mediaType === "video") setRemoteVideoTrack(null);
       if (mediaType === "audio") {
         try { user.audioTrack?.stop(); } catch { /* ignore */ }
+        remoteAudioRef.current = null;
         setRemoteAudioTrack(null);
       }
     });
@@ -148,27 +177,32 @@ export function useAgoraVideo({
         const json = await res.json() as { token?: string; error?: string };
         if (!res.ok) throw new Error(`Token fetch failed: ${json.error ?? res.status}`);
         if (cancelled) return;
-        const token = json.token!;
-        await client.join(APP_ID, channelName, token, numericUid);
+
+        await client.join(APP_ID, channelName, json.token!, numericUid);
         if (cancelled) { void client.leave().catch(() => {}); return; }
 
         const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
         if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
 
-        // Late-joiner fix: subscribe to users already publishing before our listener ran.
+        // Late-joiner: subscribe to anyone already in the channel.
         for (const remote of client.remoteUsers) {
           if (cancelled) break;
           if (remote.hasVideo) {
-            try { await client.subscribe(remote, "video"); } catch { /* not ready yet */ }
+            try { await client.subscribe(remote, "video"); } catch { /* not published yet */ }
           }
           if (remote.hasAudio) {
-            try { await client.subscribe(remote, "audio"); } catch { /* not ready yet */ }
+            try { await client.subscribe(remote, "audio"); } catch { /* not published yet */ }
           }
           if (cancelled) break;
+
           const v = remote.videoTrack;
-          if (v) setRemoteVideoTrack(v);
+          if (v) {
+            setRemoteVideoTrack(v);
+            playRemoteVideo(v);       // immediate play — no React delay
+          }
           const a = remote.audioTrack;
           if (a) {
+            remoteAudioRef.current = a;
             setRemoteAudioTrack(a);
             safePlayAudio(a);
           }
@@ -190,7 +224,7 @@ export function useAgoraVideo({
         console.error("Agora join error:", e);
         setMediaError(
           isPerm
-            ? "Camera blocked — click the lock icon in your address bar and allow camera + mic."
+            ? "Camera blocked — click the lock icon and allow camera + mic."
             : isTransient
             ? "Connection issue — retrying failed. Check your network and reload."
             : "Could not connect to match server. Please reload."
@@ -205,6 +239,7 @@ export function useAgoraVideo({
       cancelled = true;
       void client.leave().catch(() => {});
       clientRef.current = null;
+      remoteAudioRef.current = null;
       setJoined(false);
       setRemoteVideoTrack(null);
       setRemoteAudioTrack(null);
@@ -219,11 +254,13 @@ export function useAgoraVideo({
     mediaError,
     opponentLeft,
     audioMuted,
+    unlockAudio,
   };
 }
 
 export type VideoBoxHandle = { captureFrame: () => string | null };
 
+/** Left panel — always YOUR local camera. Mirrored like a selfie. */
 export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   track: ICameraVideoTrack | null;
   label: string;
@@ -240,16 +277,16 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   useEffect(() => {
     if (!track || !containerRef.current) return;
     try { track.play(containerRef.current); } catch { /* ignore */ }
-    return () => {
-      try { track?.stop(); } catch { /* ignore */ }
-    };
+    return () => { try { track?.stop(); } catch { /* ignore */ } };
   }, [track]);
 
+  // mirrored=true so local preview feels like looking in a mirror
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} mirrored />
   );
 });
 
+/** Right panel — always the OPPONENT's remote video. Uses stable DOM id so Agora can play immediately. */
 export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   track: IRemoteVideoTrack | null;
   label: string;
@@ -257,23 +294,30 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   overlay?: React.ReactNode;
   showFaceMesh?: boolean;
   mirrored?: boolean;
-}>(function RemoteVideoBox({ track, label, accentColor, overlay, mirrored = true }, ref) {
+}>(function RemoteVideoBox({ track, label, accentColor, overlay, mirrored = false }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     captureFrame: () => captureFrameFromContainer(containerRef.current),
   }));
 
+  // Fallback: if the track arrives via React state, also play it here.
   useEffect(() => {
     if (!track || !containerRef.current) return;
-    try { track.play(containerRef.current); } catch { /* ignore */ }
-    return () => {
-      try { track?.stop(); } catch { /* ignore */ }
-    };
+    try { track.play(containerRef.current); } catch { /* ignore — already played via direct DOM call */ }
+    return () => { try { track?.stop(); } catch { /* ignore */ } };
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} mirrored={mirrored} />
+    <VideoShell
+      containerRef={containerRef}
+      containerId={REMOTE_VIDEO_EL_ID}
+      label={label}
+      accentColor={accentColor}
+      hasTrack={!!track}
+      overlay={overlay}
+      mirrored={mirrored}
+    />
   );
 });
 
@@ -291,6 +335,7 @@ function captureFrameFromContainer(container: HTMLDivElement | null): string | n
 
 function VideoShell({
   containerRef,
+  containerId,
   label,
   accentColor,
   hasTrack,
@@ -298,6 +343,7 @@ function VideoShell({
   mirrored,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
+  containerId?: string;
   label: string;
   accentColor: "fuchsia" | "red";
   hasTrack: boolean;
@@ -314,14 +360,13 @@ function VideoShell({
   return (
     <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>
       <div className="relative aspect-video bg-zinc-950 overflow-hidden">
-        {/* Agora renders video into this div */}
         <div
+          id={containerId}
           ref={containerRef}
           className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
           style={mirrored ? { transform: "scaleX(-1)" } : undefined}
         />
 
-        {/* Placeholder when no track */}
         {!hasTrack && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div
@@ -332,9 +377,8 @@ function VideoShell({
           </div>
         )}
 
-        {/* Overlay slot (bet offer, etc.) */}
         {overlay && (
-          <div className="absolute inset-x-0 top-0 flex justify-center pt-3 pointer-events-none z-10">
+          <div className="absolute inset-x-0 top-0 flex justify-center pt-3 z-10">
             {overlay}
           </div>
         )}

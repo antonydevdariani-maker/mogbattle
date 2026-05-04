@@ -70,7 +70,7 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted, unlockAudio } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -298,10 +298,10 @@ export function LiveMatchClient({
             overlay={
               audioMuted ? (
                 <button
-                  className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/90 transition-colors"
-                  onClick={() => document.dispatchEvent(new MouseEvent("click", { bubbles: true }))}
+                  className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-yellow-400/40 bg-black/80 px-3 py-1.5 text-xs font-bold text-yellow-300 backdrop-blur-sm hover:bg-black transition-colors shadow-lg"
+                  onClick={unlockAudio}
                 >
-                  🔇 Click to unmute
+                  🔇 Start Audio
                 </button>
               ) : undefined
             }
