@@ -1,20 +1,15 @@
 "use client";
 import { useCallback, useEffect, useRef } from "react";
-import type {
-  IAgoraRTCClient,
-  ICameraVideoTrack,
-  IMicrophoneAudioTrack,
-  IRemoteVideoTrack,
-  IRemoteAudioTrack,
+import AgoraRTC, {
+  type IAgoraRTCClient,
+  type ICameraVideoTrack,
+  type IMicrophoneAudioTrack,
 } from "agora-rtc-sdk-ng";
 
 interface VideoCredentials {
-  /** Agora channel name (= matchId) */
-  sessionId: string;
-  /** Agora RTC token, or null when Agora certificate is disabled */
+  sessionId: string; // Agora channel name (= matchId)
   token: string | null;
-  /** Agora App ID */
-  apiKey: string;
+  apiKey: string; // Agora App ID
 }
 
 export interface UseVonageVideoReturn {
@@ -28,49 +23,47 @@ export function useVonageVideo(): UseVonageVideoReturn {
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localVideoRef = useRef<ICameraVideoTrack | null>(null);
   const localAudioRef = useRef<IMicrophoneAudioTrack | null>(null);
-  const remoteVideoRef = useRef<IRemoteVideoTrack | null>(null);
-  const remoteAudioRef = useRef<IRemoteAudioTrack | null>(null);
   const joinedRef = useRef(false);
 
-  const getAgoraRTC = useCallback(async () => {
-    const mod = await import("agora-rtc-sdk-ng");
-    return mod.default;
-  }, []);
+  /** Play remote video into element — retries up to 2s to handle React mount timing */
+  function playRemoteVideo(track: ReturnType<IAgoraRTCClient["remoteUsers"][0]["videoTrack"]> | null | undefined, attemptsLeft = 10) {
+    if (!track) return;
+    const el = document.getElementById("vonage-remote-video");
+    if (el) {
+      try { track.play(el); } catch { /* ignore autoplay */ }
+    } else if (attemptsLeft > 0) {
+      setTimeout(() => playRemoteVideo(track, attemptsLeft - 1), 200);
+    }
+  }
 
   const startPreview = useCallback(() => {
     if (localVideoRef.current) return;
-    getAgoraRTC().then(async (AgoraRTC) => {
-      try {
-        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+    AgoraRTC.createMicrophoneAndCameraTracks()
+      .then(([audioTrack, videoTrack]) => {
         localAudioRef.current = audioTrack;
         localVideoRef.current = videoTrack;
-        videoTrack.play("vonage-local-video");
-      } catch (err) {
-        console.error("[Video] preview error:", err);
-      }
-    });
-  }, [getAgoraRTC]);
+        const el = document.getElementById("vonage-local-video");
+        if (el) videoTrack.play(el);
+      })
+      .catch((err) => console.error("[Video] preview error:", err));
+  }, []);
 
   const connect = useCallback(({ sessionId, token, apiKey }: VideoCredentials) => {
-    getAgoraRTC().then(async (AgoraRTC) => {
+    (async () => {
       try {
-        // Create client if needed
         if (!clientRef.current) {
           clientRef.current = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         }
         const client = clientRef.current;
 
-        // Subscribe to remote user when they publish
         client.on("user-published", async (user, mediaType) => {
           console.log("[Video] user-published uid:", user.uid, "type:", mediaType);
           await client.subscribe(user, mediaType);
           if (mediaType === "video") {
-            remoteVideoRef.current = user.videoTrack ?? null;
-            console.log("[Video] playing remote video to vonage-remote-video");
-            user.videoTrack?.play("vonage-remote-video");
+            console.log("[Video] playing remote video");
+            playRemoteVideo(user.videoTrack);
           }
           if (mediaType === "audio") {
-            remoteAudioRef.current = user.audioTrack ?? null;
             try {
               const result = user.audioTrack?.play() as unknown;
               if (result && typeof (result as Promise<void>).catch === "function") {
@@ -84,59 +77,56 @@ export function useVonageVideo(): UseVonageVideoReturn {
           }
         });
 
-        client.on("user-unpublished", (user, mediaType) => {
-          if (mediaType === "video") remoteVideoRef.current = null;
-          if (mediaType === "audio") remoteAudioRef.current = null;
+        client.on("user-unpublished", (_user, _mediaType) => {
+          console.log("[Video] user-unpublished");
         });
 
-        // Join channel
         if (!joinedRef.current) {
-          console.log("[Video] joining channel", sessionId, "appId", apiKey, "token", token ? token.slice(0, 20) + "…" : null);
+          console.log("[Video] joining channel:", sessionId, "appId:", apiKey);
           await client.join(apiKey, sessionId, token ?? null, 0);
           joinedRef.current = true;
-          console.log("[Video] joined channel successfully");
+          console.log("[Video] joined successfully, remote users:", client.remoteUsers.length);
         }
 
-        // Ensure local tracks exist before publishing
+        // Create tracks if startPreview didn't run or failed
         if (!localVideoRef.current || !localAudioRef.current) {
           const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
           localAudioRef.current = audioTrack;
           localVideoRef.current = videoTrack;
-          videoTrack.play("vonage-local-video");
+          const el = document.getElementById("vonage-local-video");
+          if (el) videoTrack.play(el);
         }
 
         await client.publish([localAudioRef.current!, localVideoRef.current!]);
+        console.log("[Video] published local tracks");
 
-        // Subscribe to anyone already in channel
-        client.remoteUsers.forEach(async (user) => {
+        // Subscribe to anyone already in the channel
+        for (const user of client.remoteUsers) {
           if (user.hasVideo) {
             await client.subscribe(user, "video");
-            remoteVideoRef.current = user.videoTrack ?? null;
-            user.videoTrack?.play("vonage-remote-video");
+            playRemoteVideo(user.videoTrack);
           }
           if (user.hasAudio) {
             await client.subscribe(user, "audio");
-            remoteAudioRef.current = user.audioTrack ?? null;
             user.audioTrack?.play();
           }
-        });
+        }
       } catch (err) {
         console.error("[Video] connect error:", err);
       }
-    });
-  }, [getAgoraRTC]);
+    })();
+  }, []);
 
   const disconnect = useCallback(() => {
     try { localVideoRef.current?.stop(); localVideoRef.current?.close(); } catch { /* ignore */ }
     try { localAudioRef.current?.stop(); localAudioRef.current?.close(); } catch { /* ignore */ }
-    try {
-      if (joinedRef.current) clientRef.current?.leave();
-    } catch { /* ignore */ }
+    if (joinedRef.current) {
+      try { clientRef.current?.leave(); } catch { /* ignore */ }
+    }
     localVideoRef.current = null;
     localAudioRef.current = null;
-    remoteVideoRef.current = null;
-    remoteAudioRef.current = null;
     joinedRef.current = false;
+    clientRef.current = null;
   }, []);
 
   const captureLocalFrame = useCallback((): string | null => {
