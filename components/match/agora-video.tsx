@@ -11,6 +11,20 @@ import AgoraRTC, {
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
 
+/** Safe audio play — handles autoplay policy by retrying on next user gesture. */
+function safePlay(track: IRemoteAudioTrack | IMicrophoneAudioTrack | null | undefined) {
+  if (!track) return;
+  try {
+    track.play();
+  } catch {
+    const resume = () => {
+      try { track.play(); } catch { /* ignore */ }
+      document.removeEventListener("click", resume);
+    };
+    document.addEventListener("click", resume, { once: true });
+  }
+}
+
 export function useAgoraVideo({
   channelName,
   uid,
@@ -40,29 +54,43 @@ export function useAgoraVideo({
     if (tracksCreated.current) return;
     tracksCreated.current = true;
 
+    let cancelled = false;
     setMediaError(null);
-    AgoraRTC.createMicrophoneAndCameraTracks(
-      { encoderConfig: "music_standard" },
-      { encoderConfig: "480p_1", facingMode: "user" }
-    ).then(([audioTrack, videoTrack]) => {
-      localAudioRef.current = audioTrack;
-      localVideoRef.current = videoTrack;
-      setLocalReady(true);
-    }).catch((e) => {
-      const msg = e instanceof Error ? e.message : typeof e === "string" ? e : "Could not access camera or microphone.";
-      setMediaError(
-        /Permission|NotAllowed|denied|NotReadable/i.test(msg)
-          ? "Allow camera and microphone for this site to use the arena."
-          : msg
-      );
-      tracksCreated.current = false;
-    });
+
+    (async () => {
+      try {
+        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+          { encoderConfig: "music_standard" },
+          { encoderConfig: "480p_1", facingMode: "user" }
+        );
+        if (cancelled) {
+          try { audioTrack?.stop(); } catch { /* ignore */ }
+          try { audioTrack?.close(); } catch { /* ignore */ }
+          try { videoTrack?.stop(); } catch { /* ignore */ }
+          try { videoTrack?.close(); } catch { /* ignore */ }
+          return;
+        }
+        localAudioRef.current = audioTrack;
+        localVideoRef.current = videoTrack;
+        setLocalReady(true);
+      } catch (e) {
+        if (cancelled) return;
+        const msg = e instanceof Error ? e.message : typeof e === "string" ? e : "Could not access camera or microphone.";
+        setMediaError(
+          /Permission|NotAllowed|denied|NotReadable|Overconstrained/i.test(msg)
+            ? "Camera blocked — click the lock icon in your address bar and allow camera + mic."
+            : msg
+        );
+        tracksCreated.current = false;
+      }
+    })();
 
     return () => {
-      localVideoRef.current?.stop();
-      localVideoRef.current?.close();
-      localAudioRef.current?.stop();
-      localAudioRef.current?.close();
+      cancelled = true;
+      try { localVideoRef.current?.stop(); } catch { /* ignore */ }
+      try { localVideoRef.current?.close(); } catch { /* ignore */ }
+      try { localAudioRef.current?.stop(); } catch { /* ignore */ }
+      try { localAudioRef.current?.close(); } catch { /* ignore */ }
       localVideoRef.current = null;
       localAudioRef.current = null;
       tracksCreated.current = false;
@@ -74,6 +102,7 @@ export function useAgoraVideo({
   useEffect(() => {
     if (!enabled || !channelName || !localReady) return;
 
+    let cancelled = false;
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     clientRef.current = client;
 
@@ -84,21 +113,19 @@ export function useAgoraVideo({
     });
 
     client.on("user-published", async (user, mediaType) => {
+      if (!client) return;
       try {
         await client.subscribe(user, mediaType);
       } catch (e) {
-        console.warn("Agora subscribe failed, retrying:", e);
+        console.warn("Agora subscribe (user-published) failed, retrying:", e);
         try { await client.subscribe(user, mediaType); } catch { return; }
       }
+      if (cancelled) return;
       if (mediaType === "video") setRemoteVideoTrack(user.videoTrack ?? null);
       if (mediaType === "audio") {
         const track = user.audioTrack;
         setRemoteAudioTrack(track ?? null);
-        try { track?.play(); } catch {
-          // autoplay blocked — retry on next user gesture
-          const resume = () => { try { track?.play(); } catch { /* ignore */ } document.removeEventListener("click", resume); };
-          document.addEventListener("click", resume, { once: true });
-        }
+        safePlay(track);
       }
     });
 
@@ -111,54 +138,46 @@ export function useAgoraVideo({
     });
 
     async function join(attempt = 0) {
+      if (cancelled) return;
       try {
-        const res = await fetch(`/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${uid}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(`Token fetch failed: ${json.error}`);
-        const token: string = json.token;
-        await client.join(APP_ID, channelName, token, uid);
+        const numericUid = Math.floor(uid);
+        const res = await fetch(`/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${numericUid}`);
+        const json = await res.json() as { token?: string; error?: string };
+        if (!res.ok) throw new Error(`Token fetch failed: ${json.error ?? res.status}`);
+        if (cancelled) return;
+        const token = json.token!;
+        await client.join(APP_ID, channelName, token, numericUid);
+        if (cancelled) { void client.leave().catch(() => {}); return; }
+
         const tracks = [localAudioRef.current, localVideoRef.current].filter(Boolean);
         if (tracks.length) await client.publish(tracks as Parameters<typeof client.publish>[0]);
-        // Late joiner: subscribe users already publishing before our handlers attached
+
+        // Late-joiner fix: subscribe to users already publishing before our listener ran.
         for (const remote of client.remoteUsers) {
-          try {
-            await client.subscribe(remote, "video");
-          } catch {
-            /* not published yet */
+          if (cancelled) break;
+          if (remote.hasVideo) {
+            try { await client.subscribe(remote, "video"); } catch { /* not ready yet */ }
           }
-          try {
-            await client.subscribe(remote, "audio");
-          } catch {
-            /* not published yet */
+          if (remote.hasAudio) {
+            try { await client.subscribe(remote, "audio"); } catch { /* not ready yet */ }
           }
+          if (cancelled) break;
           const v = remote.videoTrack;
           if (v) setRemoteVideoTrack(v);
           const a = remote.audioTrack;
           if (a) {
             setRemoteAudioTrack(a);
-            try {
-              a.play();
-            } catch {
-              const resume = () => {
-                try {
-                  a.play();
-                } catch {
-                  /* ignore */
-                }
-                document.removeEventListener("click", resume);
-              };
-              document.addEventListener("click", resume, { once: true });
-            }
+            safePlay(a);
           }
         }
-        setJoined(true);
-        setMediaError(null);
+
+        if (!cancelled) { setJoined(true); setMediaError(null); }
       } catch (e) {
+        if (cancelled) return;
         const msg = e instanceof Error ? e.message : String(e);
         const isTransient = /CAN_NOT_GET_GATEWAY|GATEWAY_SERVER|timeout|network/i.test(msg);
         const isPerm = /Permission|NotAllowed|denied|NotReadable/i.test(msg);
 
-        // Auto-retry transient gateway errors up to 3 times
         if (isTransient && attempt < 3) {
           await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
           if (clientRef.current === client) void join(attempt + 1);
@@ -168,7 +187,7 @@ export function useAgoraVideo({
         console.error("Agora join error:", e);
         setMediaError(
           isPerm
-            ? "Allow camera and microphone for this site to use the arena."
+            ? "Camera blocked — click the lock icon in your address bar and allow camera + mic."
             : isTransient
             ? "Connection issue — retrying failed. Check your network and reload."
             : "Could not connect to match server. Please reload."
@@ -180,11 +199,12 @@ export function useAgoraVideo({
     void join();
 
     return () => {
-      client.leave().catch(() => {});
+      cancelled = true;
+      void client.leave().catch(() => {});
+      clientRef.current = null;
       setJoined(false);
       setRemoteVideoTrack(null);
       setRemoteAudioTrack(null);
-      clientRef.current = null;
     };
   }, [enabled, channelName, uid, localReady]);
 
@@ -206,7 +226,7 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
   showFaceMesh?: boolean;
-}>(function LocalVideoBox({ track, label, accentColor, overlay, showFaceMesh }, ref) {
+}>(function LocalVideoBox({ track, label, accentColor, overlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -215,12 +235,14 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
 
   useEffect(() => {
     if (!track || !containerRef.current) return;
-    track.play(containerRef.current);
-    return () => { track.stop(); };
+    try { track.play(containerRef.current); } catch { /* ignore */ }
+    return () => {
+      try { track?.stop(); } catch { /* ignore */ }
+    };
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} />
   );
 });
 
@@ -231,7 +253,7 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   overlay?: React.ReactNode;
   showFaceMesh?: boolean;
   mirrored?: boolean;
-}>(function RemoteVideoBox({ track, label, accentColor, overlay, showFaceMesh, mirrored = true }, ref) {
+}>(function RemoteVideoBox({ track, label, accentColor, overlay, mirrored = true }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -240,12 +262,14 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
 
   useEffect(() => {
     if (!track || !containerRef.current) return;
-    track.play(containerRef.current);
-    return () => { track.stop(); };
+    try { track.play(containerRef.current); } catch { /* ignore */ }
+    return () => {
+      try { track?.stop(); } catch { /* ignore */ }
+    };
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} showFaceMesh={showFaceMesh} mirrored={mirrored} />
+    <VideoShell containerRef={containerRef} label={label} accentColor={accentColor} hasTrack={!!track} overlay={overlay} mirrored={mirrored} />
   );
 });
 
@@ -267,7 +291,6 @@ function VideoShell({
   accentColor,
   hasTrack,
   overlay,
-  showFaceMesh,
   mirrored,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
