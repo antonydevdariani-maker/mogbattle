@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AgoraRTC, {
   type IAgoraRTCClient,
   type ICameraVideoTrack,
@@ -18,6 +18,7 @@ export interface UseVonageVideoReturn {
   connect: (creds: VideoCredentials) => void;
   disconnect: () => void;
   captureLocalFrame: () => string | null;
+  opponentLeft: boolean;
 }
 
 export function useVonageVideo(): UseVonageVideoReturn {
@@ -25,6 +26,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
   const localVideoRef = useRef<ICameraVideoTrack | null>(null);
   const localAudioRef = useRef<IMicrophoneAudioTrack | null>(null);
   const joinedRef = useRef(false);
+  const [opponentLeft, setOpponentLeft] = useState(false);
 
   /** Play remote video into element — retries up to 2s to handle React mount timing */
   function playRemoteVideo(track: IRemoteVideoTrack | null | undefined, attemptsLeft = 10) {
@@ -82,6 +84,11 @@ export function useVonageVideo(): UseVonageVideoReturn {
           console.log("[Video] user-unpublished");
         });
 
+        client.on("user-left", () => {
+          console.log("[Video] user-left");
+          setOpponentLeft(true);
+        });
+
         if (!joinedRef.current) {
           console.log("[Video] joining channel:", sessionId, "appId:", apiKey);
           await client.join(apiKey, sessionId, token ?? null, 0);
@@ -128,6 +135,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
     localAudioRef.current = null;
     joinedRef.current = false;
     clientRef.current = null;
+    setOpponentLeft(false);
   }, []);
 
   const captureLocalFrame = useCallback((): string | null => {
@@ -146,5 +154,5 @@ export function useVonageVideo(): UseVonageVideoReturn {
     return () => { disconnect(); };
   }, [disconnect]);
 
-  return { startPreview, connect, disconnect, captureLocalFrame };
+  return { startPreview, connect, disconnect, captureLocalFrame, opponentLeft };
 }

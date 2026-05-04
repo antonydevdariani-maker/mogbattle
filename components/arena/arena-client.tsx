@@ -151,6 +151,10 @@ export function ArenaClient({
   const [oppIsFounder, setOppIsFounder] = useState(false);
   const lastResultRef = useRef<{ p1Total: number; p2Total: number } | null>(null);
 
+  // ── Post-match rematch signaling ──────────────────────────────────────────────
+  const [myRematchReady, setMyRematchReady] = useState(false);
+  const [oppRematchReady, setOppRematchReady] = useState(false);
+
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
     if (m.status === "waiting") return "queued";
@@ -207,7 +211,7 @@ export function ArenaClient({
   const remoteVideoTrack = null;
   const mediaError: string | null = null;
 
-  const { startPreview: vonagePreview, connect: vonageConnect, disconnect: vonageDisconnect } = useVonageVideo();
+  const { startPreview: vonagePreview, connect: vonageConnect, disconnect: vonageDisconnect, opponentLeft } = useVonageVideo();
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -290,6 +294,11 @@ export function ArenaClient({
           setPhase((prev) => ["analyzing", "verdict", "done"].includes(prev) ? "done" : prev);
           resultWaitRef.current?.(payload);
           resultWaitRef.current = null;
+        }
+      })
+      .on("broadcast", { event: "rematch" }, ({ payload }) => {
+        if (payload.userId !== userId) {
+          setOppRematchReady(true);
         }
       })
       .subscribe(() => {
@@ -458,12 +467,18 @@ export function ArenaClient({
     return () => { cancelled = true; };
   }, [phase, match?.id, vonageConnect]);
 
-  // Only disconnect when truly done with the match
+  // Streams stay alive through the done screen. Disconnect only happens via
+  // handleBackToArena(), handleDashboard(), or the mutual-rematch effect below.
+
+  // When both players signal rematch, tear down current session and re-queue.
   useEffect(() => {
-    if (phase === "done" || phase === "idle") {
-      vonageDisconnect();
-    }
-  }, [phase, vonageDisconnect]);
+    if (!myRematchReady || !oppRematchReady || phase !== "done") return;
+    vonageDisconnect();
+    resetArena();
+    // Small delay so resetArena's state updates propagate before queuing.
+    setTimeout(() => onQueue(lockedBet), 150);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myRematchReady, oppRematchReady, phase]);
 
   // Auto-start analysis 3s after match goes live
   useEffect(() => {
@@ -795,6 +810,29 @@ export function ArenaClient({
     }
   }
 
+  /** Signal to the opponent that we want a rematch. If they already signaled,
+   *  the mutual-rematch effect fires automatically. */
+  function handleRematchSignal() {
+    setMyRematchReady(true);
+    realtimeChannelRef.current?.send({
+      type: "broadcast",
+      event: "rematch",
+      payload: { userId },
+    });
+  }
+
+  /** Disconnect streams and return to the idle lobby — no navigation. */
+  function handleBackToArena() {
+    vonageDisconnect();
+    resetArena();
+  }
+
+  /** Disconnect streams and navigate to the dashboard. */
+  function handleDashboard() {
+    vonageDisconnect();
+    router.push("/dashboard");
+  }
+
   function resetArena() {
     matchmakingIntentRef.current = false;
     timedOutBattleRef.current = false;
@@ -814,6 +852,9 @@ export function ArenaClient({
     setOppPsl(null);
     pslCaptures.current = [];
     setOvertimeSecs(5);
+    lastResultRef.current = null;
+    setMyRematchReady(false);
+    setOppRematchReady(false);
     refreshBalance();
   }
 
@@ -904,6 +945,7 @@ export function ArenaClient({
             isFreeMode={isFreeMode}
             isFounder={isFounder}
             videoContainerRef={myVideoContainerRef}
+            rematchReady={myRematchReady}
           />
 
           {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
@@ -971,6 +1013,7 @@ export function ArenaClient({
             pslBadge={oppPsl}
             videoContainerRef={oppVideoContainerRef}
             isFounder={oppIsFounder}
+            rematchReady={oppRematchReady}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -1050,8 +1093,12 @@ export function ArenaClient({
             myScore={myScore}
             oppScore={oppScore}
             isFreeMode={resolvedFreeMode}
-            onRematch={resetArena}
-            onDashboard={() => router.push("/dashboard")}
+            myRematchReady={myRematchReady}
+            oppRematchReady={oppRematchReady}
+            opponentLeft={opponentLeft}
+            onRematch={handleRematchSignal}
+            onBackToArena={handleBackToArena}
+            onDashboard={handleDashboard}
           />
         )}
       </AnimatePresence>
@@ -1577,6 +1624,7 @@ function PlayerPanel({
   isFreeMode = false,
   isFounder = false,
   videoContainerRef,
+  rematchReady = false,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1595,6 +1643,7 @@ function PlayerPanel({
   isFreeMode?: boolean;
   isFounder?: boolean;
   videoContainerRef?: React.RefObject<HTMLDivElement | null>;
+  rematchReady?: boolean;
 }) {
   const internalVideoRef = useRef<HTMLDivElement>(null);
   const videoRef = videoContainerRef ?? internalVideoRef;
@@ -1783,6 +1832,21 @@ function PlayerPanel({
             )}
           </div>
         )}
+        {/* Rematch-ready checkmark overlay — shown on both panels during done phase */}
+        <AnimatePresence>
+          {rematchReady && phase === "done" && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-green-500/20 border-2 border-green-400/60"
+            >
+              <CheckCircle2 className="size-12 text-green-400" style={{ filter: "drop-shadow(0 0 12px rgba(74,222,128,0.9))" }} />
+              <span className="text-xs font-black uppercase tracking-widest text-green-300">Rematch</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>
           {isTyping && (
             <motion.div
@@ -2005,7 +2069,11 @@ function DoneOverlay({
   myScore,
   oppScore,
   isFreeMode = false,
+  myRematchReady,
+  oppRematchReady,
+  opponentLeft,
   onRematch,
+  onBackToArena,
   onDashboard,
 }: {
   iWon: boolean;
@@ -2014,7 +2082,11 @@ function DoneOverlay({
   myScore: number | null;
   oppScore: number | null;
   isFreeMode?: boolean;
+  myRematchReady: boolean;
+  oppRematchReady: boolean;
+  opponentLeft: boolean;
   onRematch: () => void;
+  onBackToArena: () => void;
   onDashboard: () => void;
 }) {
   const particles = (iWon || isTie)
@@ -2140,20 +2212,53 @@ function DoneOverlay({
           </div>
         )}
 
+        {/* Opponent left notice */}
+        {opponentLeft && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xs text-zinc-500 text-center uppercase tracking-widest"
+          >
+            Opponent has left the lobby
+          </motion.p>
+        )}
+
         {/* Buttons */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+          {/* Rematch row */}
           <button
             onClick={onRematch}
-            className="py-4 bg-fuchsia-500 text-black font-black uppercase tracking-widest text-sm sm:text-base shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[52px]"
+            disabled={myRematchReady}
+            className={`w-full py-4 font-black uppercase tracking-widest text-sm sm:text-base transition-all min-h-[52px] ${
+              myRematchReady
+                ? oppRematchReady
+                  ? "bg-green-500 text-black cursor-default"
+                  : "bg-zinc-800 border border-green-500/50 text-green-400 cursor-default"
+                : "bg-fuchsia-500 text-black shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5"
+            }`}
           >
-            Rematch
+            {myRematchReady
+              ? oppRematchReady
+                ? "Starting rematch…"
+                : "Waiting for opponent…"
+              : "Rematch"}
           </button>
-          <button
-            onClick={onDashboard}
-            className="py-4 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-black uppercase tracking-widest text-sm sm:text-base transition-colors min-h-[52px]"
-          >
-            Dashboard
-          </button>
+
+          {/* Exit row */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onBackToArena}
+              className="py-3 border border-cyan-500/50 bg-cyan-500/5 text-cyan-300 font-black uppercase tracking-widest text-xs sm:text-sm hover:bg-cyan-500/15 transition-colors min-h-[44px]"
+            >
+              Back to Arena
+            </button>
+            <button
+              onClick={onDashboard}
+              className="py-3 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-black uppercase tracking-widest text-xs sm:text-sm transition-colors min-h-[44px]"
+            >
+              Dashboard
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>
