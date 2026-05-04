@@ -19,7 +19,7 @@ const PUBLISHER_OPTS = {
   insertMode: "append" as const,
   width: "100%",
   height: "100%",
-  mirror: true,
+  mirror: false,
   style: {
     buttonDisplayMode: "off" as const,
     nameDisplayMode: "off" as const,

@@ -1111,7 +1111,7 @@ function TikTokVideoPanel({
     <div className="relative flex-1 h-full overflow-hidden bg-zinc-950">
       <div
         id={domId}
-        className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${mirrored ? " [&>video]:scale-x-[-1]" : ""}`}
+        className={`absolute inset-0 [&_div]:w-full [&_div]:h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover${mirrored ? " [&_video]:scale-x-[-1]" : ""}`}
       />
       <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10 border ${accent.border} bg-black/60 px-3 py-1 backdrop-blur-sm`}>
         <span className={`text-xs font-black uppercase tracking-widest ${accent.text}`}>{label}</span>
@@ -1684,7 +1684,7 @@ function PlayerPanel({
         <div
           ref={videoRef}
           id={isYou ? "vonage-local-video" : "vonage-remote-video"}
-          className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}
+          className={`absolute inset-0 [&_div]:w-full [&_div]:h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover${!isYou ? " [&_video]:scale-x-[-1]" : ""}`}
         />
 
         {!showVideo && (
