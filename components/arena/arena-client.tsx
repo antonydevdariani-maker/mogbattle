@@ -128,7 +128,7 @@ export function ArenaClient({
   const [queueTimedOut, setQueueTimedOut] = useState(false);
   const [myPsl, setMyPsl] = useState<number | null>(null);
   const [oppPsl, setOppPsl] = useState<number | null>(null);
-  const [isFreeMode, setIsFreeMode] = useState(false);
+  const [isFreeMode, setIsFreeMode] = useState(initialMatch?.is_free_match ?? false);
   const [molecules, setMolecules] = useState(initialMolecules);
   const [lockedBet, setLockedBet] = useState(0);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -464,7 +464,8 @@ export function ArenaClient({
           await pause(2800);
           setPhase("done");
           if (match && authToken) {
-            if (isFreeMode) {
+            const isFreeDraw = match.is_free_match ?? isFreeMode;
+            if (isFreeDraw) {
               await finalizeFreeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
             } else {
               await finalizeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
@@ -747,7 +748,8 @@ export function ArenaClient({
         startTransition(async () => {
           const token = authToken;
           if (!token) return;
-          if (isFreeMode) {
+          const isFree = match.is_free_match ?? isFreeMode;
+          if (isFree) {
             await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
           } else {
             await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });

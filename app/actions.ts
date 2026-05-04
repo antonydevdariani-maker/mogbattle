@@ -1037,6 +1037,7 @@ export async function finalizeMatchResult(
   if (match.status === "completed") {
     return;
   }
+  if (match.is_free_match) throw new Error("Use finalizeFreeMatchResult for molecule matches.");
 
   const isTie = Math.abs(args.aiScoreP1 - args.aiScoreP2) < 0.1;
   const winnerId = isTie ? null : (args.aiScoreP1 > args.aiScoreP2 ? match.player1_id : match.player2_id);
