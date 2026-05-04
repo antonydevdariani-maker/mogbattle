@@ -18,7 +18,7 @@ import {
 } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { useAgoraVideo } from "@/components/match/agora-video";
+import { useVonageVideo } from "@/components/match/vonage-video";
 import type { Database } from "@/lib/types/database";
 import {
   useArenaMatchLeaveSetters,
@@ -37,7 +37,6 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
-import type { ICameraVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 type ArenaPhase =
@@ -203,12 +202,12 @@ export function ArenaClient({
   /** Local cam/mic preview starts as soon as user enters queue, before match ID is assigned. */
   const localPreviewOnly = phase !== "idle" && !videoEnabled;
 
-  const { localVideoTrack, remoteVideoTrack, mediaError } = useAgoraVideo({
-    channelName: match?.id ?? "",
-    uid: isP1 ? 1 : 2,
-    enabled: videoEnabled,
-    localOnly: localPreviewOnly,
-  });
+  // Vonage streams attach directly to DOM — no track refs needed
+  const localVideoTrack = null;
+  const remoteVideoTrack = null;
+  const mediaError: string | null = null;
+
+  const { connect: vonageConnect, disconnect: vonageDisconnect } = useVonageVideo();
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -367,19 +366,20 @@ export function ArenaClient({
 
   // Auto-capture at 2.5s and 4s — use best PSL, broadcast to opponent
   useEffect(() => {
-    if (phase !== "live" || !localVideoTrack) return;
+    if (phase !== "live") return;
 
     async function captureAndJudge() {
       try {
-        const frameData = (localVideoTrack as ICameraVideoTrack).getCurrentFrameData();
-        if (!frameData || frameData.width === 0) return null;
+        const container = myVideoContainerRef.current;
+        const video = container?.querySelector("video") as HTMLVideoElement | null;
+        if (!video || video.videoWidth === 0) return null;
         const canvas = document.createElement("canvas");
-        canvas.width = frameData.width;
-        canvas.height = frameData.height;
+        canvas.width = 480;
+        canvas.height = 270;
         const ctx = canvas.getContext("2d")!;
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
-        ctx.putImageData(frameData, 0, 0);
+        ctx.drawImage(video, 0, 0, 480, 270);
         const base64 = canvas.toDataURL("image/jpeg", 0.9);
         const res = await fetch("/api/judge-face", {
           method: "POST",
@@ -435,7 +435,23 @@ export function ArenaClient({
     }, 4000);
 
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [phase, localVideoTrack, match?.id, userId, authToken]);
+  }, [phase, match?.id, userId, authToken]);
+
+  // Connect Vonage when match goes live; disconnect on cleanup
+  useEffect(() => {
+    if (phase !== "live" || !match?.id) return;
+    let cancelled = false;
+    fetch(`/api/vonage-token?matchId=${match.id}`)
+      .then((r) => r.json())
+      .then((creds) => {
+        if (!cancelled) vonageConnect(creds);
+      })
+      .catch((err) => console.error("[Vonage] token fetch error:", err));
+    return () => {
+      cancelled = true;
+      vonageDisconnect();
+    };
+  }, [phase, match?.id, vonageConnect, vonageDisconnect]);
 
   // Auto-start analysis 3s after match goes live
   useEffect(() => {
@@ -451,7 +467,8 @@ export function ArenaClient({
   useEffect(() => {
     if (phase !== "live" || !isP1) return;
     const drawTimer = setTimeout(() => {
-      if (!remoteVideoTrack) {
+      const remoteVideo = document.querySelector("#vonage-remote-video video") as HTMLVideoElement | null;
+      if (!remoteVideo || remoteVideo.videoWidth === 0) {
         const drawScore = 5.0;
         setScoreP1(drawScore);
         setScoreP2(drawScore);
@@ -477,21 +494,22 @@ export function ArenaClient({
     }, 15000);
     return () => clearTimeout(drawTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, remoteVideoTrack, isP1]);
+  }, [phase, isP1]);
 
   // Face presence check — warn at 5s, auto-forfeit (score 0) at 10s if no face
   useEffect(() => {
-    if (phase !== "live" || !localVideoTrack) return;
+    if (phase !== "live") return;
 
     async function hasFace(): Promise<boolean> {
       try {
-        const frameData = (localVideoTrack as ICameraVideoTrack).getCurrentFrameData();
-        if (!frameData || frameData.width === 0) return false;
+        const container = myVideoContainerRef.current;
+        const video = container?.querySelector("video") as HTMLVideoElement | null;
+        if (!video || video.videoWidth === 0) return false;
         const canvas = document.createElement("canvas");
-        canvas.width = frameData.width;
-        canvas.height = frameData.height;
+        canvas.width = 320;
+        canvas.height = 180;
         const ctx = canvas.getContext("2d")!;
-        ctx.putImageData(frameData, 0, 0);
+        ctx.drawImage(video, 0, 0, 320, 180);
         const base64 = canvas.toDataURL("image/jpeg", 0.7);
         const res = await fetch("/api/judge-face", {
           method: "POST",
@@ -877,50 +895,8 @@ export function ArenaClient({
 
       {/* Split screen — Omegle-style; mobile stacks with VS between */}
       <div className="relative z-10 flex-1 grid grid-cols-1 items-stretch md:grid-cols-[1fr_120px_1fr] gap-3 px-2 md:px-3 pt-1 md:pt-2">
-        {/* LEFT — Opponent */}
-        <div className="flex min-h-0 flex-col gap-2 order-1 md:h-full">
-          <PlayerPanel
-            side="opponent"
-            name={opponentName ?? "???"}
-            footerOverride={isQueued && !queueTimedOut ? "???" : null}
-            videoTrack={remoteVideoTrack}
-            hasVideo={videoEnabled}
-            displayOffer={displayOppOffer}
-            isTyping={oppTyping}
-            phase={phase}
-            isReady={oppReady}
-            score={isP1 ? oppScore : myScore}
-            isSearching={isQueued && !queueTimedOut}
-            queueTimedOut={queueTimedOut}
-            isFreeMode={isFreeMode}
-            pslBadge={oppPsl}
-            videoContainerRef={oppVideoContainerRef}
-            isFounder={oppIsFounder}
-          />
-          {showAnalysis && (
-            <div className="md:hidden">
-              <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p2" isP1={isP1} />
-            </div>
-          )}
-        </div>
-
-        {/* CENTER — VS + status (VS vertically centered between panels on desktop) */}
-        <div className="order-2 flex min-h-0 flex-col items-center justify-center gap-3 py-2 md:min-h-0 md:self-stretch md:py-2">
-          <GlowingVS large={isQueued && !queueTimedOut} />
-          <div className="hidden md:flex w-full flex-col items-center">
-            <CenterColumn
-              phase={phase}
-              countdown={countdown}
-              metricScores={metricScores}
-              revealedMetrics={revealedMetrics}
-              isP1={isP1}
-              overtimeSecs={overtimeSecs}
-            />
-          </div>
-        </div>
-
-        {/* RIGHT — You */}
-        <div className="flex min-h-0 flex-col gap-3 order-3 md:h-full">
+        {/* LEFT — You */}
+        <div className="flex min-h-0 flex-col gap-3 order-1 md:h-full">
           <PlayerPanel
             side="you"
             name={yourHandle}
@@ -967,6 +943,48 @@ export function ArenaClient({
           {showAnalysis && (
             <div className="hidden md:block">
               <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p1" isP1={isP1} />
+            </div>
+          )}
+        </div>
+
+        {/* CENTER — VS + status */}
+        <div className="order-2 flex min-h-0 flex-col items-center justify-center gap-3 py-2 md:min-h-0 md:self-stretch md:py-2">
+          <GlowingVS large={isQueued && !queueTimedOut} />
+          <div className="hidden md:flex w-full flex-col items-center">
+            <CenterColumn
+              phase={phase}
+              countdown={countdown}
+              metricScores={metricScores}
+              revealedMetrics={revealedMetrics}
+              isP1={isP1}
+              overtimeSecs={overtimeSecs}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT — Opponent */}
+        <div className="flex min-h-0 flex-col gap-2 order-3 md:h-full">
+          <PlayerPanel
+            side="opponent"
+            name={opponentName ?? "???"}
+            footerOverride={isQueued && !queueTimedOut ? "???" : null}
+            videoTrack={remoteVideoTrack}
+            hasVideo={videoEnabled}
+            displayOffer={displayOppOffer}
+            isTyping={oppTyping}
+            phase={phase}
+            isReady={oppReady}
+            score={isP1 ? oppScore : myScore}
+            isSearching={isQueued && !queueTimedOut}
+            queueTimedOut={queueTimedOut}
+            isFreeMode={isFreeMode}
+            pslBadge={oppPsl}
+            videoContainerRef={oppVideoContainerRef}
+            isFounder={oppIsFounder}
+          />
+          {showAnalysis && (
+            <div className="md:hidden">
+              <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p2" isP1={isP1} />
             </div>
           )}
         </div>
@@ -1058,13 +1076,13 @@ export function ArenaClient({
             className="fixed inset-0 z-[200] bg-black flex"
           >
             <TikTokVideoPanel
-              videoTrack={remoteVideoTrack}
+              domId="vonage-remote-video"
               label={opponentName ?? "???"}
               accentColor="cyan"
               mirrored={false}
             />
             <TikTokVideoPanel
-              videoTrack={localVideoTrack}
+              domId="vonage-local-video"
               label="YOU"
               accentColor="fuchsia"
               mirrored
@@ -1085,31 +1103,24 @@ export function ArenaClient({
 // ─── TikTok Video Panel ───────────────────────────────────────────────────────
 
 function TikTokVideoPanel({
-  videoTrack,
+  domId,
   label,
   accentColor,
   mirrored,
 }: {
-  videoTrack: ICameraVideoTrack | IRemoteVideoTrack | null;
+  domId: string;
   label: string;
   accentColor: "fuchsia" | "cyan";
   mirrored: boolean;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const accent = accentColor === "fuchsia"
     ? { text: "text-fuchsia-300", border: "border-fuchsia-500/60" }
     : { text: "text-cyan-300", border: "border-cyan-500/60" };
 
-  useEffect(() => {
-    if (!videoTrack || !containerRef.current) return;
-    (videoTrack as ICameraVideoTrack).play(containerRef.current);
-    return () => { try { (videoTrack as ICameraVideoTrack).stop(); } catch {} };
-  }, [videoTrack]);
-
   return (
     <div className="relative flex-1 h-full overflow-hidden bg-zinc-950">
       <div
-        ref={containerRef}
+        id={domId}
         className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${mirrored ? " [&>video]:scale-x-[-1]" : ""}`}
       />
       <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10 border ${accent.border} bg-black/60 px-3 py-1 backdrop-blur-sm`}>
@@ -1846,7 +1857,7 @@ function PlayerPanel({
   name: string;
   footerOverride?: string | null;
   queueMonogram?: string;
-  videoTrack: ICameraVideoTrack | IRemoteVideoTrack | null;
+  videoTrack: null;
   hasVideo: boolean;
   displayOffer: string;
   isTyping: boolean;
@@ -1863,7 +1874,6 @@ function PlayerPanel({
   const internalVideoRef = useRef<HTMLDivElement>(null);
   const videoRef = videoContainerRef ?? internalVideoRef;
   const isYou = side === "you";
-  const faceDetected = true;
   const accentCss = isYou
     ? {
         border: "border-fuchsia-500",
@@ -1880,16 +1890,8 @@ function PlayerPanel({
   const footerText = footerOverride ?? name;
   const circleLetters = queueMonogram ?? name.slice(0, 2);
 
-  useEffect(() => {
-    if (!videoTrack) return;
-    const el = videoRef.current;
-    if (!el) return;
-    try { (videoTrack as ICameraVideoTrack).play(el); } catch { /* ignore */ }
-    return () => { try { (videoTrack as ICameraVideoTrack).stop(); } catch {} };
-  }, [videoTrack, videoRef]);
-
-  const showVideo = hasVideo && videoTrack;
-  const showScore = score !== null && ["verdict", "done"].includes(phase);
+  // Vonage streams attach to videoRef.current directly via OT.initPublisher / session.subscribe
+  const showVideo = hasVideo;
 
   const heroPhases = ["queued", "negotiating"] as const;
   const showHeroNumber = heroPhases.includes(phase as (typeof heroPhases)[number]);
@@ -2055,10 +2057,6 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {pslBadge !== null && pslBadge > 0 && (
-          <PslHud base={pslBadge} isYou={isYou} faceDetected={faceDetected} />
-        )}
-
         <AnimatePresence>
           {isTyping && (
             <motion.div
@@ -2080,31 +2078,6 @@ function PlayerPanel({
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {showScore && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="absolute inset-0 flex items-center justify-center bg-black/60 z-20"
-            >
-              <div className="text-center">
-                <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1">MOG SCORE</p>
-                <p
-                  className={`text-5xl font-black tabular-nums ${accentCss.text}`}
-                  style={{
-                    fontFamily: "var(--font-ibm-plex-mono)",
-                    textShadow: isYou
-                      ? "0 0 20px rgba(168,85,247,0.8)"
-                      : "0 0 20px rgba(6,182,212,0.8)",
-                  }}
-                >
-                  {score?.toFixed(1)}<span className="text-2xl opacity-50">/10</span>
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <div className={`flex items-center justify-between px-3 py-2 border-t ${accentCss.border} bg-black gap-2`}>
