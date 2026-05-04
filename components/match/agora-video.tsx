@@ -38,31 +38,52 @@ export function useAgoraVideo({
   const [opponentLeft, setOpponentLeft] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
 
-  /** Play a remote audio track; marks muted and retries on next user click if autoplay is blocked. */
+  /** Play a remote audio track; handles both sync throws and async Promise rejections from autoplay policy. */
   function safePlayAudio(track: IRemoteAudioTrack | null | undefined) {
     if (!track) return;
-    try {
-      track.play();
-      setAudioMuted(false);
-    } catch {
+    const onBlocked = () => {
       setAudioMuted(true);
       const resume = () => {
-        try { track.play(); setAudioMuted(false); } catch { /* ignore */ }
+        Promise.resolve()
+          .then(() => track.play())
+          .then(() => setAudioMuted(false))
+          .catch(() => {});
         document.removeEventListener("click", resume);
       };
       document.addEventListener("click", resume, { once: true });
+    };
+    try {
+      const result = track.play() as unknown;
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>)
+          .then(() => setAudioMuted(false))
+          .catch(onBlocked);
+      } else {
+        setAudioMuted(false);
+      }
+    } catch {
+      onBlocked();
     }
   }
 
   /**
-   * Play the remote video track immediately into the stable DOM element.
-   * Calling this right in the Agora callback avoids the async React re-render delay.
+   * Play the remote video track into the stable DOM element.
+   * Retries up to 2 seconds if the element isn't mounted yet (avoids React timing race).
    */
-  function playRemoteVideo(track: IRemoteVideoTrack | null | undefined) {
+  function playRemoteVideo(track: IRemoteVideoTrack | null | undefined, attemptsLeft = 10) {
     if (!track) return;
     const el = document.getElementById(REMOTE_VIDEO_EL_ID);
     if (el) {
-      try { track.play(el); } catch { /* ignore */ }
+      try {
+        const result = track.play(el) as unknown;
+        if (result && typeof (result as Promise<void>).catch === "function") {
+          (result as Promise<void>).catch(() => {});
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+    if (attemptsLeft > 0) {
+      setTimeout(() => playRemoteVideo(track, attemptsLeft - 1), 200);
     }
   }
 
