@@ -4,6 +4,7 @@ import AgoraRTC, {
   type IAgoraRTCClient,
   type ICameraVideoTrack,
   type IMicrophoneAudioTrack,
+  type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
 
 interface VideoCredentials {
@@ -26,7 +27,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
   const joinedRef = useRef(false);
 
   /** Play remote video into element — retries up to 2s to handle React mount timing */
-  function playRemoteVideo(track: ReturnType<IAgoraRTCClient["remoteUsers"][0]["videoTrack"]> | null | undefined, attemptsLeft = 10) {
+  function playRemoteVideo(track: IRemoteVideoTrack | null | undefined, attemptsLeft = 10) {
     if (!track) return;
     const el = document.getElementById("vonage-remote-video");
     if (el) {
@@ -77,7 +78,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
           }
         });
 
-        client.on("user-unpublished", (_user, _mediaType) => {
+        client.on("user-unpublished", () => {
           console.log("[Video] user-unpublished");
         });
 
