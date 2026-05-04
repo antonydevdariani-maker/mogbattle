@@ -567,7 +567,7 @@ export function ArenaClient({
       const token = authToken;
       if (!token) return;
       try {
-        if (isFreeMode) {
+        if (match.is_free_match ?? isFreeMode) {
           await submitMoleculeBetOffer(token, match.id, capped);
         } else {
           await submitBetOffer(token, match.id, capped);
