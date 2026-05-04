@@ -1,20 +1,33 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OpenTok = require("opentok") as new (appId: string, key: string) => any;
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+interface OTSession { sessionId: string }
+interface OTError { message: string; code: number }
+interface OpenTokInstance {
+  createSession(
+    options: { mediaMode: string },
+    callback: (err: OTError | null, session: OTSession | undefined) => void
+  ): void;
+  generateToken(
+    sessionId: string,
+    options: { role: string; expireTime: number; data: string }
+  ): string;
+}
+
 const privateKey = process.env.VONAGE_PRIVATE_KEY!.replace(/\\n/g, "\n");
 const appId = process.env.VONAGE_APP_ID!;
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const OpenTok = require("opentok") as new (appId: string, key: string) => OpenTokInstance;
 const ot = new OpenTok(appId, privateKey);
 
 function createVonageSession(): Promise<string> {
   return new Promise((resolve, reject) => {
-    ot.createSession({ mediaMode: "routed" }, (err: any, session: any) => {
+    ot.createSession({ mediaMode: "routed" }, (err, session) => {
       if (err || !session) reject(err ?? new Error("no session"));
-      else resolve(session.sessionId as string);
+      else resolve(session.sessionId);
     });
   });
 }
@@ -71,6 +84,10 @@ export async function GET(req: NextRequest) {
       console.error("[Vonage] session create error:", err);
       return NextResponse.json({ error: "session create failed" }, { status: 500 });
     }
+  }
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "session create failed" }, { status: 500 });
   }
 
   const token = ot.generateToken(sessionId, {

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef } from "react";
+import type { Session, Publisher, OTError, Stream } from "@opentok/client";
 
 interface VonageCredentials {
   sessionId: string;
@@ -14,13 +15,11 @@ export interface UseVonageVideoReturn {
 }
 
 export function useVonageVideo(): UseVonageVideoReturn {
-  const sessionRef = useRef<any>(null);
-  const publisherRef = useRef<any>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const publisherRef = useRef<Publisher | null>(null);
 
   const connect = useCallback(({ sessionId, token, apiKey }: VonageCredentials) => {
-    import("@opentok/client").then((mod) => {
-      const OT = (mod as any).default ?? mod;
-
+    import("@opentok/client").then((OT) => {
       const publisher = OT.initPublisher(
         "vonage-local-video",
         {
@@ -34,8 +33,8 @@ export function useVonageVideo(): UseVonageVideoReturn {
             audioLevelDisplayMode: "off",
           },
         },
-        (err: any) => {
-          if (err) console.error("[Vonage] publisher init error:", err);
+        (err: OTError | undefined) => {
+          if (err) console.error("[Vonage] publisher init error:", err.message);
         }
       );
       publisherRef.current = publisher;
@@ -43,7 +42,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
       const session = OT.initSession(apiKey, sessionId);
       sessionRef.current = session;
 
-      session.on("streamCreated", (event: any) => {
+      session.on("streamCreated", (event: { stream: Stream }) => {
         session.subscribe(
           event.stream,
           "vonage-remote-video",
@@ -51,39 +50,37 @@ export function useVonageVideo(): UseVonageVideoReturn {
             insertMode: "append",
             width: "100%",
             height: "100%",
-            mirror: false,
             style: {
               buttonDisplayMode: "off",
               nameDisplayMode: "off",
               audioLevelDisplayMode: "off",
             },
           },
-          (err: any) => {
-            if (err) console.error("[Vonage] subscribe error:", err);
+          (err: OTError | undefined) => {
+            if (err) console.error("[Vonage] subscribe error:", err.message);
           }
         );
       });
 
-      session.connect(token, (err: any) => {
+      session.connect(token, (err: OTError | undefined) => {
         if (err) {
-          console.error("[Vonage] connect error:", err);
+          console.error("[Vonage] connect error:", err.message);
           return;
         }
-        session.publish(publisher, (err: any) => {
-          if (err) console.error("[Vonage] publish error:", err);
+        session.publish(publisher, (pubErr: OTError | undefined) => {
+          if (pubErr) console.error("[Vonage] publish error:", pubErr.message);
         });
       });
     });
   }, []);
 
   const disconnect = useCallback(() => {
-    try { publisherRef.current?.destroy(); } catch {}
-    try { sessionRef.current?.disconnect(); } catch {}
+    try { publisherRef.current?.destroy(); } catch { /* ignore */ }
+    try { sessionRef.current?.disconnect(); } catch { /* ignore */ }
     publisherRef.current = null;
     sessionRef.current = null;
   }, []);
 
-  // Grab frame from local <video> for AI judging — mirrors display (left = mirrored)
   const captureLocalFrame = useCallback((): string | null => {
     const container = document.getElementById("vonage-local-video");
     const video = container?.querySelector("video") as HTMLVideoElement | null;

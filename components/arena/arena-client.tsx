@@ -112,7 +112,7 @@ export function ArenaClient({
   const [opponentName, setOpponentName] = useState<string | null>(initialOpponentName);
   const [balance, setBalance] = useState(initialBalance);
   const [myOfferStr, setMyOfferStr] = useState("");
-  const [timeLeft, setTimeLeft] = useState(10);
+  const [_timeLeft, setTimeLeft] = useState(10);
   const [queueSecs, setQueueSecs] = useState(0);
   const [queueSession, setQueueSession] = useState(0);
   const [oppTyping, setOppTyping] = useState(false);
@@ -592,28 +592,6 @@ export function ArenaClient({
         }
       } catch {}
     }, 300);
-  }
-
-  function onOfferChange(val: string) {
-    const cleaned = val.replace(/\D/g, "").slice(0, 6);
-    const amount = parseInt(cleaned, 10);
-    const cap = isFreeMode ? molecules : balance;
-    const capped = !isNaN(amount) && amount > cap ? String(cap) : cleaned;
-    setMyOfferStr(capped);
-    scheduleOfferSubmit(capped);
-  }
-
-  function setQuickBet(amount: number) {
-    const cap = isFreeMode ? molecules : balance;
-    const capped = String(Math.min(amount, cap));
-    setMyOfferStr(capped);
-    scheduleOfferSubmit(capped);
-  }
-
-  function setMaxBet() {
-    const cap = isFreeMode ? molecules : balance;
-    setMyOfferStr(String(cap));
-    scheduleOfferSubmit(String(cap));
   }
 
   function onQueue(betAmount: number) {
@@ -1389,52 +1367,6 @@ function pslTier(psl: number): { label: string; color: string } {
   return { label: "SB", color: "#f87171" };
 }
 
-// ─── PSL HUD ─────────────────────────────────────────────────────────────────
-
-function PslHud({ base, isYou, faceDetected = true }: { base: number; isYou: boolean; faceDetected?: boolean }) {
-  const [display, setDisplay] = useState(base);
-  const tier = pslTier(display);
-
-  useEffect(() => {
-    if (!faceDetected) return;
-    const id = setInterval(() => {
-      const delta = (Math.random() - 0.5) * 4;
-      setDisplay(+(Math.max(1, Math.min(10, base + delta)).toFixed(1)));
-    }, 1200);
-    return () => clearInterval(id);
-  }, [base, faceDetected]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.7 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`absolute top-2 right-2 z-10 flex flex-col items-center bg-black/90 border px-2 py-1.5 min-w-[52px] ${isYou ? "border-fuchsia-500/70" : "border-cyan-500/70"}`}
-    >
-      <span className={`text-[8px] font-black uppercase tracking-widest ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>PSL</span>
-      <motion.span
-        key={display}
-        initial={{ y: -3, opacity: 0.6 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="text-lg font-black tabular-nums text-white leading-none"
-        style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-      >
-        {display.toFixed(1)}
-      </motion.span>
-      <span className="text-[8px] font-black uppercase tracking-wider mt-0.5" style={{ color: tier.color }}>
-        {tier.label}
-      </span>
-      <div className="mt-1 w-full h-0.5 bg-zinc-800 overflow-hidden">
-        <motion.div
-          className="h-full"
-          style={{ backgroundColor: tier.color }}
-          animate={{ width: `${(display / 10) * 100}%` }}
-          transition={{ duration: 0.6 }}
-        />
-      </div>
-    </motion.div>
-  );
-}
-
 function ArenaTopBar({
   balance,
   findRemain,
@@ -1502,91 +1434,6 @@ function ArenaTopBar({
   );
 }
 
-function CompactYourBetStrip({
-  myOffer,
-  balance,
-  isFreeMode,
-  onOfferChange,
-  onQuickBet,
-  onMaxBet,
-  displayMyOffer,
-}: {
-  myOffer: string;
-  balance: number;
-  isFreeMode: boolean;
-  onOfferChange: (val: string) => void;
-  onQuickBet: (n: number) => void;
-  onMaxBet: () => void;
-  displayMyOffer: string;
-}) {
-  const myNum = parseInt(displayMyOffer, 10) || 0;
-  const overBalance = myNum > balance;
-  const unit = isFreeMode ? "mol" : "MC";
-  const accent = isFreeMode ? "fuchsia" : "fuchsia";
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative z-10 mx-auto flex w-full max-w-md flex-col items-stretch gap-2 px-3 py-3 sm:max-w-lg"
-    >
-      <div className={`border bg-black/90 px-3 py-2.5 shadow-[0_0_24px_rgba(168,85,247,0.12)] ${isFreeMode ? "border-cyan-500/35" : "border-fuchsia-500/35"}`}>
-        <p
-          className={`text-center text-[11px] font-black uppercase tracking-[0.35em] ${isFreeMode ? "text-cyan-300" : "text-fuchsia-300"}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        >
-          Your bet
-        </p>
-        <p
-          className="text-center text-xl font-black tabular-nums text-white sm:text-2xl"
-          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 16px rgba(34,211,238,0.35)" }}
-        >
-          {myNum} {unit}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-          {[1, 5, 10].map((n, i) => (
-            <span key={n} className="flex items-center gap-1.5">
-              {i > 0 && <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>}
-              <button
-                type="button"
-                onClick={() => onQuickBet(n)}
-                disabled={balance < n}
-                className={`border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 disabled:opacity-30 ${isFreeMode ? "hover:border-cyan-500/50" : "hover:border-fuchsia-500/50"}`}
-              >
-                {n} {unit}
-              </button>
-            </span>
-          ))}
-          <span className={`select-none ${isFreeMode ? "text-cyan-600" : "text-fuchsia-600"}`}>•</span>
-          <button
-            type="button"
-            onClick={onMaxBet}
-            disabled={balance < 1}
-            className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 hover:bg-orange-500/25 disabled:opacity-30"
-          >
-            Max
-          </button>
-        </div>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={myOffer}
-          onChange={(e) => onOfferChange(e.target.value)}
-          placeholder="0"
-          className={`mt-2 w-full border bg-zinc-950 py-1.5 text-center text-sm font-black text-white placeholder-zinc-700 focus:outline-none tabular-nums ${isFreeMode ? "border-cyan-500/30 focus:border-cyan-400" : "border-fuchsia-500/30 focus:border-fuchsia-400"}`}
-          style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-        />
-        {overBalance && (
-          <p className="mt-1 text-center text-[10px] font-bold text-red-400">Max {balance} {unit}</p>
-        )}
-        <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-          Balance <span className="font-black text-cyan-300 tabular-nums">{balance} {unit}</span>
-        </p>
-      </div>
-    </motion.div>
-  );
-}
-
 function PotMergeBurst({ perPlayer, potTotal, isFreeMode }: { perPlayer: number; potTotal: number; isFreeMode: boolean }) {
   const unit = isFreeMode ? "mol" : "MC";
   return (
@@ -1622,140 +1469,6 @@ function PotMergeBurst({ perPlayer, potTotal, isFreeMode }: { perPlayer: number;
         {potTotal} {unit}
       </motion.div>
     </div>
-  );
-}
-
-function ThePotNegotiationStrip({
-  match,
-  timeLeft,
-  myOffer,
-  balance,
-  isFreeMode,
-  onOfferChange,
-  onQuickBet,
-  onMaxBet,
-  displayMyOffer,
-  displayOppOffer,
-}: {
-  match: MatchRow;
-  timeLeft: number;
-  myOffer: string;
-  balance: number;
-  isFreeMode: boolean;
-  onOfferChange: (val: string) => void;
-  onQuickBet: (n: number) => void;
-  onMaxBet: () => void;
-  displayMyOffer: string;
-  displayOppOffer: string;
-}) {
-  const p1 = match.player1_bet_offer ?? null;
-  const p2 = match.player2_bet_offer ?? null;
-  const myNum = parseInt(displayMyOffer, 10) || 0;
-  const oppNum = parseInt(displayOppOffer, 10) || 0;
-  const agreed = p1 !== null && p2 !== null && p1 === p2 && p1 > 0;
-  const perPlayer = agreed ? p1 : null;
-  const potTotal = agreed ? p1 * 2 : null;
-  const overBalance = myNum > balance;
-  const unit = isFreeMode ? "mol" : "MC";
-
-  const [mergeKey, setMergeKey] = useState(0);
-  const prevAgreed = useRef(false);
-  useEffect(() => {
-    if (agreed && !prevAgreed.current) setMergeKey((k) => k + 1);
-    prevAgreed.current = agreed;
-  }, [agreed]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative z-10 mx-auto w-full max-w-md px-3 py-3 sm:max-w-lg"
-    >
-      <div className="border-2 border-amber-500/45 bg-black/95 px-3 py-3 shadow-[0_0_32px_rgba(245,158,11,0.12)]">
-        <h2
-          className="text-center text-lg font-black uppercase tracking-[0.2em] text-amber-300 sm:text-xl"
-          style={{
-            fontFamily: "var(--font-ibm-plex-mono)",
-            textShadow: "0 0 18px rgba(251,191,36,0.55)",
-          }}
-        >
-          The pot
-        </h2>
-        <p
-          className={`mt-1 text-center text-[10px] font-black uppercase tracking-widest ${timeLeft <= 3 ? "text-red-400" : "text-zinc-500"}`}
-        >
-          {agreed ? "Bets merged — heading live" : `Negotiate · ${timeLeft}s left`}
-        </p>
-
-        {!agreed && (
-          <>
-            <div className="mt-2 flex justify-center gap-6 text-[11px] font-mono sm:text-xs">
-              <span className="text-cyan-300">You {myNum || "—"}</span>
-              <span className="text-fuchsia-300">Opp {oppNum || "—"}</span>
-            </div>
-            {p1 !== null && p2 !== null && p1 !== p2 && (
-              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-yellow-500">
-                Same amount both sides to fill the pot
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-              {[1, 5, 10].map((n, i) => (
-                <span key={n} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-amber-700/80 select-none">•</span>}
-                  <button
-                    type="button"
-                    onClick={() => onQuickBet(n)}
-                    disabled={balance < n}
-                    className="border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black uppercase text-zinc-200 hover:border-amber-500/40 disabled:opacity-30"
-                  >
-                    {n} {unit}
-                  </button>
-                </span>
-              ))}
-              <span className="text-amber-700/80 select-none">•</span>
-              <button
-                type="button"
-                onClick={onMaxBet}
-                disabled={balance < 1}
-                className="border border-orange-500/60 bg-orange-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-orange-200 disabled:opacity-30"
-              >
-                Max
-              </button>
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={myOffer}
-              onChange={(e) => onOfferChange(e.target.value)}
-              placeholder="0"
-              className="mt-2 w-full border border-amber-500/30 bg-zinc-950 py-1.5 text-center text-sm font-black text-white focus:border-amber-400 focus:outline-none tabular-nums"
-              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-            />
-            {overBalance && (
-              <p className="mt-1 text-center text-[10px] font-bold text-red-400">Capped at {balance} {unit}</p>
-            )}
-          </>
-        )}
-
-        {agreed && perPlayer !== null && potTotal !== null && (
-          <div className="mt-2">
-            <PotMergeBurst key={mergeKey} perPlayer={perPlayer} potTotal={potTotal} isFreeMode={isFreeMode} />
-            <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/90">
-              Winner takes {potTotal} {unit}
-            </p>
-          </div>
-        )}
-
-        <div className="mt-3 h-1 w-full overflow-hidden rounded bg-zinc-900">
-          <motion.div
-            className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-amber-500"}`}
-            animate={{ width: `${(timeLeft / 10) * 100}%` }}
-            transition={{ duration: 0.2 }}
-          />
-        </div>
-      </div>
-    </motion.div>
   );
 }
 
@@ -1845,7 +1558,7 @@ function PlayerPanel({
   isTyping,
   phase,
   isReady,
-  score,
+  score: _score,
   isSearching = false,
   queueTimedOut = false,
   pslBadge = null,
