@@ -268,6 +268,30 @@ export async function checkArenaState(accessToken: string) {
   return { activeMatch: activeMatch ?? null, opponentName, userId };
 }
 
+async function cancelStaleMatch(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  match: { id: string; player1_id: string; player2_id: string | null; bet_amount: number; is_free_match: boolean; status: string }
+) {
+  await supabase.from("matches").update({ status: "cancelled" }).eq("id", match.id);
+
+  // Refund both players if bets were deducted (live matches already had bets taken)
+  if (match.status === "live" && match.bet_amount > 0 && match.player2_id) {
+    const col = match.is_free_match ? "molecules" : "total_credits";
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select(`user_id, ${col}`)
+      .in("user_id", [match.player1_id, match.player2_id]);
+
+    for (const p of profiles ?? []) {
+      const current = (p as Record<string, number>)[col] ?? 0;
+      await supabase
+        .from("profiles")
+        .update({ [col]: current + match.bet_amount })
+        .eq("user_id", p.user_id);
+    }
+  }
+}
+
 export async function loadBattleQueueState(accessToken: string) {
   noStore();
   const userId = await requirePrivyUser(accessToken);
@@ -280,6 +304,19 @@ export async function loadBattleQueueState(accessToken: string) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Cancel matches stuck in live > 45s or in waiting/matched > 90s
+  if (activeMatch) {
+    const age = Date.now() - new Date(activeMatch.started_at ?? activeMatch.created_at).getTime();
+    const isStale =
+      (activeMatch.status === "live" && age > 45_000) ||
+      (activeMatch.status !== "live" && age > 90_000);
+
+    if (isStale) {
+      await cancelStaleMatch(supabase, activeMatch);
+      return { activeMatch: null, opponentName: null, userId };
+    }
+  }
 
   // If user is waiting (not yet matched), try to pair with another waiting player.
   // This handles the race condition where both players create "waiting" rows simultaneously.
