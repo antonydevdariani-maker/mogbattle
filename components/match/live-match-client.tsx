@@ -70,7 +70,7 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted, unlockAudio } = useAgoraVideo({
+  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted, unlockAudio, mediaError } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
     enabled: !isCompleted,
@@ -246,6 +246,14 @@ export function LiveMatchClient({
           </div>
         </div>
       </div>
+
+      {/* Connection error banner */}
+      {mediaError && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <span className="shrink-0">⚠</span>
+          <span>{mediaError}</span>
+        </div>
+      )}
 
       {/* Camera feeds — side by side on desktop, stacked on mobile */}
       <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
