@@ -1678,6 +1678,7 @@ function PlayerPanel({
       <div className="relative min-h-[10rem] flex-1 bg-zinc-950 md:min-h-[12rem]">
         <div
           ref={videoRef}
+          id={isYou ? "vonage-local-video" : "vonage-remote-video"}
           className={`absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover${isYou ? " [&>video]:scale-x-[-1]" : ""}`}
         />
 
