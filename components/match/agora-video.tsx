@@ -267,6 +267,31 @@ export function useAgoraVideo({
     };
   }, [enabled, channelName, uid, localReady]);
 
+  /**
+   * Explicitly tears down the Agora session — call this before navigating away
+   * (Dashboard / Rematch buttons). Keeps the session alive until the player
+   * chooses to leave, regardless of prop changes caused by router.refresh().
+   */
+  function leaveChannel() {
+    const client = clientRef.current;
+    clientRef.current = null;
+    if (client) void client.leave().catch(() => {});
+
+    try { localVideoRef.current?.stop(); } catch { /* ignore */ }
+    try { localVideoRef.current?.close(); } catch { /* ignore */ }
+    try { localAudioRef.current?.stop(); } catch { /* ignore */ }
+    try { localAudioRef.current?.close(); } catch { /* ignore */ }
+    localVideoRef.current = null;
+    localAudioRef.current = null;
+    remoteAudioRef.current = null;
+    tracksCreated.current = false;
+
+    setJoined(false);
+    setLocalReady(false);
+    setRemoteVideoTrack(null);
+    setRemoteAudioTrack(null);
+  }
+
   return {
     localVideoTrack: localReady ? localVideoRef.current : null,
     remoteVideoTrack,
@@ -276,6 +301,7 @@ export function useAgoraVideo({
     opponentLeft,
     audioMuted,
     unlockAudio,
+    leaveChannel,
   };
 }
 

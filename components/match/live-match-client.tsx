@@ -70,10 +70,15 @@ export function LiveMatchClient({
 }) {
   const isCompleted = initialStatus === "completed";
 
-  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted, unlockAudio, mediaError } = useAgoraVideo({
+  // Keep RTC alive through the victory/defeat screen. This is local state so
+  // router.refresh() (which updates initialStatus → "completed") does NOT flip
+  // enabled to false — only explicit navigation via leaveChannel() does.
+  const [rtcEnabled, setRtcEnabled] = useState(!isCompleted);
+
+  const { localVideoTrack, remoteVideoTrack, opponentLeft, audioMuted, unlockAudio, mediaError, leaveChannel } = useAgoraVideo({
     channelName: matchId,
     uid: isPlayer1 ? 1 : 2,
-    enabled: !isCompleted,
+    enabled: rtcEnabled,
   });
 
   const localVideoRef = useRef<VideoBoxHandle>(null);
@@ -121,6 +126,9 @@ export function LiveMatchClient({
   }, [isCompleted, initialAiP1, initialAiP2]);
 
   useEffect(() => {
+    // Guard: ignore if already finished — the game was decided before opponent left Agora.
+    // We intentionally do NOT null remoteVideoTrack here so the video feed can linger
+    // during the victory screen even if the opponent disconnects after the verdict.
     if (!opponentLeft || isCompleted || opponentAbandoned || phase === "done") return;
     setOpponentAbandoned(true);
     setPhase("done");
@@ -605,13 +613,21 @@ export function LiveMatchClient({
 
             <div className="relative flex gap-3">
               <button
-                onClick={() => router.push("/battle")}
+                onClick={() => {
+                  setRtcEnabled(false);
+                  leaveChannel();
+                  router.push("/battle");
+                }}
                 className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
               >
                 {testMode ? "Battle for real" : "Rematch"}
               </button>
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={() => {
+                  setRtcEnabled(false);
+                  leaveChannel();
+                  router.push("/dashboard");
+                }}
                 className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
               >
                 Dashboard
