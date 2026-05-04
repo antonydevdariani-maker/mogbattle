@@ -14,6 +14,7 @@ import {
   Shield,
   Crown,
   User,
+  MessageSquare,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ export function AppNav() {
   const isAuthenticated = useIsLoggedIn();
   const [credits, setCredits] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +53,7 @@ export function AppNav() {
         const row = await loadProfileSummary(authToken);
         setCredits(row?.total_credits ?? 0);
         setAvatarUrl(row?.avatar_url ?? null);
+        setUsername(row?.username ?? null);
       } catch {
         setCredits(0);
       }
@@ -171,6 +174,16 @@ export function AppNav() {
               <span className="text-xs text-zinc-600 font-bold uppercase">MC</span>
             </div>
           </div>
+          {(username === "Ryan_rrv" || username === "vibecodedthis") && (
+            <button
+              type="button"
+              className="border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"
+              onClick={() => tryNavigate("/messages")}
+            >
+              <MessageSquare className="size-3.5" />
+              <span className="hidden sm:inline">Messages</span>
+            </button>
+          )}
           <button
             type="button"
             className="border border-white/10 text-zinc-500 hover:text-white hover:border-white/30 px-3 h-9 text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5"
