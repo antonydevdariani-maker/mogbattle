@@ -262,9 +262,7 @@ export function LiveMatchClient({
           <LocalVideoBox
             ref={localVideoRef}
             track={localVideoTrack}
-            label="YOU"
             accentColor="fuchsia"
-            showFaceMesh
           />
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
@@ -300,9 +298,7 @@ export function LiveMatchClient({
           <RemoteVideoBox
             ref={remoteVideoRef}
             track={remoteVideoTrack}
-            label="OPPONENT"
             accentColor="red"
-            showFaceMesh
             overlay={
               audioMuted ? (
                 <button
