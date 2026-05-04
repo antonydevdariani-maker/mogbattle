@@ -449,12 +449,13 @@ export function ArenaClient({
   useEffect(() => {
     if (phase !== "live" || !match?.id) return;
     let cancelled = false;
-    fetch(`/api/vonage-token?matchId=${match.id}`)
+    const uid = isP1 ? 1 : 2;
+    fetch(`/api/vonage-token?matchId=${match.id}&uid=${uid}`)
       .then((r) => r.json())
       .then((creds) => {
         if (!cancelled) vonageConnect(creds);
       })
-      .catch((err) => console.error("[Vonage] token fetch error:", err));
+      .catch((err) => console.error("[Video] token fetch error:", err));
     return () => { cancelled = true; };
   }, [phase, match?.id, vonageConnect]);
 
