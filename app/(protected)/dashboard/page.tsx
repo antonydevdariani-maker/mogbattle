@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { Swords, TrendingUp, Trophy, Zap, Atom, Crown } from "lucide-react";
+import { BroadcastPopup } from "@/components/dashboard/broadcast-popup";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
@@ -45,6 +46,7 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-5">
+      <BroadcastPopup />
       {/* Hero action card */}
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
