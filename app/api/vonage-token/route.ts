@@ -1,20 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import crypto from "crypto";
+import { SignJWT, importPKCS8 } from "jose";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const API_KEY = process.env.VONAGE_API_KEY!;
-const API_SECRET = process.env.VONAGE_API_SECRET!;
+const APP_ID = process.env.VONAGE_APP_ID!;
+// Vercel stores with real newlines; .env.local stores with literal \n — handle both
+const PRIVATE_KEY = (process.env.VONAGE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
 
-/** Create a Vonage Video session via REST (no SDK — avoids bundler issues). */
+/** Build a short-lived JWT for authenticating against the Vonage Video REST API. */
+async function buildJwt(): Promise<string> {
+  const privateKey = await importPKCS8(PRIVATE_KEY, "RS256");
+  return new SignJWT({ ist: "project" })
+    .setProtectedHeader({ alg: "RS256" })
+    .setIssuer(APP_ID)
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .setJti(crypto.randomUUID())
+    .sign(privateKey);
+}
+
+/** Create a Vonage Video session via REST with JWT bearer auth. */
 async function createVonageSession(): Promise<string> {
-  const auth = Buffer.from(`${API_KEY}:${API_SECRET}`).toString("base64");
-  const res = await fetch("https://api.opentok.com/session/create", {
+  const jwt = await buildJwt();
+  const res = await fetch("https://video.api.vonage.com/session/create", {
     method: "POST",
     headers: {
-      Authorization: `Basic ${auth}`,
+      Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
     },
@@ -29,14 +43,11 @@ async function createVonageSession(): Promise<string> {
 }
 
 /**
- * Generate a Vonage Video publisher token manually.
- * Format: T1==base64(partner_id=<key>&sig=<hmac>:<dataString>)
+ * Generate a Vonage Video publisher token (T1== format).
+ * sig = HMAC-SHA1(dataString, APP_ID) — Vonage uses App ID as the HMAC key
+ * when authenticating with App ID + Private Key.
  */
-function generateToken(
-  sessionId: string,
-  role = "publisher",
-  expireSeconds = 7200
-): string {
+function generateToken(sessionId: string, role = "publisher", expireSeconds = 7200): string {
   const now = Math.floor(Date.now() / 1000);
   const nonce = Math.floor(Math.random() * 999999);
 
@@ -50,11 +61,11 @@ function generateToken(
   const dataString = parts.join("&");
 
   const sig = crypto
-    .createHmac("sha1", API_SECRET)
+    .createHmac("sha1", APP_ID)
     .update(dataString)
     .digest("hex");
 
-  const tokenData = `partner_id=${API_KEY}&sig=${sig}:${dataString}`;
+  const tokenData = `partner_id=${APP_ID}&sig=${sig}:${dataString}`;
   return `T1==${Buffer.from(tokenData).toString("base64")}`;
 }
 
@@ -66,8 +77,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "missing matchId" }, { status: 400 });
   }
 
-  if (!API_KEY || !API_SECRET) {
-    console.error("[Vonage] VONAGE_API_KEY or VONAGE_API_SECRET is not set");
+  if (!APP_ID || !PRIVATE_KEY) {
+    console.error("[Vonage] VONAGE_APP_ID or VONAGE_PRIVATE_KEY is not set");
     return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
   }
 
@@ -89,7 +100,6 @@ export async function GET(req: NextRequest) {
     try {
       const newSessionId = await createVonageSession();
 
-      // Only write if still null — prevents race between both players
       const { data: updated } = await supabase
         .from("matches")
         .update({ vonage_session_id: newSessionId })
@@ -119,5 +129,5 @@ export async function GET(req: NextRequest) {
   }
 
   const token = generateToken(sessionId);
-  return NextResponse.json({ sessionId, token, apiKey: API_KEY });
+  return NextResponse.json({ sessionId, token, apiKey: APP_ID });
 }
