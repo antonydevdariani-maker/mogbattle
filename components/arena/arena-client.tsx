@@ -68,8 +68,36 @@ const DOM_TRAITS = [
 ];
 const FLAW_TRAITS = [
   "Skin Texture", "Acne / Blemishes", "Uneven Tone", "Hair Health",
-  "Posture", "Facial Fat", "Grooming Habits", "Style Fit", "Sleep / Eye Bags",
+  "Posture", "Facial Fat", "Style Fit", "Sleep / Eye Bags",
 ];
+
+function mapDomTrait(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes("jaw") || r.includes("chin") || r.includes("gonial")) return "Jawline Definition";
+  if (r.includes("eye") || r.includes("canthal") || r.includes("orbital") || r.includes("hunter")) return "Eye Area";
+  if (r.includes("skin") || r.includes("complexion") || r.includes("clear") || r.includes("smooth")) return "Skin Clarity";
+  if (r.includes("hair") && !r.includes("loss") && !r.includes("thin")) return "Hair Quality";
+  if (r.includes("symmet")) return "Symmetry";
+  if (r.includes("physique") || r.includes("body") || r.includes("muscl") || r.includes("lean")) return "Physique";
+  if (r.includes("style") || r.includes("fashion") || r.includes("cloth") || r.includes("fit")) return "Style / Fashion";
+  if (r.includes("groom") || r.includes("hygiene")) return "Grooming";
+  if (r.includes("confid") || r.includes("presence") || r.includes("charisma")) return "Confidence";
+  if (r.includes("bone") || r.includes("struct") || r.includes("propor") || r.includes("facial") || r.includes("cheek") || r.includes("malar")) return "Facial Structure";
+  return DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
+}
+
+function mapFlawTrait(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes("acne") || r.includes("blemish") || r.includes("pimple") || r.includes("spot")) return "Acne / Blemishes";
+  if (r.includes("texture") || r.includes("rough") || r.includes("pore")) return "Skin Texture";
+  if (r.includes("tone") || r.includes("pigment") || r.includes("uneven") || r.includes("dark spot") || r.includes("hyperpig")) return "Uneven Tone";
+  if (r.includes("hair") && (r.includes("loss") || r.includes("thin") || r.includes("reced") || r.includes("greasy") || r.includes("dandruff"))) return "Hair Health";
+  if (r.includes("posture") || r.includes("forward head") || r.includes("slump") || r.includes("hunch")) return "Posture";
+  if (r.includes("fat") || r.includes("chubby") || r.includes("round face") || r.includes("double chin") || r.includes("jowl") || r.includes("bloat")) return "Facial Fat";
+  if (r.includes("style") || r.includes("fashion") || r.includes("cloth") || r.includes("fit") || r.includes("drip")) return "Style Fit";
+  if (r.includes("eye bag") || r.includes("undereye") || r.includes("dark circle") || r.includes("tired") || r.includes("sleep") || r.includes("puffy")) return "Sleep / Eye Bags";
+  return FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
+}
 
 function formatQueueHandle(username: string | null, wallet: string | null): string {
   const w = wallet?.trim();
@@ -443,8 +471,10 @@ export function ArenaClient({
           if (typeof v === "string" && v && v !== "n/a" && v !== "none") return v;
           return null;
         };
-        const dom = pickStr(data.strengths) ?? DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
-        const flaw = pickStr(data.failos) ?? FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
+        const rawDom = pickStr(data.strengths);
+        const rawFlaw = pickStr(data.failos);
+        const dom = rawDom ? mapDomTrait(rawDom) : DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
+        const flaw = rawFlaw ? mapFlawTrait(rawFlaw) : FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
         return { psl: data.psl as number, dom, flaw };
       } catch { return null; }
     }
@@ -727,11 +757,13 @@ export function ArenaClient({
         if (typeof v === "string" && v && v !== "n/a" && v !== "none") return v;
         return undefined;
       };
+      const rawS = pickOne(data.strengths);
+      const rawF = pickOne(data.failos);
       return {
         psl: Number(data.psl.toFixed(2)),
         tier: data.tier ?? undefined,
-        strengths: pickOne(data.strengths),
-        failos: pickOne(data.failos),
+        strengths: rawS ? mapDomTrait(rawS) : undefined,
+        failos: rawF ? mapFlawTrait(rawF) : undefined,
       };
     } catch { return null; }
   }
@@ -1000,7 +1032,7 @@ export function ArenaClient({
             score={isP1 ? myScore : oppScore}
             isSearching={false}
             queueTimedOut={queueTimedOut}
-            pslBadge={myPsl}
+            pslBadge={["done","verdict","analyzing"].includes(phase) && myScore !== null ? myScore : myPsl}
             isFreeMode={isFreeMode}
             isFounder={isFounder}
             videoContainerRef={myVideoContainerRef}
@@ -1066,7 +1098,7 @@ export function ArenaClient({
             isSearching={isQueued && !queueTimedOut}
             queueTimedOut={queueTimedOut}
             isFreeMode={isFreeMode}
-            pslBadge={oppPsl}
+            pslBadge={["done","verdict","analyzing"].includes(phase) && oppScore !== null ? oppScore : oppPsl}
             videoContainerRef={oppVideoContainerRef}
             isFounder={oppIsFounder}
             rematchReady={oppRematchReady}
@@ -1484,10 +1516,10 @@ const TIER_INFO: Record<string, { icon: string; label: string; color: string }> 
 };
 
 function ArenaPslCard({
-  psl, tier, dom, flaw, label,
+  psl, tier, dom, flaw, label, locked = false,
 }: {
   psl: number | null; tier?: string; dom?: string | null; flaw?: string | null;
-  label: "YOUR SCAN" | "ENEMY SCAN";
+  label: "YOUR SCAN" | "ENEMY SCAN"; locked?: boolean;
 }) {
   // Stable fallbacks picked once on mount — guarantees DOM/FLAW always visible from first render
   const fallbackDom = useRef(DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)]);
@@ -1496,19 +1528,16 @@ function ArenaPslCard({
   const displayDom = (dom && dom !== "n/a") ? dom : fallbackDom.current;
   const displayFlaw = (flaw && flaw !== "none" && flaw !== "n/a") ? flaw : fallbackFlaw.current;
 
-  // While no real scan yet, pulse a simulated number up/down so the card looks live
+  // Simulate a drifting number while waiting for real scan; stops when psl arrives or battle ends
   const baseRef = useRef(+(3.5 + Math.random() * 2.5).toFixed(1));
   const [simPsl, setSimPsl] = useState<number>(baseRef.current);
   useEffect(() => {
-    if (psl !== null) return; // real data arrived — stop simulation
+    if (psl !== null || locked) return;
     const id = setInterval(() => {
-      setSimPsl((prev) => {
-        const delta = (Math.random() * 0.4 - 0.2);
-        return +Math.min(8, Math.max(1, prev + delta)).toFixed(1);
-      });
+      setSimPsl((prev) => +Math.min(8, Math.max(1, prev + (Math.random() * 0.4 - 0.2))).toFixed(1));
     }, 900);
     return () => clearInterval(id);
-  }, [psl]);
+  }, [psl, locked]);
 
   const displayPsl = psl !== null ? psl : simPsl;
   const isReal = psl !== null;
@@ -2038,6 +2067,7 @@ function PlayerPanel({
               dom={liveDom ?? aiResult?.strengths}
               flaw={liveFlaw ?? aiResult?.failos}
               label={isYou ? "YOUR SCAN" : "ENEMY SCAN"}
+              locked={["done","verdict","analyzing"].includes(phase)}
             />
           </div>
         )}
