@@ -1917,13 +1917,13 @@ function PlayerPanel({
           </div>
         )}
         {/* PSL card overlay — top-left of video, shown from verdict onwards */}
-        {aiResult && aiResult.psl > 0 && ["verdict", "done"].includes(phase) && (
-          <div className="absolute top-2 left-2 z-20">
+        {["verdict", "done"].includes(phase) && (pslBadge ?? 0) > 0 && (
+          <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
-              psl={aiResult.psl}
-              tier={aiResult.tier}
-              dom={aiResult.strengths}
-              flaw={aiResult.failos}
+              psl={aiResult?.psl ?? pslBadge!}
+              tier={aiResult?.tier}
+              dom={aiResult?.strengths}
+              flaw={aiResult?.failos}
               label={isYou ? "YOUR SCAN" : "ENEMY SCAN"}
             />
           </div>

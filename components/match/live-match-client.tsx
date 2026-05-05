@@ -327,8 +327,8 @@ export function LiveMatchClient({
             track={localVideoTrack}
             accentColor="fuchsia"
             cardOverlay={
-              phase === "done" && myDisplayResult && myDisplayResult.psl > 0
-                ? <PslCard psl={myDisplayResult.psl} tier={myDisplayResult.tier} dom={myDisplayResult.strengths ?? undefined} flaw={myDisplayResult.failos ?? undefined} label="YOUR SCAN" />
+              phase === "done" && (myDisplayResult?.psl ?? myScore ?? 0) > 0
+                ? <PslCard psl={myDisplayResult?.psl ?? myScore!} tier={myDisplayResult?.tier} dom={myDisplayResult?.strengths ?? undefined} flaw={myDisplayResult?.failos ?? undefined} label="YOUR SCAN" />
                 : undefined
             }
           />
@@ -368,8 +368,8 @@ export function LiveMatchClient({
             track={remoteVideoTrack}
             accentColor="red"
             cardOverlay={
-              phase === "done" && oppDisplayResult && oppDisplayResult.psl > 0
-                ? <PslCard psl={oppDisplayResult.psl} tier={oppDisplayResult.tier} dom={oppDisplayResult.strengths ?? undefined} flaw={oppDisplayResult.failos ?? undefined} label="ENEMY SCAN" />
+              phase === "done" && (oppDisplayResult?.psl ?? oppScore ?? 0) > 0
+                ? <PslCard psl={oppDisplayResult?.psl ?? oppScore!} tier={oppDisplayResult?.tier} dom={oppDisplayResult?.strengths ?? undefined} flaw={oppDisplayResult?.failos ?? undefined} label="ENEMY SCAN" />
                 : undefined
             }
             overlay={
