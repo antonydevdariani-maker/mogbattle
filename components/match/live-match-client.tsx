@@ -8,6 +8,59 @@ import { finalizeMatchResult, finalizeFreeMatchResult, forfeitMatch, rematchSame
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 
+const TIER_INFO: Record<string, { icon: string; label: string; color: string }> = {
+  chad:     { icon: "🔥", label: "CHAD",     color: "#e879f9" },
+  chadlite: { icon: "⚜",  label: "CHADLITE", color: "#22d3ee" },
+  htn:      { icon: "★",  label: "HTN",       color: "#86efac" },
+  mtn:      { icon: "◈",  label: "MTN",       color: "#d4d4d8" },
+  ltn:      { icon: "🌙", label: "LTN",       color: "#a1a1aa" },
+  sub5:     { icon: "💀", label: "SUB5",      color: "#f87171" },
+};
+
+function PslCard({
+  psl, tier, dom, flaw, label,
+}: {
+  psl: number; tier?: string; dom?: string; flaw?: string;
+  label: "YOUR SCAN" | "ENEMY SCAN";
+}) {
+  const t = tier ? TIER_INFO[tier] : null;
+  return (
+    <div className="rounded-2xl bg-black/60 backdrop-blur-md px-3 py-2.5 space-y-1.5 min-w-[130px] max-w-[160px] border border-white/[0.08] shadow-xl">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none mb-1">Overall Score</p>
+          <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-heading)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
+            {psl.toFixed(1)}
+          </p>
+        </div>
+        <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-500 text-right leading-tight mt-0.5 shrink-0">{label}</p>
+      </div>
+      {t && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm leading-none">{t.icon}</span>
+          <span className="text-[10px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
+        </div>
+      )}
+      {(dom || flaw) && (
+        <div className="space-y-0.5 pt-1 border-t border-white/[0.08]">
+          {dom && dom !== "n/a" && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[8px] font-black uppercase text-zinc-400 w-6 shrink-0 mt-px">DOM</span>
+              <span className="text-[9px] text-zinc-200 leading-tight line-clamp-1">{dom}</span>
+            </div>
+          )}
+          {flaw && flaw !== "none" && flaw !== "n/a" && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[8px] font-black uppercase text-red-400 w-6 shrink-0 mt-px">FLAW</span>
+              <span className="text-[9px] text-red-300 leading-tight line-clamp-1">{flaw}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const METRICS = [
   "Jawline Definition",
   "Hunter Eye Angle",
@@ -273,6 +326,11 @@ export function LiveMatchClient({
             ref={localVideoRef}
             track={localVideoTrack}
             accentColor="fuchsia"
+            cardOverlay={
+              phase === "done" && myDisplayResult && myDisplayResult.psl > 0
+                ? <PslCard psl={myDisplayResult.psl} tier={myDisplayResult.tier} dom={myDisplayResult.strengths ?? undefined} flaw={myDisplayResult.failos ?? undefined} label="YOUR SCAN" />
+                : undefined
+            }
           />
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
@@ -309,6 +367,11 @@ export function LiveMatchClient({
             ref={remoteVideoRef}
             track={remoteVideoTrack}
             accentColor="red"
+            cardOverlay={
+              phase === "done" && oppDisplayResult && oppDisplayResult.psl > 0
+                ? <PslCard psl={oppDisplayResult.psl} tier={oppDisplayResult.tier} dom={oppDisplayResult.strengths ?? undefined} flaw={oppDisplayResult.failos ?? undefined} label="ENEMY SCAN" />
+                : undefined
+            }
             overlay={
               audioMuted ? (
                 <button

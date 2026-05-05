@@ -312,7 +312,8 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   track: ICameraVideoTrack | null;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}>(function LocalVideoBox({ track, accentColor, overlay }, ref) {
+  cardOverlay?: React.ReactNode;
+}>(function LocalVideoBox({ track, accentColor, overlay, cardOverlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -326,7 +327,7 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   }, [track]);
 
   return (
-    <VideoShell containerRef={containerRef} accentColor={accentColor} overlay={overlay} mirrored />
+    <VideoShell containerRef={containerRef} accentColor={accentColor} overlay={overlay} cardOverlay={cardOverlay} mirrored />
   );
 });
 
@@ -335,7 +336,8 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   track: IRemoteVideoTrack | null;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
-}>(function RemoteVideoBox({ track, accentColor, overlay }, ref) {
+  cardOverlay?: React.ReactNode;
+}>(function RemoteVideoBox({ track, accentColor, overlay, cardOverlay }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -354,6 +356,7 @@ export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
       containerId={REMOTE_VIDEO_EL_ID}
       accentColor={accentColor}
       overlay={overlay}
+      cardOverlay={cardOverlay}
     />
   );
 });
@@ -375,12 +378,14 @@ function VideoShell({
   containerId,
   accentColor,
   overlay,
+  cardOverlay,
   mirrored,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   containerId?: string;
   accentColor: "fuchsia" | "red";
   overlay?: React.ReactNode;
+  cardOverlay?: React.ReactNode;
   mirrored?: boolean;
 }) {
   const borderClass = accentColor === "fuchsia" ? "border-fuchsia-500/50" : "border-red-500/50";
@@ -394,6 +399,12 @@ function VideoShell({
           className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover"
           style={mirrored ? { transform: "scaleX(-1)" } : undefined}
         />
+
+        {cardOverlay && (
+          <div className="absolute top-0 left-0 z-10 p-2">
+            {cardOverlay}
+          </div>
+        )}
 
         {overlay && (
           <div className="absolute inset-x-0 top-0 flex justify-center pt-3 z-10">

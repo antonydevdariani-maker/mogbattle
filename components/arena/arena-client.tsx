@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
+type ArenaAiResult = { psl: number; tier?: string; strengths?: string; failos?: string } | null;
 type ArenaPhase =
   | "idle"
   | "queued"
@@ -154,6 +155,10 @@ export function ArenaClient({
   // ── Post-match rematch signaling ──────────────────────────────────────────────
   const [myRematchReady, setMyRematchReady] = useState(false);
   const [oppRematchReady, setOppRematchReady] = useState(false);
+
+  // Full AI results for PSL card overlays on camera feeds
+  const [myAiResult, setMyAiResult] = useState<ArenaAiResult>(null);
+  const [oppAiResult, setOppAiResult] = useState<ArenaAiResult>(null);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -674,7 +679,7 @@ export function ArenaClient({
     router.push("/dashboard");
   }
 
-  async function judgeContainer(containerRef: React.RefObject<HTMLDivElement | null>, mirror = false): Promise<number | null> {
+  async function judgeContainer(containerRef: React.RefObject<HTMLDivElement | null>, mirror = false): Promise<ArenaAiResult> {
     const video = containerRef.current?.querySelector("video");
     if (!video || !video.videoWidth) return null;
     try {
@@ -690,8 +695,14 @@ export function ArenaClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64 }),
       });
-      const data = await res.json();
-      return (data.psl && data.psl > 0) ? Number((data.psl as number).toFixed(2)) : null;
+      const data = await res.json() as { psl?: number; tier?: string; strengths?: string; failos?: string };
+      if (!data.psl || data.psl <= 0) return null;
+      return {
+        psl: Number(data.psl.toFixed(2)),
+        tier: data.tier ?? undefined,
+        strengths: data.strengths ?? undefined,
+        failos: data.failos ?? undefined,
+      };
     } catch { return null; }
   }
 
@@ -724,13 +735,17 @@ export function ArenaClient({
 
     if (isP1) {
       // Wait for both AI results — already running in parallel with animation
-      const [p1Psl, p2Psl] = await Promise.all([p1JudgePromise, p2JudgePromise]);
+      const [p1Result, p2Result] = await Promise.all([p1JudgePromise, p2JudgePromise]);
 
       // AI PSL is canonical. Only fall back to metric avg if AI returned nothing.
       const metricAvgP1 = Number((scores.reduce((a, s) => a + s.p1, 0) / scores.length).toFixed(2));
       const metricAvgP2 = Number((scores.reduce((a, s) => a + s.p2, 0) / scores.length).toFixed(2));
-      const p1Total = p1Psl ?? metricAvgP1;
-      const p2Total = p2Psl ?? metricAvgP2;
+      const p1Total = p1Result?.psl ?? metricAvgP1;
+      const p2Total = p2Result?.psl ?? metricAvgP2;
+
+      // Store full results for PSL card overlays
+      setMyAiResult(p1Result);
+      setOppAiResult(p2Result);
 
       // Update live PSL HUDs with canonical values
       setMyPsl(p1Total);
@@ -781,7 +796,10 @@ export function ArenaClient({
         });
       }
     } else {
-      // P2: wait for P1's authoritative result broadcast (up to 12s)
+      // P2: fire AI analysis on both cameras concurrently while waiting for P1's broadcast
+      const myJudgePromise = judgeContainer(myVideoContainerRef, true);
+      const oppJudgePromise = judgeContainer(oppVideoContainerRef, false);
+
       setPhase("verdict");
       const received = await new Promise<{ p1Total: number; p2Total: number } | null>((resolve) => {
         // Broadcast may have arrived before we got here — use cached value immediately
@@ -792,6 +810,11 @@ export function ArenaClient({
           resolve(lastResultRef.current); // use cached result if it arrived during wait
         }, 12000);
       });
+
+      // Collect AI results (have had 12s to run during the wait)
+      const [myResult, oppResult] = await Promise.all([myJudgePromise, oppJudgePromise]);
+      if (myResult) setMyAiResult(myResult);
+      if (oppResult) setOppAiResult(oppResult);
 
       if (received) {
         // Scores already set by broadcast listener — update HUDs too
@@ -855,6 +878,8 @@ export function ArenaClient({
     lastResultRef.current = null;
     setMyRematchReady(false);
     setOppRematchReady(false);
+    setMyAiResult(null);
+    setOppAiResult(null);
     refreshBalance();
   }
 
@@ -946,6 +971,7 @@ export function ArenaClient({
             isFounder={isFounder}
             videoContainerRef={myVideoContainerRef}
             rematchReady={myRematchReady}
+            aiResult={myAiResult}
           />
 
           {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
@@ -1014,6 +1040,7 @@ export function ArenaClient({
             videoContainerRef={oppVideoContainerRef}
             isFounder={oppIsFounder}
             rematchReady={oppRematchReady}
+            aiResult={oppAiResult}
           />
           {showAnalysis && (
             <div className="md:hidden">
@@ -1414,6 +1441,61 @@ function IdleScreen({
   );
 }
 
+// ─── PSL Card Overlay ────────────────────────────────────────────────────────
+
+const TIER_INFO: Record<string, { icon: string; label: string; color: string }> = {
+  chad:     { icon: "🔥", label: "CHAD",     color: "#e879f9" },
+  chadlite: { icon: "⚜",  label: "CHADLITE", color: "#22d3ee" },
+  htn:      { icon: "★",  label: "HTN",       color: "#86efac" },
+  mtn:      { icon: "◈",  label: "MTN",       color: "#d4d4d8" },
+  ltn:      { icon: "🌙", label: "LTN",       color: "#a1a1aa" },
+  sub5:     { icon: "💀", label: "SUB5",      color: "#f87171" },
+};
+
+function ArenaPslCard({
+  psl, tier, dom, flaw, label,
+}: {
+  psl: number; tier?: string; dom?: string; flaw?: string;
+  label: "YOUR SCAN" | "ENEMY SCAN";
+}) {
+  const t = tier ? TIER_INFO[tier] : null;
+  return (
+    <div className="rounded-2xl bg-black/60 backdrop-blur-md px-3 py-2.5 space-y-1.5 min-w-[130px] max-w-[160px] border border-white/[0.08] shadow-xl">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none mb-1">Overall Score</p>
+          <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
+            {psl.toFixed(1)}
+          </p>
+        </div>
+        <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-500 text-right leading-tight mt-0.5 shrink-0">{label}</p>
+      </div>
+      {t && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm leading-none">{t.icon}</span>
+          <span className="text-[10px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
+        </div>
+      )}
+      {(dom || flaw) && (
+        <div className="space-y-0.5 pt-1 border-t border-white/[0.08]">
+          {dom && dom !== "n/a" && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[8px] font-black uppercase text-zinc-400 w-6 shrink-0 mt-px">DOM</span>
+              <span className="text-[9px] text-zinc-200 leading-tight line-clamp-1">{dom}</span>
+            </div>
+          )}
+          {flaw && flaw !== "none" && flaw !== "n/a" && (
+            <div className="flex items-start gap-1.5">
+              <span className="text-[8px] font-black uppercase text-red-400 w-6 shrink-0 mt-px">FLAW</span>
+              <span className="text-[9px] text-red-300 leading-tight line-clamp-1">{flaw}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── PSL Tier ────────────────────────────────────────────────────────────────
 
 function pslTier(psl: number): { label: string; color: string } {
@@ -1542,7 +1624,7 @@ function GlowingVS({ large = false }: { large?: boolean }) {
         ],
       }}
       transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-      className={`font-black text-white select-none ${large ? "text-6xl sm:text-7xl md:text-8xl" : "text-5xl md:text-6xl"}`}
+      className={`font-black text-white select-none ${large ? "text-5xl sm:text-6xl md:text-8xl" : "text-3xl sm:text-5xl md:text-6xl"}`}
       style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
     >
       VS
@@ -1625,6 +1707,7 @@ function PlayerPanel({
   isFounder = false,
   videoContainerRef,
   rematchReady = false,
+  aiResult,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1644,6 +1727,7 @@ function PlayerPanel({
   isFounder?: boolean;
   videoContainerRef?: React.RefObject<HTMLDivElement | null>;
   rematchReady?: boolean;
+  aiResult?: ArenaAiResult;
 }) {
   const internalVideoRef = useRef<HTMLDivElement>(null);
   const videoRef = videoContainerRef ?? internalVideoRef;
@@ -1832,6 +1916,19 @@ function PlayerPanel({
             )}
           </div>
         )}
+        {/* PSL card overlay — top-left of video, shown from verdict onwards */}
+        {aiResult && aiResult.psl > 0 && ["verdict", "done"].includes(phase) && (
+          <div className="absolute top-2 left-2 z-20">
+            <ArenaPslCard
+              psl={aiResult.psl}
+              tier={aiResult.tier}
+              dom={aiResult.strengths}
+              flaw={aiResult.failos}
+              label={isYou ? "YOUR SCAN" : "ENEMY SCAN"}
+            />
+          </div>
+        )}
+
         {/* Rematch-ready checkmark overlay — shown on both panels during done phase */}
         <AnimatePresence>
           {rematchReady && phase === "done" && (
