@@ -45,6 +45,10 @@ export default function BeginPage() {
 
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-400 font-bold">MogBattle</p>
+          {/* Temp debug — remove after fix */}
+          <p className="text-[10px] text-zinc-700">
+            sdk:{sdkHasLoaded ? "✓" : "…"} | env:{process.env.NEXT_PUBLIC_DYNAMIC_ENV_ID ? process.env.NEXT_PUBLIC_DYNAMIC_ENV_ID.slice(0,8) : "MISSING"}
+          </p>
           <h1
             className="text-5xl font-black leading-tight text-white uppercase sm:text-6xl"
             style={{ fontFamily: "var(--font-heading)" }}
