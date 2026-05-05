@@ -2,9 +2,14 @@
 
 import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { checkArenaState, loadProfileSummary } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { ArenaClient } from "@/components/arena/arena-client";
+
+const ArenaClient = dynamic(
+  () => import("@/components/arena/arena-client").then((m) => m.ArenaClient),
+  { ssr: false }
+);
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
