@@ -115,7 +115,7 @@ export default function ProfilePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-500/90">Profile</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-500/90">Profile</p>
             {profile?.is_founder && (
               <span className="inline-flex items-center gap-1 border border-amber-400/60 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
                 <Zap className="size-2.5" />
@@ -158,7 +158,7 @@ export default function ProfilePage() {
               type="button"
               disabled={avatarBusy}
               onClick={() => fileRef.current?.click()}
-              className="group relative size-28 shrink-0 overflow-hidden border-2 border-fuchsia-500/50 bg-fuchsia-500/10 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 disabled:opacity-50"
+              className="group relative size-28 shrink-0 overflow-hidden border-2 border-yellow-500/50 bg-yellow-500/10 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50"
             >
               {profile?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -169,7 +169,7 @@ export default function ProfilePage() {
                 />
               ) : (
                 <div className="flex size-full items-center justify-center">
-                  <UserIcon className="size-12 text-fuchsia-300/80" />
+                  <UserIcon className="size-12 text-yellow-300/80" />
                 </div>
               )}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 opacity-0 transition-opacity group-hover:opacity-100">
@@ -206,7 +206,7 @@ export default function ProfilePage() {
                   type="button"
                   disabled={userBusy || !usernameDraft.trim()}
                   onClick={() => void saveUsername()}
-                  className="h-10 bg-fuchsia-600 font-black uppercase tracking-widest text-white hover:bg-fuchsia-500"
+                  className="h-10 bg-yellow-600 font-black uppercase tracking-widest text-white hover:bg-yellow-500"
                 >
                   {userBusy ? <Loader2 className="size-4 animate-spin" /> : "Save"}
                 </Button>
@@ -216,7 +216,7 @@ export default function ProfilePage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/arena"
-                className="inline-flex items-center gap-2 bg-fuchsia-500 text-black px-3 py-2 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                className="inline-flex items-center gap-2 bg-yellow-500 text-black px-3 py-2 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
               >
                 <Swords className="size-3.5" />
                 Arena
@@ -303,7 +303,7 @@ export default function ProfilePage() {
             <p className="text-sm text-zinc-500 uppercase tracking-widest">No completed battles yet.</p>
             <Link
               href="/arena"
-              className="mt-3 inline-block text-xs font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest"
+              className="mt-3 inline-block text-xs font-black text-yellow-400 hover:text-yellow-300 uppercase tracking-widest"
             >
               Hit the arena →
             </Link>

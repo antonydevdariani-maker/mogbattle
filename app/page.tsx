@@ -48,7 +48,7 @@ export default async function Home() {
           >
             MOG OR BE
             <br />
-            <span className="text-fuchsia-400">MOGGED</span>
+            <span className="text-yellow-400">MOGGED</span>
           </h1>
 
           <p className="text-zinc-500 text-lg max-w-xl mx-auto leading-relaxed">
@@ -61,7 +61,7 @@ export default async function Home() {
               href="/begin"
               className={cn(
                 "inline-flex items-center justify-center font-black text-lg px-16 h-14 uppercase tracking-widest",
-                "bg-fuchsia-500 text-black",
+                "bg-yellow-500 text-black",
                 "shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
               )}
             >
@@ -79,7 +79,7 @@ export default async function Home() {
           ].map((s) => (
             <div key={s.label} className="py-7 text-center">
               <p
-                className="text-3xl font-black text-fuchsia-400 tabular-nums"
+                className="text-3xl font-black text-yellow-400 tabular-nums"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 {s.value}
@@ -114,7 +114,7 @@ function Feature({
 }) {
   return (
     <div className="bg-zinc-950 p-5 hover:bg-zinc-900 transition-colors group">
-      <Icon className="mb-3 size-5 text-fuchsia-400 group-hover:text-fuchsia-300 transition-colors" />
+      <Icon className="mb-3 size-5 text-yellow-400 group-hover:text-yellow-300 transition-colors" />
       <p className="text-sm font-bold text-white mb-1 uppercase tracking-wide">{title}</p>
       <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
     </div>

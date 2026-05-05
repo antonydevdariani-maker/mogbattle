@@ -84,7 +84,7 @@ export default function MessagesPage() {
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message to all users..."
           rows={4}
-          className="w-full bg-zinc-900 border border-white/10 text-white text-sm p-3 placeholder-zinc-600 resize-none focus:outline-none focus:border-fuchsia-500/50"
+          className="w-full bg-zinc-900 border border-white/10 text-white text-sm p-3 placeholder-zinc-600 resize-none focus:outline-none focus:border-yellow-500/50"
         />
 
         {error && <p className="text-xs text-red-400">{error}</p>}
@@ -92,7 +92,7 @@ export default function MessagesPage() {
         <button
           onClick={handleSend}
           disabled={sending || !message.trim()}
-          className="flex items-center gap-2 px-5 py-3 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black uppercase tracking-widest transition-colors"
+          className="flex items-center gap-2 px-5 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black uppercase tracking-widest transition-colors"
         >
           {sent ? (
             <>

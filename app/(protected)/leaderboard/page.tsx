@@ -79,9 +79,9 @@ export default function LeaderboardPage() {
       <TopThreePodium rows={rows} />
 
       {yourRank !== null && (
-        <div className="flex items-center justify-between gap-3 border border-fuchsia-500/30 bg-fuchsia-500/5 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3 border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 text-sm">
           <span className="text-zinc-500 uppercase tracking-widest font-bold text-xs">Your rank</span>
-          <span className="font-black text-fuchsia-300 tabular-nums">#{yourRank}</span>
+          <span className="font-black text-yellow-300 tabular-nums">#{yourRank}</span>
         </div>
       )}
       {yourRank === null && rows.length > 0 && yourUserId && (
@@ -109,7 +109,7 @@ export default function LeaderboardPage() {
               <div
                 key={r.user_id}
                 className={`flex items-center gap-3 px-4 py-3 ${
-                  isYou ? "bg-fuchsia-500/10 border-l-2 border-l-fuchsia-500" : "hover:bg-zinc-900/50"
+                  isYou ? "bg-yellow-500/10 border-l-2 border-l-yellow-500" : "hover:bg-zinc-900/50"
                 }`}
               >
                 <div
@@ -139,12 +139,12 @@ export default function LeaderboardPage() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p
                       className={`font-bold uppercase truncate ${isTop3 ? "text-white" : "text-zinc-300"} ${
-                        isYou ? "text-fuchsia-200" : ""
+                        isYou ? "text-yellow-200" : ""
                       }`}
                     >
                       {r.username ?? "Mogger"}
                       {isYou && (
-                        <span className="ml-2 text-[10px] font-black text-fuchsia-400/90 normal-case">(you)</span>
+                        <span className="ml-2 text-[10px] font-black text-yellow-400/90 normal-case">(you)</span>
                       )}
                     </p>
                     {r.is_founder && (
@@ -166,7 +166,7 @@ export default function LeaderboardPage() {
                     {r.elo}
                   </p>
                   <p className="text-[9px] font-bold uppercase text-zinc-600">ELO</p>
-                  <p className="text-[9px] font-black uppercase tracking-tight text-fuchsia-500/80 max-w-[4.5rem] truncate ml-auto">
+                  <p className="text-[9px] font-black uppercase tracking-tight text-yellow-500/80 max-w-[4.5rem] truncate ml-auto">
                     {tierForElo(r.elo).abbr}
                   </p>
                 </div>
@@ -263,7 +263,7 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">ELO ladder</p>
         {yourElo !== null && (
-          <p className="text-[10px] font-bold text-fuchsia-400/90">
+          <p className="text-[10px] font-bold text-yellow-400/90">
             You: <span className="tabular-nums text-white">{yourElo}</span>
             <span className="text-zinc-500 font-black uppercase ml-2">{tierForElo(yourElo).abbr}</span>
           </p>
@@ -290,8 +290,8 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
             style={{ left: `${eloToPercentOnGraph(yourElo)}%` }}
             title={`Your ELO: ${yourElo}`}
           >
-            <span className="text-[8px] font-black text-fuchsia-400 uppercase leading-none mb-0.5">YOU</span>
-            <div className="size-0 border-x-[5px] border-x-transparent border-t-[6px] border-t-fuchsia-400 drop-shadow-[0_0_6px_rgba(217,70,239,0.9)]" />
+            <span className="text-[8px] font-black text-yellow-400 uppercase leading-none mb-0.5">YOU</span>
+            <div className="size-0 border-x-[5px] border-x-transparent border-t-[6px] border-t-yellow-400 drop-shadow-[0_0_6px_rgba(217,70,239,0.9)]" />
           </div>
         )}
         <div className="flex h-8 w-full overflow-hidden rounded-md border border-white/15 shadow-inner">

@@ -1159,7 +1159,7 @@ export function ArenaClient({
             <TikTokVideoPanel
               domId="vonage-local-video"
               label="YOU"
-              accentColor="fuchsia"
+              accentColor="gold"
               mirrored
             />
             <button
@@ -1185,11 +1185,11 @@ function TikTokVideoPanel({
 }: {
   domId: string;
   label: string;
-  accentColor: "fuchsia" | "cyan";
+  accentColor: "gold" | "cyan";
   mirrored: boolean;
 }) {
-  const accent = accentColor === "fuchsia"
-    ? { text: "text-fuchsia-300", border: "border-fuchsia-500/60" }
+  const accent = accentColor === "gold"
+    ? { text: "text-yellow-300", border: "border-yellow-500/60" }
     : { text: "text-cyan-300", border: "border-cyan-500/60" };
 
   return (
@@ -1288,7 +1288,7 @@ function IdleScreen({
     setTimeout(() => onQueue(betNum), 150);
   }
 
-  const accentColor = isFreeMode ? "cyan" : "fuchsia";
+  const accentColor = isFreeMode ? "cyan" : "gold";
 
   return (
     <div className="w-full flex min-h-[calc(100dvh-6rem)] flex-col items-center justify-center gap-6 px-4 py-8">
@@ -1298,7 +1298,7 @@ function IdleScreen({
           className="text-4xl md:text-6xl font-black uppercase text-white leading-none"
           style={{ textShadow: "0 0 40px rgba(168,85,247,0.8)", fontFamily: "var(--font-ibm-plex-mono)" }}
         >
-          ENTER <span className="text-fuchsia-400">ARENA</span>
+          ENTER <span className="text-yellow-400">ARENA</span>
         </h1>
         <p className="text-zinc-600 text-xs uppercase tracking-widest">1v1 · face-off · bet your balance</p>
       </div>
@@ -1311,13 +1311,13 @@ function IdleScreen({
           <button
             onClick={() => onModeChange(false)}
             className={`relative flex flex-col items-center gap-2 border-2 px-4 py-5 transition-all ${
-              !isFreeMode ? "border-fuchsia-500 bg-fuchsia-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
+              !isFreeMode ? "border-yellow-500 bg-yellow-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
             }`}
           >
-            {!isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-fuchsia-400" />}
-            <Zap className={`size-7 ${!isFreeMode ? "text-fuchsia-400" : "text-zinc-600"}`} />
+            {!isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-yellow-400" />}
+            <Zap className={`size-7 ${!isFreeMode ? "text-yellow-400" : "text-zinc-600"}`} />
             <p className={`text-sm font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>MOG Coins</p>
-            <p className={`text-[11px] font-mono ${!isFreeMode ? "text-fuchsia-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
+            <p className={`text-[11px] font-mono ${!isFreeMode ? "text-yellow-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
             {!isFreeMode && balance < 1 && (
               <a href="/wallet" className="text-[10px] text-red-400 underline">Deposit →</a>
             )}
@@ -1344,7 +1344,7 @@ function IdleScreen({
       {/* Step 2 — Set bet */}
       <div className="w-full max-w-sm space-y-2">
         <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Set your bet</p>
-        <div className={`border-2 px-4 py-3 ${accentColor === "cyan" ? "border-cyan-500/40" : "border-fuchsia-500/40"} bg-zinc-950`}>
+        <div className={`border-2 px-4 py-3 ${accentColor === "cyan" ? "border-cyan-500/40" : "border-yellow-500/40"} bg-zinc-950`}>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -1353,10 +1353,10 @@ function IdleScreen({
               max={cap}
               value={betStr}
               onChange={(e) => setBetStr(e.target.value.replace(/\D/g, ""))}
-              className={`flex-1 bg-transparent text-2xl font-black text-center text-white tabular-nums focus:outline-none border-b-2 pb-1 ${accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50"}`}
+              className={`flex-1 bg-transparent text-2xl font-black text-center text-white tabular-nums focus:outline-none border-b-2 pb-1 ${accentColor === "cyan" ? "border-cyan-500/50" : "border-yellow-500/50"}`}
               style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
             />
-            <span className={`text-sm font-black uppercase ${accentColor === "cyan" ? "text-cyan-400" : "text-fuchsia-400"}`}>
+            <span className={`text-sm font-black uppercase ${accentColor === "cyan" ? "text-cyan-400" : "text-yellow-400"}`}>
               {isFreeMode ? "mol" : "MC"}
             </span>
           </div>
@@ -1367,7 +1367,7 @@ function IdleScreen({
                 type="button"
                 disabled={cap < n}
                 onClick={() => setBetStr(String(n))}
-                className={`border px-2.5 py-1 text-[10px] font-black uppercase disabled:opacity-30 ${accentColor === "cyan" ? "border-cyan-500/40 text-cyan-300 hover:border-cyan-400" : "border-fuchsia-500/40 text-fuchsia-300 hover:border-fuchsia-400"}`}
+                className={`border px-2.5 py-1 text-[10px] font-black uppercase disabled:opacity-30 ${accentColor === "cyan" ? "border-cyan-500/40 text-cyan-300 hover:border-cyan-400" : "border-yellow-500/40 text-yellow-300 hover:border-yellow-400"}`}
               >
                 {n}
               </button>
@@ -1382,7 +1382,7 @@ function IdleScreen({
             </button>
           </div>
           <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-            Balance <span className={`font-black tabular-nums ${accentColor === "cyan" ? "text-cyan-300" : "text-fuchsia-300"}`}>{cap.toLocaleString()} {isFreeMode ? "mol" : "MC"}</span>
+            Balance <span className={`font-black tabular-nums ${accentColor === "cyan" ? "text-cyan-300" : "text-yellow-300"}`}>{cap.toLocaleString()} {isFreeMode ? "mol" : "MC"}</span>
             {" · "}matched with same bet only
           </p>
         </div>
@@ -1391,7 +1391,7 @@ function IdleScreen({
       {/* Step 3 — Camera */}
       <div className="w-full max-w-sm space-y-2">
         <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 3 — Enable camera</p>
-        <div className={`relative w-full h-44 border-2 rounded-xl overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-fuchsia-500/50") : "border-white/10"}`}>
+        <div className={`relative w-full h-44 border-2 rounded-xl overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-yellow-500/50") : "border-white/10"}`}>
           {camOn ? (
             <>
               <video ref={idleVideoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
@@ -1405,10 +1405,10 @@ function IdleScreen({
               onClick={() => setCamOn(true)}
               className="absolute inset-0 flex flex-col items-center justify-center gap-2 hover:bg-white/5 transition-colors group"
             >
-              <div className={`size-12 border flex items-center justify-center transition-colors ${accentColor === "cyan" ? "border-cyan-500/40 group-hover:border-cyan-400" : "border-fuchsia-500/40 group-hover:border-fuchsia-400"}`}>
-                <Swords className={`size-5 transition-colors ${accentColor === "cyan" ? "text-cyan-500/60 group-hover:text-cyan-400" : "text-fuchsia-500/60 group-hover:text-fuchsia-400"}`} />
+              <div className={`size-12 border flex items-center justify-center transition-colors ${accentColor === "cyan" ? "border-cyan-500/40 group-hover:border-cyan-400" : "border-yellow-500/40 group-hover:border-yellow-400"}`}>
+                <Swords className={`size-5 transition-colors ${accentColor === "cyan" ? "text-cyan-500/60 group-hover:text-cyan-400" : "text-yellow-500/60 group-hover:text-yellow-400"}`} />
               </div>
-              <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${accentColor === "cyan" ? "text-zinc-600 group-hover:text-cyan-400" : "text-zinc-600 group-hover:text-fuchsia-400"}`}>
+              <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${accentColor === "cyan" ? "text-zinc-600 group-hover:text-cyan-400" : "text-zinc-600 group-hover:text-yellow-400"}`}>
                 Tap to enable camera & mic
               </span>
             </button>
@@ -1425,7 +1425,7 @@ function IdleScreen({
           className={`w-full h-14 font-black text-base uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
             isFreeMode
               ? "bg-cyan-500 text-black hover:bg-cyan-400"
-              : "bg-fuchsia-500 text-black hover:bg-fuchsia-400"
+              : "bg-yellow-500 text-black hover:bg-yellow-400"
           }`}
         >
           {isPending ? (
@@ -1595,7 +1595,7 @@ function ArenaTopBar({
         )}
       </div>
       <div
-        className="shrink-0 flex items-center gap-1 rounded border border-fuchsia-500/30 bg-fuchsia-500/5 px-1.5 py-0.5 sm:px-2 sm:py-1"
+        className="shrink-0 flex items-center gap-1 rounded border border-yellow-500/30 bg-yellow-500/5 px-1.5 py-0.5 sm:px-2 sm:py-1"
         style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
       >
         <span className="text-xs sm:text-sm" aria-hidden>
@@ -1637,7 +1637,7 @@ function PotMergeBurst({ perPlayer, potTotal, isFreeMode }: { perPlayer: number;
         {perPlayer} {unit}
       </motion.span>
       <motion.span
-        className="absolute right-[8%] font-black tabular-nums text-fuchsia-300 sm:right-[12%] sm:text-lg"
+        className="absolute right-[8%] font-black tabular-nums text-yellow-300 sm:right-[12%] sm:text-lg"
         style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 12px rgba(217,70,239,0.8)" }}
         initial={{ x: 0, opacity: 1, scale: 1 }}
         animate={{ x: "-28vw", opacity: 0, scale: 0.4 }}
@@ -1717,7 +1717,7 @@ function MatchmakingTimeoutOverlay({
           <button
             type="button"
             onClick={onTryAgain}
-            className="py-4 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[52px]"
+            className="py-4 bg-gradient-to-r from-yellow-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all min-h-[52px]"
           >
             TRY AGAIN
           </button>
@@ -1786,10 +1786,10 @@ function PlayerPanel({
   const isYou = side === "you";
   const accentCss = isYou
     ? {
-        border: "border-fuchsia-500",
+        border: "border-yellow-500",
         glow: "shadow-[0_0_40px_rgba(217,70,239,0.5)]",
-        text: "text-fuchsia-300",
-        bg: "bg-fuchsia-500/10",
+        text: "text-yellow-300",
+        bg: "bg-yellow-500/10",
       }
     : {
         border: "border-cyan-400",
@@ -1904,7 +1904,7 @@ function PlayerPanel({
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className={`size-1.5 rounded-full ${isYou ? "bg-fuchsia-500" : "bg-cyan-400"}`}
+                      className={`size-1.5 rounded-full ${isYou ? "bg-yellow-500" : "bg-cyan-400"}`}
                       animate={{ opacity: [0.2, 1, 0.2], scale: [1, 1.2, 1] }}
                       transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.2 }}
                     />
@@ -1923,7 +1923,7 @@ function PlayerPanel({
                   </span>
                 </motion.div>
                 {phase === "queued" && isYou && (
-                  <p className="text-[10px] sm:text-xs text-fuchsia-300 font-black uppercase tracking-[0.28em] px-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-yellow-300 font-black uppercase tracking-[0.28em] px-4 text-center">
                     In queue — warm up your bet
                   </p>
                 )}
@@ -1958,11 +1958,11 @@ function PlayerPanel({
             {isFounder && (
               <span className="text-[8px] font-black uppercase tracking-widest text-yellow-400 border border-yellow-500/60 px-1 leading-tight">FOUNDER</span>
             )}
-            <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${isYou ? "text-fuchsia-300" : "text-cyan-300"}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${isYou ? "text-yellow-300" : "text-cyan-300"}`}>
               {footerText}
             </span>
             {pslBadge !== null && pslBadge > 0 && (
-              <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>
+              <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-yellow-400" : "text-cyan-400"}`}>
                 · {pslBadge.toFixed(1)}
               </span>
             )}
@@ -2031,7 +2031,7 @@ function PlayerPanel({
             {footerText}
           </span>
           {pslBadge !== null && pslBadge > 0 && (
-            <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-fuchsia-400" : "text-cyan-400"}`}>
+            <span className={`text-[10px] font-mono font-bold shrink-0 ${isYou ? "text-yellow-400" : "text-cyan-400"}`}>
               PSL {pslBadge.toFixed(1)}
             </span>
           )}
@@ -2101,7 +2101,7 @@ function CenterColumn({
             initial={{ scale: 2, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.5, opacity: 0 }}
-            className="text-6xl font-black text-fuchsia-300"
+            className="text-6xl font-black text-yellow-300"
             style={{
               fontFamily: "var(--font-ibm-plex-mono)",
               textShadow: "0 0 30px rgba(168,85,247,1)",
@@ -2114,7 +2114,7 @@ function CenterColumn({
 
 
       {/* Decorative line */}
-      <div className="w-px flex-1 bg-gradient-to-b from-fuchsia-500/20 to-transparent" />
+      <div className="w-px flex-1 bg-gradient-to-b from-yellow-500/20 to-transparent" />
     </div>
   );
 }
@@ -2137,7 +2137,7 @@ function MetricsList({
   return (
     <div className="border border-zinc-800 bg-black overflow-hidden">
       <div className="border-b border-zinc-800 px-3 py-2">
-        <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">AI Analysis</p>
+        <p className="text-xs font-black uppercase tracking-widest text-yellow-400">AI Analysis</p>
       </div>
       <div className="divide-y divide-zinc-900">
         {metrics.map((metric, i) => {
@@ -2163,12 +2163,12 @@ function MetricsList({
               <span className="text-xs text-zinc-500 w-24 shrink-0">{metric}</span>
               {showScore && (
                 <div className="flex-1 flex items-center gap-1.5">
-                  <span className="text-xs font-mono text-fuchsia-300 w-8 text-right tabular-nums">
+                  <span className="text-xs font-mono text-yellow-300 w-8 text-right tabular-nums">
                     {myS.toFixed(0)}
                   </span>
                   <div className="flex-1 h-1 bg-zinc-900 overflow-hidden">
                     <motion.div
-                      className="h-full bg-fuchsia-500"
+                      className="h-full bg-yellow-500"
                       initial={{ width: 0 }}
                       animate={{ width: `${myS}%` }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -2258,7 +2258,7 @@ function DoneOverlay({
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 280, damping: 20, delay: 0.1 }}
-        className={`relative w-full max-w-sm border-2 ${isTie ? "border-yellow-500" : iWon ? "border-fuchsia-500" : "border-red-500"} bg-black/60 backdrop-blur-md p-6 space-y-5 text-center`}
+        className={`relative w-full max-w-sm border-2 ${isTie ? "border-yellow-500" : iWon ? "border-yellow-500" : "border-red-500"} bg-black/60 backdrop-blur-md p-6 space-y-5 text-center`}
         style={{
           boxShadow: isTie
             ? "0 0 60px rgba(234,179,8,0.4)"
@@ -2293,7 +2293,7 @@ function DoneOverlay({
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className={`text-4xl font-black uppercase tracking-tight ${isTie ? "text-yellow-200" : iWon ? "text-fuchsia-200" : "text-red-300"}`}
+            className={`text-4xl font-black uppercase tracking-tight ${isTie ? "text-yellow-200" : iWon ? "text-yellow-200" : "text-red-300"}`}
             style={{
               fontFamily: "var(--font-ibm-plex-mono)",
               textShadow: isTie ? "0 0 30px rgba(234,179,8,0.8)" : iWon ? "0 0 30px rgba(168,85,247,0.8)" : "0 0 20px rgba(239,68,68,0.6)",
@@ -2309,7 +2309,7 @@ function DoneOverlay({
         {/* PSL Cards */}
         <div className="grid grid-cols-2 gap-2">
           {/* YOUR card */}
-          <div className={`border ${iWon && !isTie ? "border-fuchsia-500/60" : "border-zinc-800"} p-3 space-y-1 bg-black/40`}>
+          <div className={`border ${iWon && !isTie ? "border-yellow-500/60" : "border-zinc-800"} p-3 space-y-1 bg-black/40`}>
             <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400">YOUR SCAN</p>
             <p className="text-3xl font-black tabular-nums text-white leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
               {(myAiResult?.psl ?? myPsl ?? myScore) !== null ? (myAiResult?.psl ?? myPsl ?? myScore)!.toFixed(1) : "—"}
@@ -2321,7 +2321,7 @@ function DoneOverlay({
             {myAiResult?.failos && myAiResult.failos !== "none" && myAiResult.failos !== "n/a" && (
               <p className="text-[9px] text-red-400 truncate">- {myAiResult.failos}</p>
             )}
-            {iWon && !isTie && <p className="text-[10px] text-fuchsia-400 font-black uppercase tracking-wide">WINNER</p>}
+            {iWon && !isTie && <p className="text-[10px] text-yellow-400 font-black uppercase tracking-wide">WINNER</p>}
           </div>
           {/* OPP card */}
           <div className={`border ${!iWon && !isTie ? "border-cyan-500/60" : "border-zinc-800"} p-3 space-y-1 bg-black/40`}>
@@ -2379,7 +2379,7 @@ function DoneOverlay({
                 ? oppRematchReady
                   ? "bg-green-500 text-black cursor-default"
                   : "bg-zinc-800 border border-green-500/50 text-green-400 cursor-default"
-                : "bg-fuchsia-500 text-black shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5"
+                : "bg-yellow-500 text-black shadow-[3px_3px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5"
             }`}
           >
             {myRematchReady

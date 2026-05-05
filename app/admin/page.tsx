@@ -27,11 +27,11 @@ const TIER_META: Record<Tier, { label: string; color: string }> = {
   mtn:      { label: "MTN",      color: "text-yellow-400" },
   htn:      { label: "HTN",      color: "text-lime-400" },
   chadlite: { label: "CHADLITE", color: "text-cyan-300" },
-  chad:     { label: "CHAD",     color: "text-fuchsia-300" },
+  chad:     { label: "CHAD",     color: "text-yellow-300" },
 };
 
 function pslColor(psl: number) {
-  if (psl >= 7) return "text-fuchsia-300";
+  if (psl >= 7) return "text-yellow-300";
   if (psl >= 6.5) return "text-cyan-300";
   if (psl >= 6) return "text-lime-400";
   if (psl >= 5.5) return "text-yellow-400";
@@ -160,11 +160,11 @@ export default function AdminPage() {
           }}
         />
         <div className="relative w-full max-w-xs space-y-6 border border-white/10 bg-zinc-950 p-8">
-          <div className="absolute -top-px -left-px w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
-          <div className="absolute -bottom-px -right-px w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+          <div className="absolute -top-px -left-px w-8 h-8 border-t-2 border-l-2 border-yellow-500" />
+          <div className="absolute -bottom-px -right-px w-8 h-8 border-b-2 border-r-2 border-yellow-500" />
           <div className="text-center space-y-1">
-            <FlaskConical className="mx-auto size-6 text-fuchsia-400" />
-            <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-400 font-bold">Admin</p>
+            <FlaskConical className="mx-auto size-6 text-yellow-400" />
+            <p className="text-xs uppercase tracking-[0.2em] text-yellow-400 font-bold">Admin</p>
             <p className="text-xs text-zinc-600">AI Face Rater — Dev Tool</p>
           </div>
           <div className="space-y-3">
@@ -175,14 +175,14 @@ export default function AdminPage() {
               onKeyDown={(e) => e.key === "Enter" && tryLogin()}
               placeholder="Password"
               className={cn(
-                "w-full bg-zinc-900 border px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-fuchsia-500",
+                "w-full bg-zinc-900 border px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-yellow-500",
                 pwErr ? "border-red-500" : "border-white/10"
               )}
             />
             {pwErr && <p className="text-xs text-red-400">Wrong password</p>}
             <button
               onClick={tryLogin}
-              className="w-full h-11 bg-fuchsia-500 text-black text-sm font-black uppercase tracking-widest hover:bg-fuchsia-400 transition-colors"
+              className="w-full h-11 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest hover:bg-yellow-400 transition-colors"
             >
               Enter
             </button>
@@ -204,9 +204,9 @@ export default function AdminPage() {
       <div className="relative mx-auto max-w-lg space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-          <FlaskConical className="size-5 text-fuchsia-400" />
+          <FlaskConical className="size-5 text-yellow-400" />
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-400 font-bold">Admin</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-yellow-400 font-bold">Admin</p>
             <h1 className="text-xl font-black uppercase text-white" style={{ fontFamily: "var(--font-heading)" }}>
               PSL AI Rater
             </h1>
@@ -226,12 +226,12 @@ export default function AdminPage() {
           <div className="space-y-3">
             <div className="relative aspect-[4/3] w-full overflow-hidden border border-white/10 bg-zinc-950">
               <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover scale-x-[-1]" />
-              <div className="absolute inset-0 border-4 border-fuchsia-500/20 pointer-events-none" />
+              <div className="absolute inset-0 border-4 border-yellow-500/20 pointer-events-none" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={snap}
-                className="h-12 bg-fuchsia-500 text-black text-sm font-black uppercase tracking-widest hover:bg-fuchsia-400 transition-colors"
+                className="h-12 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest hover:bg-yellow-400 transition-colors"
               >
                 Snap
               </button>
@@ -252,10 +252,10 @@ export default function AdminPage() {
               <div
                 onDrop={onDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="group relative flex flex-col items-center justify-center gap-4 border-2 border-dashed border-white/10 bg-zinc-950 p-10 hover:border-fuchsia-500/40 transition-colors cursor-pointer"
+                className="group relative flex flex-col items-center justify-center gap-4 border-2 border-dashed border-white/10 bg-zinc-950 p-10 hover:border-yellow-500/40 transition-colors cursor-pointer"
                 onClick={() => fileRef.current?.click()}
               >
-                <Upload className="size-8 text-zinc-600 group-hover:text-fuchsia-400 transition-colors" />
+                <Upload className="size-8 text-zinc-600 group-hover:text-yellow-400 transition-colors" />
                 <div className="text-center">
                   <p className="text-sm font-bold text-zinc-400">Drop image or click to upload</p>
                   <p className="text-xs text-zinc-600 mt-1">JPG, PNG, WEBP</p>
@@ -280,7 +280,7 @@ export default function AdminPage() {
               <button
                 onClick={startCam}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 h-12 border border-white/20 text-zinc-400 text-sm font-bold uppercase tracking-widest hover:border-fuchsia-500/40 hover:text-fuchsia-300 transition-colors disabled:opacity-40"
+                className="flex items-center justify-center gap-2 h-12 border border-white/20 text-zinc-400 text-sm font-bold uppercase tracking-widest hover:border-yellow-500/40 hover:text-yellow-300 transition-colors disabled:opacity-40"
               >
                 <Camera className="size-4" />
                 Camera
@@ -288,7 +288,7 @@ export default function AdminPage() {
               <button
                 onClick={preview ? judge : () => fileRef.current?.click()}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 h-12 bg-fuchsia-500 text-black text-sm font-black uppercase tracking-widest hover:bg-fuchsia-400 transition-colors disabled:opacity-60"
+                className="flex items-center justify-center gap-2 h-12 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest hover:bg-yellow-400 transition-colors disabled:opacity-60"
               >
                 {loading ? (
                   <><Loader2 className="size-4 animate-spin" /> Judging…</>
@@ -338,7 +338,7 @@ export default function AdminPage() {
                   <div key={key} className="flex items-center gap-2">
                     <span className="text-[10px] text-zinc-500 w-10 font-bold">{key}</span>
                     <div className="flex-1 h-1.5 bg-zinc-800">
-                      <div className="h-full bg-fuchsia-500" style={{ width: `${((val ?? 0) / 10) * 100}%` }} />
+                      <div className="h-full bg-yellow-500" style={{ width: `${((val ?? 0) / 10) * 100}%` }} />
                     </div>
                     <span className="text-xs text-zinc-300 w-6 tabular-nums">{(val ?? 0).toFixed(1)}</span>
                     <span className="text-[10px] text-zinc-600 w-8">{weight}</span>

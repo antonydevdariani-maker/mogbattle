@@ -24,13 +24,13 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loaded || !session || !user || !token) return;
     const username = user.user_metadata?.username ?? user.email?.split("@")[0] ?? "mogger";
-    ensureProfile(token, { walletAddress: null, username }).catch(() => null);
+    ensureProfile(token, { username }).catch(() => null);
   }, [loaded, session, user, token]);
 
   if (!loaded || !session) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-200">
+        <div className="border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
           Loading arena…
         </div>
       </div>

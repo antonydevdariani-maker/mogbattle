@@ -64,8 +64,8 @@ export default function DashboardPage() {
       </a>
 
       <div className="relative border border-white/10 bg-zinc-950 p-6">
-        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
-        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-yellow-500" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-yellow-500" />
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
@@ -76,7 +76,7 @@ export default function DashboardPage() {
               {profile?.username ?? "…"}
             </h1>
             <p className="text-sm text-zinc-500">
-              <span className="font-bold text-fuchsia-400">{profile?.elo ?? 1500}</span> ELO
+              <span className="font-bold text-yellow-400">{profile?.elo ?? 1500}</span> ELO
               {" · "}
               <span className="text-cyan-300">{(profile?.molecules ?? 0).toLocaleString()} mol</span>
             </p>
@@ -92,7 +92,7 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/arena"
-              className="flex items-center gap-1 bg-fuchsia-500 text-black px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              className="flex items-center gap-1 bg-yellow-500 text-black px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black uppercase tracking-wide shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
             >
               <Swords className="size-3" />
               <span>Battle</span>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         <div className="border border-dashed border-white/10 bg-zinc-950/30 p-12 text-center">
           <Swords className="mx-auto mb-3 size-8 text-zinc-700" />
           <p className="text-sm text-zinc-500 uppercase tracking-widest">No battles yet.</p>
-          <Link href="/arena" className="mt-4 inline-block text-sm font-black text-fuchsia-400 hover:text-fuchsia-300 uppercase tracking-widest">
+          <Link href="/arena" className="mt-4 inline-block text-sm font-black text-yellow-400 hover:text-yellow-300 uppercase tracking-widest">
             Enter the pit →
           </Link>
         </div>

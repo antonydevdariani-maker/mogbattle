@@ -83,7 +83,7 @@ const TIER_META: Record<Tier, { label: string; color: string; bg: string; border
   mtn:      { label: "MTN",       color: "text-yellow-400",  bg: "bg-yellow-500/10",  border: "border-yellow-500/40" },
   htn:      { label: "HTN",       color: "text-lime-400",    bg: "bg-lime-500/10",    border: "border-lime-500/40" },
   chadlite: { label: "CHADLITE",  color: "text-cyan-300",    bg: "bg-cyan-500/10",    border: "border-cyan-500/40" },
-  chad:     { label: "CHAD",      color: "text-fuchsia-300", bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/60" },
+  chad:     { label: "CHAD",      color: "text-yellow-300", bg: "bg-yellow-500/15", border: "border-yellow-500/60" },
 };
 
 async function judgeFace(imageDataUrl: string): Promise<AiResult> {
@@ -320,7 +320,7 @@ export function LiveMatchClient({
           <LocalVideoBox
             ref={localVideoRef}
             track={localVideoTrack}
-            accentColor="fuchsia"
+            accentColor="gold"
             cardOverlay={
               ["verdict", "done"].includes(phase) && (myDisplayResult?.psl ?? myScore ?? 0) > 0
                 ? <PslCard psl={myDisplayResult?.psl ?? myScore!} tier={myDisplayResult?.tier} dom={myDisplayResult?.strengths ?? undefined} flaw={myDisplayResult?.failos ?? undefined} label="YOUR SCAN" />
@@ -332,7 +332,7 @@ export function LiveMatchClient({
               <span className="text-sm font-semibold text-zinc-300">YOU</span>
               {/* Inline score on mobile after done */}
               {phase === "done" && myDisplayResult && (
-                <span className="text-xs font-mono text-fuchsia-400 sm:hidden">
+                <span className="text-xs font-mono text-yellow-400 sm:hidden">
                   PSL {myDisplayResult.psl.toFixed(1)}
                 </span>
               )}
@@ -340,7 +340,7 @@ export function LiveMatchClient({
             {!myReady ? (
               <button
                 onClick={() => setMyReady(true)}
-                className="px-4 py-2 text-sm font-bold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all min-h-[40px] min-w-[80px]"
+                className="px-4 py-2 text-sm font-bold bg-yellow-600 hover:bg-yellow-500 text-white transition-all min-h-[40px] min-w-[80px]"
               >
                 Ready
               </button>
@@ -352,7 +352,7 @@ export function LiveMatchClient({
           </div>
           {/* Score panel desktop only */}
           <div className="hidden sm:block">
-            <ScoreSidePanel result={myDisplayResult} color="fuchsia" phase={phase} horizontal />
+            <ScoreSidePanel result={myDisplayResult} color="gold" phase={phase} horizontal />
           </div>
         </div>
 
@@ -451,7 +451,7 @@ export function LiveMatchClient({
               key={countdown}
               initial={{ scale: 1.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="text-8xl font-black text-fuchsia-300"
+              className="text-8xl font-black text-yellow-300"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               {countdown}
@@ -466,11 +466,11 @@ export function LiveMatchClient({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="rounded-2xl border border-fuchsia-500/20 bg-zinc-950/90 overflow-hidden"
+            className="rounded-2xl border border-yellow-500/20 bg-zinc-950/90 overflow-hidden"
           >
             <div className="border-b border-zinc-800 px-5 py-3 flex items-center gap-2">
-              <Loader2 className="size-4 text-fuchsia-400 animate-spin" />
-              <span className="text-sm font-semibold text-fuchsia-300 tracking-wide">
+              <Loader2 className="size-4 text-yellow-400 animate-spin" />
+              <span className="text-sm font-semibold text-yellow-300 tracking-wide">
                 AI ANALYSIS IN PROGRESS
               </span>
               <span className="ml-auto text-xs text-zinc-600">
@@ -492,12 +492,12 @@ export function LiveMatchClient({
                       >
                         <span className="text-sm text-zinc-400 w-36 shrink-0">{metric}</span>
                         <div className="flex-1 flex items-center gap-3">
-                          <span className="text-xs font-mono text-fuchsia-300 w-10 text-right">
+                          <span className="text-xs font-mono text-yellow-300 w-10 text-right">
                             {scores.p1.toFixed(1)}
                           </span>
                           <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden flex gap-px">
                             <motion.div
-                              className="h-full bg-fuchsia-500 rounded-full"
+                              className="h-full bg-yellow-500 rounded-full"
                               initial={{ width: 0 }}
                               animate={{ width: `${scores.p1}%` }}
                               transition={{ duration: 0.6, ease: "easeOut" }}
@@ -564,7 +564,7 @@ export function LiveMatchClient({
             transition={{ type: "spring", bounce: 0.3 }}
             className={`relative overflow-hidden border ${
               iWon
-                ? "border-fuchsia-500/40 bg-zinc-950"
+                ? "border-yellow-500/40 bg-zinc-950"
                 : "border-red-500/30 bg-zinc-950"
             } p-6 space-y-5`}
           >
@@ -583,7 +583,7 @@ export function LiveMatchClient({
                 )}
               </div>
               <h2
-                className={`text-4xl font-black tracking-tight ${iWon ? "text-fuchsia-200" : "text-red-300"}`}
+                className={`text-4xl font-black tracking-tight ${iWon ? "text-yellow-200" : "text-red-300"}`}
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 {opponentAbandoned && iWon ? "OPPONENT FLED" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
@@ -601,9 +601,9 @@ export function LiveMatchClient({
             {(myDisplayResult?.verdict || oppDisplayResult?.verdict) && (
               <div className="grid grid-cols-2 gap-2">
                 {myDisplayResult?.verdict && (
-                  <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2 space-y-1">
+                  <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-fuchsia-500 uppercase tracking-wider">AI on you</p>
+                      <p className="text-[10px] text-yellow-500 uppercase tracking-wider">AI on you</p>
                       {myDisplayResult.tier && (() => { const t = TIER_META[myDisplayResult.tier!]; return <span className={`text-[9px] font-black px-1.5 py-0.5 border ${t.border} ${t.bg} ${t.color}`}>{t.label}</span>; })()}
                     </div>
                     <p className="text-xs text-zinc-300 italic">{`\u201C${myDisplayResult.verdict}\u201D`}</p>
@@ -639,7 +639,7 @@ export function LiveMatchClient({
                 label="YOU"
                 score={myScore}
                 won={iWon}
-                color={iWon ? "fuchsia" : "zinc"}
+                color={iWon ? "gold" : "zinc"}
                 psl={myDisplayResult?.psl ?? null}
                 rating={myDisplayResult?.rating ?? null}
                 result={myDisplayResult}
@@ -648,7 +648,7 @@ export function LiveMatchClient({
                 label="OPPONENT"
                 score={oppScore}
                 won={!iWon}
-                color={!iWon ? "fuchsia" : "zinc"}
+                color={!iWon ? "gold" : "zinc"}
                 psl={oppDisplayResult?.psl ?? null}
                 rating={oppDisplayResult?.rating ?? null}
                 result={oppDisplayResult}
@@ -690,7 +690,7 @@ export function LiveMatchClient({
                         }
                       });
                     }}
-                    className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
                   >
                     Rematch
                   </button>
@@ -715,7 +715,7 @@ export function LiveMatchClient({
                       leaveChannel();
                       router.push("/battle");
                     }}
-                    className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
                   >
                     {testMode ? "Battle for real" : "Rematch"}
                   </button>
@@ -747,16 +747,16 @@ function ScoreSidePanel({
   horizontal = false,
 }: {
   result: AiResult;
-  color: "fuchsia" | "red";
+  color: "gold" | "red";
   phase: Phase;
   horizontal?: boolean;
 }) {
   const colorMap = {
-    fuchsia: {
-      border: "border-fuchsia-500/30",
-      bg: "bg-fuchsia-500/5",
-      text: "text-fuchsia-300",
-      label: "text-fuchsia-500",
+    gold: {
+      border: "border-yellow-500/30",
+      bg: "bg-yellow-500/5",
+      text: "text-yellow-300",
+      label: "text-yellow-500",
     },
     red: {
       border: "border-red-500/30",
@@ -824,16 +824,16 @@ function ScoreCard({
   label: string;
   score: number | null;
   won: boolean;
-  color: "fuchsia" | "zinc";
+  color: "gold" | "zinc";
   psl: number | null;
   rating: number | null;
   result?: AiResult;
 }) {
-  const accent = color === "fuchsia" ? "text-fuchsia-300" : "text-zinc-400";
+  const accent = color === "gold" ? "text-yellow-300" : "text-zinc-400";
   const hasBreakdown = result && result.harm !== undefined;
   return (
     <div className={`rounded-xl border p-3 text-center ${
-      won ? "border-fuchsia-500/30 bg-fuchsia-500/8" : "border-zinc-800 bg-zinc-900/50"
+      won ? "border-yellow-500/30 bg-yellow-500/8" : "border-zinc-800 bg-zinc-900/50"
     }`}>
       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
       <p
@@ -865,7 +865,7 @@ function ScoreCard({
             <div key={k} className="flex items-center gap-1.5">
               <span className="text-[9px] text-zinc-600 w-8">{k}</span>
               <div className="flex-1 h-1 bg-zinc-800 overflow-hidden rounded-full">
-                <div className={`h-full ${color === "fuchsia" ? "bg-fuchsia-500" : "bg-cyan-500"}`} style={{ width: `${(v / 10) * 100}%` }} />
+                <div className={`h-full ${color === "gold" ? "bg-yellow-500" : "bg-cyan-500"}`} style={{ width: `${(v / 10) * 100}%` }} />
               </div>
               <span className="text-[9px] text-zinc-400 tabular-nums w-5 text-right">{v.toFixed(1)}</span>
             </div>
@@ -875,7 +875,7 @@ function ScoreCard({
           )}
         </div>
       )}
-      {won && <p className="text-xs text-fuchsia-500 mt-1 font-medium">WINNER</p>}
+      {won && <p className="text-xs text-yellow-500 mt-1 font-medium">WINNER</p>}
     </div>
   );
 }

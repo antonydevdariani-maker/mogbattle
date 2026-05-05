@@ -169,10 +169,10 @@ export function MatchmakingClient({
             className="border border-white/10 bg-zinc-950 p-8 text-center space-y-5"
           >
             <div className="relative mx-auto size-16">
-              <div className="absolute inset-0 border-2 border-fuchsia-500/30 animate-ping" />
-              <div className="absolute inset-0 border-2 border-fuchsia-500/60 animate-pulse" />
-              <div className="relative flex size-full items-center justify-center border border-fuchsia-500/40 bg-fuchsia-500/10">
-                <Swords className="size-6 text-fuchsia-400" />
+              <div className="absolute inset-0 border-2 border-yellow-500/30 animate-ping" />
+              <div className="absolute inset-0 border-2 border-yellow-500/60 animate-pulse" />
+              <div className="relative flex size-full items-center justify-center border border-yellow-500/40 bg-yellow-500/10">
+                <Swords className="size-6 text-yellow-400" />
               </div>
             </div>
             <div>
@@ -183,7 +183,7 @@ export function MatchmakingClient({
             </div>
             <div className="flex justify-center gap-1">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="size-1.5 bg-fuchsia-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+                <div key={i} className="size-1.5 bg-yellow-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
               ))}
             </div>
           </motion.div>
@@ -202,13 +202,13 @@ export function MatchmakingClient({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-500 uppercase tracking-widest">Agree on bet</span>
-                <span className={`font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-fuchsia-400"}`}>
+                <span className={`font-black tabular-nums ${timeLeft <= 3 ? "text-red-400" : "text-yellow-400"}`}>
                   {timeLeft}s
                 </span>
               </div>
               <div className="h-1 w-full bg-zinc-900 overflow-hidden">
                 <motion.div
-                  className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-fuchsia-500"}`}
+                  className={`h-full ${timeLeft <= 3 ? "bg-red-500" : "bg-yellow-500"}`}
                   initial={{ width: "100%" }}
                   animate={{ width: `${(timeLeft / 10) * 100}%` }}
                   transition={{ duration: 0.2 }}
@@ -231,14 +231,14 @@ export function MatchmakingClient({
                         key={displayMyOffer}
                         initial={{ opacity: 0, y: 8, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="border border-fuchsia-500/50 bg-fuchsia-500/10 px-3 py-1"
+                        className="border border-yellow-500/50 bg-yellow-500/10 px-3 py-1"
                       >
-                        <span className="text-fuchsia-300 font-black text-lg tabular-nums">{displayMyOffer} MC</span>
+                        <span className="text-yellow-300 font-black text-lg tabular-nums">{displayMyOffer} MC</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <div className="size-16 border-2 border-fuchsia-500/50 bg-fuchsia-500/10 flex items-center justify-center">
-                    <span className="text-fuchsia-300 font-black text-xs uppercase">YOU</span>
+                  <div className="size-16 border-2 border-yellow-500/50 bg-yellow-500/10 flex items-center justify-center">
+                    <span className="text-yellow-300 font-black text-xs uppercase">YOU</span>
                   </div>
                 </div>
 
@@ -280,7 +280,7 @@ export function MatchmakingClient({
                 value={myOffer}
                 onChange={(e) => onOfferChange(e.target.value)}
                 placeholder="0"
-                className="w-full border border-white/10 bg-zinc-950 px-4 py-4 text-center text-2xl font-black text-white placeholder-zinc-800 focus:border-fuchsia-500 focus:outline-none tabular-nums"
+                className="w-full border border-white/10 bg-zinc-950 px-4 py-4 text-center text-2xl font-black text-white placeholder-zinc-800 focus:border-yellow-500 focus:outline-none tabular-nums"
               />
               <p className="text-xs text-zinc-700 text-center uppercase tracking-widest">MOG coins</p>
             </div>

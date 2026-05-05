@@ -51,11 +51,11 @@ export default function ArenaPage() {
             {[0, 1].map((i) => (
               <div
                 key={i}
-                className="absolute inset-0 border-2 border-fuchsia-500 animate-ping"
+                className="absolute inset-0 border-2 border-yellow-500 animate-ping"
                 style={{ animationDelay: `${i * 0.4}s`, animationDuration: "1.2s" }}
               />
             ))}
-            <div className="relative size-full border border-fuchsia-500/60 bg-fuchsia-500/10" />
+            <div className="relative size-full border border-yellow-500/60 bg-yellow-500/10" />
           </div>
           <p className="text-xs text-zinc-600 uppercase tracking-widest font-bold">Loading Arena…</p>
         </div>

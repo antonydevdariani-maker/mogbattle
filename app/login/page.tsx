@@ -85,14 +85,14 @@ function LoginContent() {
       />
 
       <div className="relative w-full max-w-sm space-y-6 border border-white/10 bg-zinc-950 p-8">
-        <div className="absolute -top-px -left-px w-8 h-8 border-t-2 border-l-2 border-fuchsia-500" />
-        <div className="absolute -bottom-px -right-px w-8 h-8 border-b-2 border-r-2 border-fuchsia-500" />
+        <div className="absolute -top-px -left-px w-8 h-8 border-t-2 border-l-2 border-yellow-500" />
+        <div className="absolute -bottom-px -right-px w-8 h-8 border-b-2 border-r-2 border-yellow-500" />
 
         <div className="space-y-2 text-center">
           <div className="flex justify-center">
-            <Swords className="size-8 text-fuchsia-400" />
+            <Swords className="size-8 text-yellow-400" />
           </div>
-          <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-400 font-bold">Omogger</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-yellow-400 font-bold">Omogger</p>
           <h1 className="text-2xl font-black text-white uppercase" style={{ fontFamily: "var(--font-heading)" }}>
             {mode === "login" ? "Sign In" : "Create Account"}
           </h1>
@@ -109,7 +109,7 @@ function LoginContent() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="mogger123"
-                className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-fuchsia-500/50 focus:outline-none"
+                className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-yellow-500/50 focus:outline-none"
               />
             </div>
           )}
@@ -123,7 +123,7 @@ function LoginContent() {
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="you@example.com"
-              className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-fuchsia-500/50 focus:outline-none"
+              className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-yellow-500/50 focus:outline-none"
             />
           </div>
           <div>
@@ -137,7 +137,7 @@ function LoginContent() {
               required
               placeholder="••••••••"
               minLength={6}
-              className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-fuchsia-500/50 focus:outline-none"
+              className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-yellow-500/50 focus:outline-none"
             />
           </div>
 
@@ -155,7 +155,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 h-12 bg-fuchsia-500 text-black text-sm font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-[4px_4px_0_#fff]"
+            className="flex w-full items-center justify-center gap-2 h-12 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-[4px_4px_0_#fff]"
           >
             {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
           </button>

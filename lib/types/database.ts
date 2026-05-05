@@ -35,28 +35,6 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
         Relationships: [];
       };
-      transactions: {
-        Row: {
-          id: string;
-          user_id: string;
-          type: "deposit" | "withdraw";
-          amount: number;
-          status: "pending" | "completed" | "failed";
-          tx_signature: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          type: "deposit" | "withdraw";
-          amount: number;
-          status?: "pending" | "completed" | "failed";
-          tx_signature?: string | null;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["transactions"]["Insert"]>;
-        Relationships: [];
-      };
       matches: {
         Row: {
           id: string;

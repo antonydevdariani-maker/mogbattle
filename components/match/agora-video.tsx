@@ -310,7 +310,7 @@ export type VideoBoxHandle = { captureFrame: () => string | null };
 /** Left panel — always YOUR local camera. Mirrored like a selfie. */
 export const LocalVideoBox = forwardRef<VideoBoxHandle, {
   track: ICameraVideoTrack | null;
-  accentColor: "fuchsia" | "red";
+  accentColor: "gold" | "red";
   overlay?: React.ReactNode;
   cardOverlay?: React.ReactNode;
 }>(function LocalVideoBox({ track, accentColor, overlay, cardOverlay }, ref) {
@@ -334,7 +334,7 @@ export const LocalVideoBox = forwardRef<VideoBoxHandle, {
 /** Right panel — always the OPPONENT's remote video. Uses stable DOM id so Agora can play immediately. */
 export const RemoteVideoBox = forwardRef<VideoBoxHandle, {
   track: IRemoteVideoTrack | null;
-  accentColor: "fuchsia" | "red";
+  accentColor: "gold" | "red";
   overlay?: React.ReactNode;
   cardOverlay?: React.ReactNode;
 }>(function RemoteVideoBox({ track, accentColor, overlay, cardOverlay }, ref) {
@@ -383,12 +383,12 @@ function VideoShell({
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   containerId?: string;
-  accentColor: "fuchsia" | "red";
+  accentColor: "gold" | "red";
   overlay?: React.ReactNode;
   cardOverlay?: React.ReactNode;
   mirrored?: boolean;
 }) {
-  const borderClass = accentColor === "fuchsia" ? "border-fuchsia-500/50" : "border-red-500/50";
+  const borderClass = accentColor === "gold" ? "border-yellow-500/50" : "border-red-500/50";
 
   return (
     <div className={`rounded-2xl border ${borderClass} bg-zinc-950/80 overflow-hidden transition-all`}>

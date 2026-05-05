@@ -149,7 +149,7 @@ export function LivenessCheck({ onVerified }: { onVerified: () => void }) {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-xs">
       {/* Camera preview */}
-      <div className="relative w-56 h-72 border-2 border-fuchsia-500/50 bg-zinc-950 overflow-hidden">
+      <div className="relative w-56 h-72 border-2 border-yellow-500/50 bg-zinc-950 overflow-hidden">
         <video
           ref={videoRef}
           autoPlay
@@ -164,10 +164,10 @@ export function LivenessCheck({ onVerified }: { onVerified: () => void }) {
           </div>
         )}
         {/* Corner accents */}
-        <div className="pointer-events-none absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-fuchsia-400" />
-        <div className="pointer-events-none absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-fuchsia-400" />
-        <div className="pointer-events-none absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-fuchsia-400" />
-        <div className="pointer-events-none absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-fuchsia-400" />
+        <div className="pointer-events-none absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-yellow-400" />
+        <div className="pointer-events-none absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-yellow-400" />
+        <div className="pointer-events-none absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-yellow-400" />
+        <div className="pointer-events-none absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-yellow-400" />
 
         {/* Live indicator */}
         {camReady && step !== "done" && (
@@ -199,13 +199,13 @@ export function LivenessCheck({ onVerified }: { onVerified: () => void }) {
                 done
                   ? "border-green-500/40 bg-green-500/5"
                   : active
-                  ? "border-fuchsia-500/60 bg-fuchsia-500/10"
+                  ? "border-yellow-500/60 bg-yellow-500/10"
                   : "border-zinc-800 opacity-40"
               }`}
             >
               <div
                 className={`mt-0.5 size-4 flex items-center justify-center shrink-0 ${
-                  done ? "text-green-400" : active ? "text-fuchsia-400" : "text-zinc-700"
+                  done ? "text-green-400" : active ? "text-yellow-400" : "text-zinc-700"
                 }`}
               >
                 {done ? (
@@ -226,7 +226,7 @@ export function LivenessCheck({ onVerified }: { onVerified: () => void }) {
                   <motion.p
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-[10px] text-fuchsia-300 mt-0.5"
+                    className="text-[10px] text-yellow-300 mt-0.5"
                   >
                     {s.hint}
                   </motion.p>

@@ -42,7 +42,7 @@ function WheelCanvas({ rotation, size = 260 }: { rotation: number; size?: number
       ctx.translate(cx, cx);
       ctx.rotate((startAngle + endAngle) / 2);
       ctx.textAlign = "right";
-      ctx.fillStyle = prize === 500 ? "#d946ef" : "#ffffff";
+      ctx.fillStyle = prize === 500 ? "#FFD700" : "#ffffff";
       ctx.font = `bold ${prize >= 200 ? "12px" : "13px"} monospace`;
       ctx.fillText(`${prize}`, r - 10, 5);
       ctx.restore();
@@ -58,7 +58,7 @@ function WheelCanvas({ rotation, size = 260 }: { rotation: number; size?: number
     // Center dot
     ctx.beginPath();
     ctx.arc(cx, cx, 6, 0, Math.PI * 2);
-    ctx.fillStyle = "#d946ef";
+    ctx.fillStyle = "#FFD700";
     ctx.fill();
   }, []);
 
@@ -214,8 +214,8 @@ export function SpinClient() {
             <div className="relative border-2 border-cyan-400 bg-black p-8 text-center space-y-3 max-w-xs w-full"
               style={{ boxShadow: "0 0 60px rgba(6,182,212,0.5)" }}
             >
-              <div className="absolute -top-px -left-px w-5 h-5 border-t-2 border-l-2 border-fuchsia-400" />
-              <div className="absolute -bottom-px -right-px w-5 h-5 border-b-2 border-r-2 border-fuchsia-400" />
+              <div className="absolute -top-px -left-px w-5 h-5 border-t-2 border-l-2 border-yellow-400" />
+              <div className="absolute -bottom-px -right-px w-5 h-5 border-b-2 border-r-2 border-yellow-400" />
               <Atom className="mx-auto size-8 text-cyan-400" style={{ filter: "drop-shadow(0 0 10px rgba(6,182,212,0.8))" }} />
               <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-400 font-bold">You won</p>
               <p className="text-6xl font-black text-white tabular-nums" style={{ fontFamily: "var(--font-heading)", textShadow: "0 0 20px rgba(6,182,212,0.8)" }}>
