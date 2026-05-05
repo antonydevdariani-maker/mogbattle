@@ -1505,14 +1505,13 @@ function IdleScreen({
 // ─── PSL Card Overlay ────────────────────────────────────────────────────────
 
 const TIER_INFO: Record<string, { icon: string; label: string; color: string }> = {
-  ascended: { icon: "👑", label: "ASCENDED",  color: "#ffffff" },
-  gigachad: { icon: "🔥", label: "GIGACHAD",  color: "#f59e0b" },
-  chad:     { icon: "⚡", label: "CHAD",      color: "#22d3ee" },
-  chadlite: { icon: "⚜",  label: "CHADLITE", color: "#a78bfa" },
-  htn:      { icon: "★",  label: "HTN",       color: "#86efac" },
-  normie:   { icon: "◈",  label: "NORMIE",    color: "#d4d4d8" },
-  ltn:      { icon: "🌙", label: "LTN",       color: "#a1a1aa" },
-  subhuman: { icon: "💀", label: "SUBHUMAN",  color: "#f87171" },
+  adamlite: { icon: "👑", label: "ADAM LITE",  color: "#f59e0b" },
+  chad:     { icon: "🔥", label: "CHAD",        color: "#22d3ee" },
+  chadlite: { icon: "⚜",  label: "CHAD LITE",  color: "#a78bfa" },
+  htn:      { icon: "★",  label: "HTN",         color: "#86efac" },
+  mtn:      { icon: "◈",  label: "MTN",         color: "#d4d4d8" },
+  ltn:      { icon: "🌙", label: "LTN",         color: "#a1a1aa" },
+  sub5:     { icon: "💀", label: "SUB 5",       color: "#f87171" },
 };
 
 function ArenaPslCard({
@@ -1637,14 +1636,13 @@ function ArenaPslCard({
 // ─── PSL Tier ────────────────────────────────────────────────────────────────
 
 function pslTier(psl: number): { label: string; color: string } {
-  if (psl >= 10)  return { label: "ASCENDED",  color: "#ffffff" };
-  if (psl >= 9)   return { label: "GIGACHAD",  color: "#f59e0b" };
-  if (psl >= 8)   return { label: "CHAD",      color: "#22d3ee" };
-  if (psl >= 7)   return { label: "CHADLITE",  color: "#a78bfa" };
-  if (psl >= 6)   return { label: "HTN",       color: "#86efac" };
-  if (psl >= 5)   return { label: "NORMIE",    color: "#d4d4d8" };
-  if (psl >= 3)   return { label: "LTN",       color: "#a1a1aa" };
-  return                  { label: "SUBHUMAN",  color: "#f87171" };
+  if (psl >= 7.25) return { label: "ADAM LITE", color: "#f59e0b" };
+  if (psl >= 6.0)  return { label: "CHAD",      color: "#22d3ee" };
+  if (psl >= 5.5)  return { label: "CHAD LITE", color: "#a78bfa" };
+  if (psl >= 4.25) return { label: "HTN",       color: "#86efac" };
+  if (psl >= 3.75) return { label: "MTN",       color: "#d4d4d8" };
+  if (psl >= 3.25) return { label: "LTN",       color: "#a1a1aa" };
+  return                   { label: "SUB 5",     color: "#f87171" };
 }
 
 function ArenaTopBar({
