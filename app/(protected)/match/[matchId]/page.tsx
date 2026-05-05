@@ -3,13 +3,18 @@
 import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { getMatchForUser } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
-import { LiveMatchClient } from "@/components/match/live-match-client";
 import {
   useArenaMatchLeaveSetters,
   useWarnBeforeUnloadIf,
 } from "@/components/arena/arena-match-leave-context";
+
+const LiveMatchClient = dynamic(
+  () => import("@/components/match/live-match-client").then((m) => m.LiveMatchClient),
+  { ssr: false }
+);
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
