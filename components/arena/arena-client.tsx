@@ -2029,9 +2029,9 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card — live from battle start, pinned bottom-left, bounces on update */}
+        {/* PSL card — live from battle start, pinned top-left, bounces on update */}
         {["live", "analyzing", "verdict", "done"].includes(phase) && (
-          <div className="absolute bottom-10 left-2 z-[100]">
+          <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
               psl={pslBadge ?? null}
               tier={aiResult?.tier}
