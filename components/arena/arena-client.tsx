@@ -1119,6 +1119,10 @@ export function ArenaClient({
             betAmount={match?.bet_amount ?? 0}
             myScore={myScore}
             oppScore={oppScore}
+            myPsl={myPsl}
+            oppPsl={oppPsl}
+            myAiResult={myAiResult}
+            oppAiResult={oppAiResult}
             isFreeMode={resolvedFreeMode}
             myRematchReady={myRematchReady}
             oppRematchReady={oppRematchReady}
@@ -1916,8 +1920,8 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card overlay — top-left of video, shown from verdict onwards */}
-        {["verdict", "done"].includes(phase) && (pslBadge ?? 0) > 0 && (
+        {/* PSL card overlay — top-left of video, shown as soon as we have a score */}
+        {(pslBadge ?? 0) > 0 && !["idle", "queued", "negotiating", "live", "countdown"].includes(phase) && (
           <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
               psl={aiResult?.psl ?? pslBadge!}
@@ -2165,6 +2169,10 @@ function DoneOverlay({
   betAmount,
   myScore,
   oppScore,
+  myPsl,
+  oppPsl,
+  myAiResult,
+  oppAiResult,
   isFreeMode = false,
   myRematchReady,
   oppRematchReady,
@@ -2178,6 +2186,10 @@ function DoneOverlay({
   betAmount: number;
   myScore: number | null;
   oppScore: number | null;
+  myPsl: number | null;
+  oppPsl: number | null;
+  myAiResult: ArenaAiResult;
+  oppAiResult: ArenaAiResult;
   isFreeMode?: boolean;
   myRematchReady: boolean;
   oppRematchReady: boolean;
@@ -2258,37 +2270,37 @@ function DoneOverlay({
           </p>
         </div>
 
-        {/* Scores */}
+        {/* PSL Cards */}
         <div className="grid grid-cols-2 gap-2">
-          <div className={`border ${iWon ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-zinc-800"} p-3`}>
-            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">YOU</p>
-            <p
-              className={`text-3xl font-black tabular-nums ${iWon ? "text-fuchsia-300" : "text-zinc-400"}`}
-              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-            >
-              {myScore !== null ? <>{myScore.toFixed(1)}<span className="text-lg opacity-50">/10</span></> : "—"}
+          {/* YOUR card */}
+          <div className={`border ${iWon && !isTie ? "border-fuchsia-500/60" : "border-zinc-800"} p-3 space-y-1 bg-black/40`}>
+            <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400">YOUR SCAN</p>
+            <p className="text-3xl font-black tabular-nums text-white leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+              {(myAiResult?.psl ?? myPsl ?? myScore) !== null ? (myAiResult?.psl ?? myPsl ?? myScore)!.toFixed(1) : "—"}
             </p>
-            {myScore !== null && (
-              <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(myScore).color }}>
-                {pslTier(myScore).label}
-              </p>
+            {(() => { const v = myAiResult?.psl ?? myPsl ?? myScore; const t = v !== null ? pslTier(v) : null; return t ? <p className="text-[10px] font-black" style={{ color: t.color }}>{t.label}</p> : null; })()}
+            {myAiResult?.strengths && myAiResult.strengths !== "n/a" && (
+              <p className="text-[9px] text-green-400 truncate">+ {myAiResult.strengths}</p>
             )}
-            {iWon && !isTie && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
+            {myAiResult?.failos && myAiResult.failos !== "none" && myAiResult.failos !== "n/a" && (
+              <p className="text-[9px] text-red-400 truncate">- {myAiResult.failos}</p>
+            )}
+            {iWon && !isTie && <p className="text-[10px] text-fuchsia-400 font-black uppercase tracking-wide">WINNER</p>}
           </div>
-          <div className={`border ${!iWon && !isTie ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-zinc-800"} p-3`}>
-            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">OPP</p>
-            <p
-              className={`text-3xl font-black tabular-nums ${!iWon && !isTie ? "text-fuchsia-300" : "text-zinc-400"}`}
-              style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
-            >
-              {oppScore !== null ? <>{oppScore.toFixed(1)}<span className="text-lg opacity-50">/10</span></> : "—"}
+          {/* OPP card */}
+          <div className={`border ${!iWon && !isTie ? "border-cyan-500/60" : "border-zinc-800"} p-3 space-y-1 bg-black/40`}>
+            <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400">ENEMY SCAN</p>
+            <p className="text-3xl font-black tabular-nums text-white leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)" }}>
+              {(oppAiResult?.psl ?? oppPsl ?? oppScore) !== null ? (oppAiResult?.psl ?? oppPsl ?? oppScore)!.toFixed(1) : "—"}
             </p>
-            {oppScore !== null && (
-              <p className="text-[10px] font-black mt-0.5" style={{ color: pslTier(oppScore).color }}>
-                {pslTier(oppScore).label}
-              </p>
+            {(() => { const v = oppAiResult?.psl ?? oppPsl ?? oppScore; const t = v !== null ? pslTier(v) : null; return t ? <p className="text-[10px] font-black" style={{ color: t.color }}>{t.label}</p> : null; })()}
+            {oppAiResult?.strengths && oppAiResult.strengths !== "n/a" && (
+              <p className="text-[9px] text-green-400 truncate">+ {oppAiResult.strengths}</p>
             )}
-            {!iWon && !isTie && <p className="text-xs text-fuchsia-400 font-black mt-0.5">WINNER</p>}
+            {oppAiResult?.failos && oppAiResult.failos !== "none" && oppAiResult.failos !== "n/a" && (
+              <p className="text-[9px] text-red-400 truncate">- {oppAiResult.failos}</p>
+            )}
+            {!iWon && !isTie && <p className="text-[10px] text-cyan-400 font-black uppercase tracking-wide">WINNER</p>}
           </div>
         </div>
 
