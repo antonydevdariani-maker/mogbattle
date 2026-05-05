@@ -1496,8 +1496,25 @@ function ArenaPslCard({
   const displayDom = (dom && dom !== "n/a") ? dom : fallbackDom.current;
   const displayFlaw = (flaw && flaw !== "none" && flaw !== "n/a") ? flaw : fallbackFlaw.current;
 
-  const derived = psl !== null ? pslTier(psl) : null;
-  const t = (tier ? TIER_INFO[tier] : null) ?? (derived ? { icon: "⚡", label: derived.label, color: derived.color } : null);
+  // While no real scan yet, pulse a simulated number up/down so the card looks live
+  const baseRef = useRef(+(3.5 + Math.random() * 2.5).toFixed(1));
+  const [simPsl, setSimPsl] = useState<number>(baseRef.current);
+  useEffect(() => {
+    if (psl !== null) return; // real data arrived — stop simulation
+    const id = setInterval(() => {
+      setSimPsl((prev) => {
+        const delta = (Math.random() * 0.4 - 0.2);
+        return +Math.min(8, Math.max(1, prev + delta)).toFixed(1);
+      });
+    }, 900);
+    return () => clearInterval(id);
+  }, [psl]);
+
+  const displayPsl = psl !== null ? psl : simPsl;
+  const isReal = psl !== null;
+
+  const derived = pslTier(displayPsl);
+  const t = (tier ? TIER_INFO[tier] : null) ?? { icon: "⚡", label: derived.label, color: derived.color };
   const accentColor = t?.color ?? (label === "YOUR SCAN" ? "#e879f9" : "#22d3ee");
   const isYouScan = label === "YOUR SCAN";
 
@@ -1523,35 +1540,24 @@ function ArenaPslCard({
         </p>
       </div>
 
-      {/* PSL number — spring-bounces on every update, pulses while scanning */}
+      {/* PSL number — always visible; bounces on real updates, drifts while scanning */}
       <AnimatePresence mode="wait">
-        {psl !== null ? (
-          <motion.p
-            key={psl.toFixed(1)}
-            initial={{ scale: 1.4, opacity: 0.4, y: -6 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.75, opacity: 0, y: 6 }}
-            transition={{ type: "spring", stiffness: 520, damping: 22 }}
-            className="text-5xl font-black tabular-nums leading-none mb-1.5"
-            style={{
-              fontFamily: "var(--font-ibm-plex-mono)",
-              color: accentColor,
-              textShadow: `0 0 30px ${accentColor}bb, 0 0 60px ${accentColor}55`,
-            }}
-          >
-            {psl.toFixed(1)}
-          </motion.p>
-        ) : (
-          <motion.p
-            key="scanning"
-            animate={{ opacity: [0.25, 0.7, 0.25] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-            className="text-5xl font-black tabular-nums leading-none mb-1.5"
-            style={{ fontFamily: "var(--font-ibm-plex-mono)", color: `${accentColor}66` }}
-          >
-            —.—
-          </motion.p>
-        )}
+        <motion.p
+          key={displayPsl.toFixed(1)}
+          initial={{ scale: 1.3, opacity: 0.5, y: -5 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.8, opacity: 0, y: 5 }}
+          transition={{ type: "spring", stiffness: isReal ? 520 : 280, damping: isReal ? 22 : 30 }}
+          className="text-5xl font-black tabular-nums leading-none mb-1.5"
+          style={{
+            fontFamily: "var(--font-ibm-plex-mono)",
+            color: accentColor,
+            textShadow: `0 0 30px ${accentColor}${isReal ? "cc" : "55"}, 0 0 60px ${accentColor}44`,
+            opacity: isReal ? 1 : 0.65,
+          }}
+        >
+          {displayPsl.toFixed(1)}
+        </motion.p>
       </AnimatePresence>
 
       {/* Tier badge */}
