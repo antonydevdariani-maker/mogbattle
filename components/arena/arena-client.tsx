@@ -402,6 +402,16 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, authToken]);
 
+  // Seed random DOM/FLAW immediately when battle goes live so card shows sections from the start
+  useEffect(() => {
+    if (phase !== "live") return;
+    if (!myLiveDom) setMyLiveDom(DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)]);
+    if (!myLiveFlaw) setMyLiveFlaw(FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)]);
+    if (!oppLiveDom) setOppLiveDom(DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)]);
+    if (!oppLiveFlaw) setOppLiveFlaw(FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   // Live PSL loop — captures every 1.5s during battle, broadcasts psl+dom+flaw so both players see live changes
   useEffect(() => {
     if (phase !== "live") return;
@@ -427,13 +437,14 @@ export function ArenaClient({
         });
         const data = await res.json();
         if (!data.psl || data.psl <= 0) return null;
-        // Pick one dom + one flaw from predefined lists; use API values if available
-        const dom = (data.strengths && data.strengths !== "n/a")
-          ? data.strengths
-          : DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
-        const flaw = (data.failos && data.failos !== "none" && data.failos !== "n/a")
-          ? data.failos
-          : FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
+        // API returns arrays for strengths/failos — pick one item, fall back to predefined list
+        const pickStr = (v: unknown): string | null => {
+          if (Array.isArray(v) && v.length > 0) return String(v[Math.floor(Math.random() * v.length)]);
+          if (typeof v === "string" && v && v !== "n/a" && v !== "none") return v;
+          return null;
+        };
+        const dom = pickStr(data.strengths) ?? DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
+        const flaw = pickStr(data.failos) ?? FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
         return { psl: data.psl as number, dom, flaw };
       } catch { return null; }
     }
@@ -709,13 +720,18 @@ export function ArenaClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64 }),
       });
-      const data = await res.json() as { psl?: number; tier?: string; strengths?: string; failos?: string };
+      const data = await res.json() as { psl?: number; tier?: string; strengths?: unknown; failos?: unknown };
       if (!data.psl || data.psl <= 0) return null;
+      const pickOne = (v: unknown): string | undefined => {
+        if (Array.isArray(v) && v.length > 0) return String(v[0]);
+        if (typeof v === "string" && v && v !== "n/a" && v !== "none") return v;
+        return undefined;
+      };
       return {
         psl: Number(data.psl.toFixed(2)),
         tier: data.tier ?? undefined,
-        strengths: data.strengths ?? undefined,
-        failos: data.failos ?? undefined,
+        strengths: pickOne(data.strengths),
+        failos: pickOne(data.failos),
       };
     } catch { return null; }
   }
@@ -2007,7 +2023,7 @@ function PlayerPanel({
           </div>
         )}
         {/* PSL card — live from battle start, pinned bottom-left, bounces on update */}
-        {["live", "analyzing", "verdict", "done"].includes(phase) && showVideo && (
+        {["live", "analyzing", "verdict", "done"].includes(phase) && (
           <div className="absolute bottom-10 left-2 z-[100]">
             <ArenaPslCard
               psl={pslBadge ?? null}
