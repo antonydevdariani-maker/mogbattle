@@ -1920,8 +1920,8 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card overlay — top-left of video, shown as soon as we have a score */}
-        {(pslBadge ?? 0) > 0 && !["idle", "queued", "negotiating", "live", "countdown"].includes(phase) && (
+        {/* PSL card overlay — top-left of video, shown live during battle and afterwards */}
+        {(pslBadge ?? 0) > 0 && !["idle", "queued", "negotiating", "countdown"].includes(phase) && (
           <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
               psl={aiResult?.psl ?? pslBadge!}
