@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Megaphone } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Broadcast = {
   id: string;
@@ -38,28 +39,38 @@ export function BroadcastBanner() {
     setVisible(false);
   }
 
-  if (!visible || !broadcast) return null;
-
   return (
-    <div className="border border-fuchsia-500/40 bg-fuchsia-500/5 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2 min-w-0">
-          <Megaphone className="size-4 text-fuchsia-400 shrink-0 mt-0.5" />
-          <div className="min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-fuchsia-400 block">
-              Message from {broadcast.sender_username}
-            </span>
-            <p className="text-sm text-zinc-200 leading-relaxed mt-0.5">{broadcast.message}</p>
-          </div>
-        </div>
-        <button
-          onClick={dismiss}
-          className="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+    <AnimatePresence>
+      {visible && broadcast && (
+        <motion.div
+          initial={{ y: -80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -80, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="border-2 border-yellow-400/70 bg-yellow-400/10 p-5"
         >
-          <X className="size-4" />
-        </button>
-      </div>
-    </div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="shrink-0 mt-0.5 border border-yellow-400/50 bg-yellow-400/10 p-2">
+                <Megaphone className="size-5 text-yellow-400" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] font-black uppercase tracking-widest text-yellow-400 block mb-1">
+                  Message from {broadcast.sender_username}
+                </span>
+                <p className="text-base text-yellow-100 leading-relaxed font-medium">{broadcast.message}</p>
+              </div>
+            </div>
+            <button
+              onClick={dismiss}
+              className="text-yellow-600 hover:text-yellow-300 transition-colors shrink-0 mt-0.5"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
