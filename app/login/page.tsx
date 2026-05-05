@@ -161,7 +161,7 @@ function LoginContent() {
           </button>
         </form>
 
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-2">
           <button
             type="button"
             onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
@@ -169,6 +169,24 @@ function LoginContent() {
           >
             {mode === "login" ? "No account? Sign up" : "Have an account? Sign in"}
           </button>
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!email) { setError("Enter your email first."); return; }
+                setLoading(true);
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                  redirectTo: `${window.location.origin}/login`,
+                });
+                setLoading(false);
+                if (error) setError(error.message);
+                else setSuccess("Password reset email sent. Check your inbox.");
+              }}
+              className="text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              Forgot password?
+            </button>
+          )}
         </div>
       </div>
     </div>
