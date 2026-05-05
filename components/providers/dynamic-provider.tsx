@@ -1,7 +1,8 @@
 "use client";
 
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
-import { SolanaWalletConnectors } from "@dynamic-labs/solana";
+// SolanaWalletConnectors temporarily removed to diagnose SDK init issue
+// import { SolanaWalletConnectors } from "@dynamic-labs/solana";
 
 export function MogBattleDynamicProvider({ children }: { children: React.ReactNode }) {
   const envId = process.env.NEXT_PUBLIC_DYNAMIC_ENV_ID;
@@ -17,7 +18,7 @@ export function MogBattleDynamicProvider({ children }: { children: React.ReactNo
     <DynamicContextProvider
       settings={{
         environmentId: envId,
-        walletConnectors: [SolanaWalletConnectors],
+        walletConnectors: [],
       }}
     >
       {children}
