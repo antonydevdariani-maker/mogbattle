@@ -62,6 +62,15 @@ const METRICS = [
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const DOM_TRAITS = [
+  "Facial Structure", "Jawline Definition", "Skin Clarity", "Eye Area",
+  "Hair Quality", "Symmetry", "Physique", "Style / Fashion", "Grooming", "Confidence",
+];
+const FLAW_TRAITS = [
+  "Skin Texture", "Acne / Blemishes", "Uneven Tone", "Hair Health",
+  "Posture", "Facial Fat", "Grooming Habits", "Style Fit", "Sleep / Eye Bags",
+];
+
 function formatQueueHandle(username: string | null, wallet: string | null): string {
   const w = wallet?.trim();
   if (w && w.length >= 8) {
@@ -159,6 +168,12 @@ export function ArenaClient({
   // Full AI results for PSL card overlays on camera feeds
   const [myAiResult, setMyAiResult] = useState<ArenaAiResult>(null);
   const [oppAiResult, setOppAiResult] = useState<ArenaAiResult>(null);
+
+  // Live DOM/FLAW displayed during battle (updates each capture)
+  const [myLiveDom, setMyLiveDom] = useState<string | null>(null);
+  const [myLiveFlaw, setMyLiveFlaw] = useState<string | null>(null);
+  const [oppLiveDom, setOppLiveDom] = useState<string | null>(null);
+  const [oppLiveFlaw, setOppLiveFlaw] = useState<string | null>(null);
 
   const derivePhase = useCallback((m: MatchRow | null): ArenaPhase => {
     if (!m) return "idle";
@@ -282,7 +297,9 @@ export function ArenaClient({
       )
       .on("broadcast", { event: "psl" }, ({ payload }) => {
         if (payload.userId !== userId) {
-          setOppPsl((prev) => prev === null ? payload.psl : Math.max(prev, payload.psl));
+          setOppPsl(payload.psl);
+          if (payload.dom) setOppLiveDom(payload.dom);
+          if (payload.flaw) setOppLiveFlaw(payload.flaw);
         }
       })
       .on("broadcast", { event: "presence" }, ({ payload }) => {
@@ -385,12 +402,12 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, authToken]);
 
-  // Live PSL loop — captures every 1.5s during battle, updates both players' displays in real time
+  // Live PSL loop — captures every 1.5s during battle, broadcasts psl+dom+flaw so both players see live changes
   useEffect(() => {
     if (phase !== "live") return;
     let cancelled = false;
 
-    async function captureAndJudge(): Promise<number | null> {
+    async function captureAndJudge(): Promise<{ psl: number; dom?: string; flaw?: string } | null> {
       try {
         const container = myVideoContainerRef.current;
         const video = container?.querySelector("video") as HTMLVideoElement | null;
@@ -409,26 +426,34 @@ export function ArenaClient({
           body: JSON.stringify({ image: base64 }),
         });
         const data = await res.json();
-        return (data.psl && data.psl > 0) ? (data.psl as number) : null;
+        if (!data.psl || data.psl <= 0) return null;
+        // Pick one dom + one flaw from predefined lists; use API values if available
+        const dom = (data.strengths && data.strengths !== "n/a")
+          ? data.strengths
+          : DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)];
+        const flaw = (data.failos && data.failos !== "none" && data.failos !== "n/a")
+          ? data.failos
+          : FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)];
+        return { psl: data.psl as number, dom, flaw };
       } catch { return null; }
     }
 
     async function runLoop() {
-      // Initial 1.5s delay so camera has time to stabilise
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 1200));
       let round = 0;
       while (!cancelled) {
-        const psl = await captureAndJudge();
+        const result = await captureAndJudge();
         if (cancelled) break;
-        if (psl) {
+        if (result) {
+          const { psl, dom, flaw } = result;
           pslCaptures.current.push(psl);
-          // Show the latest reading live (not just the best) so the number moves
           setMyPsl(psl);
+          if (dom) setMyLiveDom(dom);
+          if (flaw) setMyLiveFlaw(flaw);
           realtimeChannelRef.current?.send({
             type: "broadcast", event: "psl",
-            payload: { userId, psl },
+            payload: { userId, psl, dom, flaw },
           });
-          // Only persist the best to the DB on the 2nd+ round (avoids spamming on round 0)
           if (round >= 1) {
             const best = Math.max(...pslCaptures.current);
             const token = authToken;
@@ -439,7 +464,6 @@ export function ArenaClient({
         }
         round++;
         autoJudgeDone.current = round >= 2;
-        // Wait 1.5s between captures so the number updates visibly
         await new Promise((r) => setTimeout(r, 1500));
       }
     }
@@ -870,6 +894,10 @@ export function ArenaClient({
     setOppRematchReady(false);
     setMyAiResult(null);
     setOppAiResult(null);
+    setMyLiveDom(null);
+    setMyLiveFlaw(null);
+    setOppLiveDom(null);
+    setOppLiveFlaw(null);
     refreshBalance();
   }
 
@@ -962,6 +990,8 @@ export function ArenaClient({
             videoContainerRef={myVideoContainerRef}
             rematchReady={myRematchReady}
             aiResult={myAiResult}
+            liveDom={myLiveDom}
+            liveFlaw={myLiveFlaw}
           />
 
           {/* AI auto-judges 3s after match goes live — no manual buttons needed */}
@@ -1025,6 +1055,8 @@ export function ArenaClient({
             isFounder={oppIsFounder}
             rematchReady={oppRematchReady}
             aiResult={oppAiResult}
+            liveDom={oppLiveDom}
+            liveFlaw={oppLiveFlaw}
           />
         </div>
       </div>
@@ -1443,35 +1475,71 @@ function ArenaPslCard({
 }) {
   const derived = psl !== null ? pslTier(psl) : null;
   const t = (tier ? TIER_INFO[tier] : null) ?? (derived ? { icon: "⚡", label: derived.label, color: derived.color } : null);
+  const hasDom = dom && dom !== "n/a";
+  const hasFlaw = flaw && flaw !== "none" && flaw !== "n/a";
   return (
-    <div className="rounded-2xl bg-black/60 backdrop-blur-md px-3 py-2.5 space-y-1.5 min-w-[130px] max-w-[160px] border border-white/[0.08] shadow-xl">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none mb-1">Overall Score</p>
-          <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
-            {psl !== null ? psl.toFixed(1) : "—"}
-          </p>
-        </div>
-        <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-500 text-right leading-tight mt-0.5 shrink-0">{label}</p>
+    <div className="rounded-2xl bg-black/70 backdrop-blur-md px-3.5 py-3 space-y-2 min-w-[150px] max-w-[185px] border border-white/[0.10] shadow-2xl">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-zinc-400 leading-none">Overall Score</p>
+        <p className="text-[8px] font-bold uppercase tracking-[0.08em] text-zinc-500 leading-none">{label}</p>
       </div>
+      {/* Live PSL number with bounce on change */}
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={psl?.toFixed(1) ?? "dash"}
+          initial={{ scale: 1.25, opacity: 0.6 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.85, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 400, damping: 18 }}
+          className="text-4xl font-black text-white tabular-nums leading-none"
+          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: t ? `0 0 20px ${t.color}88` : "0 0 18px rgba(255,255,255,0.3)" }}
+        >
+          {psl !== null ? psl.toFixed(1) : "—"}
+        </motion.p>
+      </AnimatePresence>
+      {/* Tier badge */}
       {t && (
         <div className="flex items-center gap-1.5">
-          <span className="text-sm leading-none">{t.icon}</span>
-          <span className="text-[10px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
+          <span className="text-base leading-none">{t.icon}</span>
+          <span className="text-[11px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
         </div>
       )}
-      {(dom || flaw) && (
-        <div className="space-y-0.5 pt-1 border-t border-white/[0.08]">
-          {dom && dom !== "n/a" && (
+      {/* DOM / Refinement */}
+      {(hasDom || hasFlaw) && (
+        <div className="space-y-1 pt-1.5 border-t border-white/[0.08]">
+          {hasDom && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[8px] font-black uppercase text-zinc-400 w-6 shrink-0 mt-px">DOM</span>
-              <span className="text-[9px] text-zinc-200 leading-tight line-clamp-1">{dom}</span>
+              <span className="text-[8px] font-black uppercase text-emerald-400 shrink-0 mt-px leading-tight">🔷 DOM</span>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={dom}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-[9px] text-zinc-200 leading-tight line-clamp-1"
+                >
+                  {dom}
+                </motion.span>
+              </AnimatePresence>
             </div>
           )}
-          {flaw && flaw !== "none" && flaw !== "n/a" && (
+          {hasFlaw && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[8px] font-black uppercase text-red-400 w-6 shrink-0 mt-px">FLAW</span>
-              <span className="text-[9px] text-red-300 leading-tight line-clamp-1">{flaw}</span>
+              <span className="text-[8px] font-black uppercase text-amber-400 shrink-0 mt-px leading-tight">🔶 REFINE</span>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={flaw}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-[9px] text-amber-200 leading-tight line-clamp-1"
+                >
+                  {flaw}
+                </motion.span>
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -1692,6 +1760,8 @@ function PlayerPanel({
   videoContainerRef,
   rematchReady = false,
   aiResult,
+  liveDom,
+  liveFlaw,
 }: {
   side: "you" | "opponent";
   name: string;
@@ -1712,6 +1782,8 @@ function PlayerPanel({
   videoContainerRef?: React.RefObject<HTMLDivElement | null>;
   rematchReady?: boolean;
   aiResult?: ArenaAiResult;
+  liveDom?: string | null;
+  liveFlaw?: string | null;
 }) {
   const internalVideoRef = useRef<HTMLDivElement>(null);
   const videoRef = videoContainerRef ?? internalVideoRef;
@@ -1797,7 +1869,7 @@ function PlayerPanel({
         </div>
       )}
 
-      <div className="relative min-h-[10rem] flex-1 bg-zinc-950 md:min-h-[12rem]">
+      <div className="relative min-h-[12rem] flex-1 bg-zinc-950 md:min-h-[22rem]">
         <div
           ref={videoRef}
           id={isYou ? "vonage-local-video" : "vonage-remote-video"}
@@ -1900,14 +1972,14 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card — appears the moment battle goes live, shows loading bars until AI responds, then updates live */}
+        {/* PSL card — live from battle start, number bounces on each update */}
         {["live", "analyzing", "verdict", "done"].includes(phase) && showVideo && (
           <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
-              psl={aiResult?.psl ?? pslBadge ?? null}
+              psl={pslBadge ?? null}
               tier={aiResult?.tier}
-              dom={(pslBadge ?? 0) > 0 ? (aiResult?.strengths) : undefined}
-              flaw={(pslBadge ?? 0) > 0 ? (aiResult?.failos) : undefined}
+              dom={liveDom ?? aiResult?.strengths}
+              flaw={liveFlaw ?? aiResult?.failos}
               label={isYou ? "YOUR SCAN" : "ENEMY SCAN"}
             />
           </div>
