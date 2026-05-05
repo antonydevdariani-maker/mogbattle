@@ -583,7 +583,7 @@ export function ArenaClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, isP1]);
 
-  // Face presence check — warn at 5s, auto-forfeit (score 0) at 10s if no face
+  // Face presence check — warn immediately, DQ after 3s of no face detected
   useEffect(() => {
     if (phase !== "live") return;
 
@@ -608,12 +608,14 @@ export function ArenaClient({
       } catch { return true; } // network fail → assume face present
     }
 
-    const warnTimer = setTimeout(() => setNoFaceWarning(true), 5000);
+    // Show warning immediately, DQ if still no face after 3 more seconds
+    const warnTimer = setTimeout(() => setNoFaceWarning(true), 2000);
 
-    const forfeitTimer = setTimeout(async () => {
+    const dqTimer = setTimeout(async () => {
       const faceFound = await hasFace();
       if (!faceFound) {
-        // Force a PSL of 0 so opponent wins
+        setNoFaceWarning(false);
+        // Disqualified — force PSL 0 so opponent wins in both battle modes
         setMyPsl(0);
         pslCaptures.current = [0];
         realtimeChannelRef.current?.send({
@@ -622,18 +624,14 @@ export function ArenaClient({
         });
         const token = authToken;
         if (token && match?.id) {
-          try {
-            await submitMyPslScore(token, { matchId: match.id, psl: 0 });
-          } catch {
-            /* non-fatal */
-          }
+          try { await submitMyPslScore(token, { matchId: match.id, psl: 0 }); } catch { /* non-fatal */ }
         }
       } else {
         setNoFaceWarning(false);
       }
-    }, 10000);
+    }, 5000); // warn at 2s, DQ check at 5s = 3s of no face visible
 
-    return () => { clearTimeout(warnTimer); clearTimeout(forfeitTimer); };
+    return () => { clearTimeout(warnTimer); clearTimeout(dqTimer); };
   }, [phase, localVideoTrack, match?.id, userId, authToken]);
 
   // Keyboard number input during negotiation only — bet is locked once queued
@@ -1163,7 +1161,7 @@ export function ArenaClient({
           >
             <span className="text-red-400 text-lg">⚠️</span>
             <p className="text-sm font-black uppercase tracking-widest text-red-300">
-              Show your face — no face detected, you will forfeit!
+              No face detected — show your face or you will be disqualified!
             </p>
           </motion.div>
         )}
@@ -1507,12 +1505,14 @@ function IdleScreen({
 // ─── PSL Card Overlay ────────────────────────────────────────────────────────
 
 const TIER_INFO: Record<string, { icon: string; label: string; color: string }> = {
-  chad:     { icon: "🔥", label: "CHAD",     color: "#e879f9" },
-  chadlite: { icon: "⚜",  label: "CHADLITE", color: "#22d3ee" },
+  ascended: { icon: "👑", label: "ASCENDED",  color: "#ffffff" },
+  gigachad: { icon: "🔥", label: "GIGACHAD",  color: "#f59e0b" },
+  chad:     { icon: "⚡", label: "CHAD",      color: "#22d3ee" },
+  chadlite: { icon: "⚜",  label: "CHADLITE", color: "#a78bfa" },
   htn:      { icon: "★",  label: "HTN",       color: "#86efac" },
-  mtn:      { icon: "◈",  label: "MTN",       color: "#d4d4d8" },
+  normie:   { icon: "◈",  label: "NORMIE",    color: "#d4d4d8" },
   ltn:      { icon: "🌙", label: "LTN",       color: "#a1a1aa" },
-  sub5:     { icon: "💀", label: "SUB5",      color: "#f87171" },
+  subhuman: { icon: "💀", label: "SUBHUMAN",  color: "#f87171" },
 };
 
 function ArenaPslCard({
@@ -1637,13 +1637,14 @@ function ArenaPslCard({
 // ─── PSL Tier ────────────────────────────────────────────────────────────────
 
 function pslTier(psl: number): { label: string; color: string } {
-  if (psl >= 7.25) return { label: "ADAM LITE", color: "#f59e0b" };
-  if (psl >= 6.0)  return { label: "CHAD", color: "#22d3ee" };
-  if (psl >= 5.5)  return { label: "CHADLITE", color: "#a78bfa" };
-  if (psl >= 4.25) return { label: "HTN", color: "#86efac" };
-  if (psl >= 3.75) return { label: "MTN", color: "#d4d4d8" };
-  if (psl >= 3.25) return { label: "LTN", color: "#a1a1aa" };
-  return { label: "SB", color: "#f87171" };
+  if (psl >= 10)  return { label: "ASCENDED",  color: "#ffffff" };
+  if (psl >= 9)   return { label: "GIGACHAD",  color: "#f59e0b" };
+  if (psl >= 8)   return { label: "CHAD",      color: "#22d3ee" };
+  if (psl >= 7)   return { label: "CHADLITE",  color: "#a78bfa" };
+  if (psl >= 6)   return { label: "HTN",       color: "#86efac" };
+  if (psl >= 5)   return { label: "NORMIE",    color: "#d4d4d8" };
+  if (psl >= 3)   return { label: "LTN",       color: "#a1a1aa" };
+  return                  { label: "SUBHUMAN",  color: "#f87171" };
 }
 
 function ArenaTopBar({
