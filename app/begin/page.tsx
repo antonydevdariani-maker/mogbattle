@@ -62,10 +62,9 @@ export default function BeginPage() {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowAuthFlow(true)}
-            disabled={!sdkHasLoaded}
-            className="w-full py-5 bg-fuchsia-500 text-black text-lg font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-[4px_4px_0_#fff]"
+            className="w-full py-5 bg-fuchsia-500 text-black text-lg font-black uppercase tracking-widest shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
           >
-            {sdkHasLoaded ? "Let\u2019s go" : "Loading\u2026"}
+            Let&apos;s go
           </motion.button>
           <button
             onClick={() => router.back()}
