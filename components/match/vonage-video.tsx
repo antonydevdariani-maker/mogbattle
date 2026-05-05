@@ -91,7 +91,7 @@ export function useVonageVideo(): UseVonageVideoReturn {
 
         if (!joinedRef.current) {
           console.log("[Video] joining channel:", sessionId, "appId:", apiKey);
-          await client.join(apiKey, sessionId, token ?? null, 0);
+          await client.join(apiKey, sessionId, token ?? null, null);
           joinedRef.current = true;
           console.log("[Video] joined successfully, remote users:", client.remoteUsers.length);
         }
