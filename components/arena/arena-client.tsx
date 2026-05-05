@@ -1459,18 +1459,31 @@ const TIER_INFO: Record<string, { icon: string; label: string; color: string }> 
 function ArenaPslCard({
   psl, tier, dom, flaw, label,
 }: {
-  psl: number; tier?: string; dom?: string; flaw?: string;
+  psl: number | null; tier?: string; dom?: string; flaw?: string;
   label: "YOUR SCAN" | "ENEMY SCAN";
 }) {
-  const t = tier ? TIER_INFO[tier] : null;
+  const derived = psl !== null ? pslTier(psl) : null;
+  const t = (tier ? TIER_INFO[tier] : null) ?? (derived ? { icon: "⚡", label: derived.label, color: derived.color } : null);
   return (
     <div className="rounded-2xl bg-black/60 backdrop-blur-md px-3 py-2.5 space-y-1.5 min-w-[130px] max-w-[160px] border border-white/[0.08] shadow-xl">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none mb-1">Overall Score</p>
-          <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
-            {psl.toFixed(1)}
-          </p>
+          {psl !== null ? (
+            <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
+              {psl.toFixed(1)}
+            </p>
+          ) : (
+            <div className="flex gap-1 items-end h-9">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-1.5 rounded-full bg-white/40"
+                  style={{ height: `${50 + i * 25}%`, animation: `pulse 1s ease-in-out ${i * 0.2}s infinite alternate` }}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-500 text-right leading-tight mt-0.5 shrink-0">{label}</p>
       </div>
@@ -1920,14 +1933,14 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card overlay — top-left of video, shown live during battle and afterwards */}
-        {(pslBadge ?? 0) > 0 && !["idle", "queued", "negotiating", "countdown"].includes(phase) && (
+        {/* PSL card — appears the moment battle goes live, shows loading bars until AI responds, then updates live */}
+        {["live", "analyzing", "verdict", "done"].includes(phase) && showVideo && (
           <div className="absolute top-2 left-2 z-[100]">
             <ArenaPslCard
-              psl={aiResult?.psl ?? pslBadge!}
+              psl={aiResult?.psl ?? pslBadge ?? null}
               tier={aiResult?.tier}
-              dom={aiResult?.strengths}
-              flaw={aiResult?.failos}
+              dom={(pslBadge ?? 0) > 0 ? (aiResult?.strengths) : undefined}
+              flaw={(pslBadge ?? 0) > 0 ? (aiResult?.failos) : undefined}
               label={isYou ? "YOUR SCAN" : "ENEMY SCAN"}
             />
           </div>

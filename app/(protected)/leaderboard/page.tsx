@@ -339,10 +339,27 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
         )}
       </div>
 
-      <div className="relative pt-3">
+      {/* ELO number labels above each segment */}
+      <div className="flex w-full">
+        {ELO_TIER_BANDS.map((band, i) => (
+          <div
+            key={band.abbr}
+            className="flex flex-col items-start min-w-0"
+            style={{ width: `${segmentWidthPercent(i)}%` }}
+          >
+            <span className="text-[8px] font-bold tabular-nums text-zinc-500 leading-none pl-0.5">
+              {band.min === 0 ? "0" : band.min}
+            </span>
+          </div>
+        ))}
+        {/* Right edge label */}
+        <span className="text-[8px] font-bold tabular-nums text-zinc-500 leading-none shrink-0">{ELO_GRAPH_MAX}+</span>
+      </div>
+
+      <div className="relative">
         {yourElo !== null && (
           <div
-            className="pointer-events-none absolute top-0 z-10 flex flex-col items-center -translate-x-1/2"
+            className="pointer-events-none absolute -top-1 z-10 flex flex-col items-center -translate-x-1/2"
             style={{ left: `${eloToPercentOnGraph(yourElo)}%` }}
             title={`Your ELO: ${yourElo}`}
           >
@@ -365,47 +382,6 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
           ))}
         </div>
       </div>
-
-      <p className="text-[10px] leading-relaxed text-zinc-500">
-        <span className="text-zinc-400 font-bold">Scale 0–{ELO_GRAPH_MAX}.</span> Sub 5 ≤450 · LTN 451–799 · MTN 800–999 ·
-        HTN 1000–1199 · Chad lite 1200–1599 · Chad 1600–1799 · Adam lite 1800+.
-      </p>
-
-      {/* PSL tier scale */}
-      <div className="pt-2 border-t border-white/5 space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">PSL scale</p>
-        <div className="flex h-7 w-full overflow-hidden rounded-md border border-white/15 shadow-inner">
-          {PSL_TIER_BANDS.map((t) => (
-            <div
-              key={t.label}
-              title={`${t.label}: ${t.range}`}
-              className="flex min-w-0 items-center justify-center border-r border-black/30 last:border-r-0 px-0.5"
-              style={{ width: `${t.pct}%`, background: t.bg }}
-            >
-              <span className="truncate text-center text-[7px] font-black uppercase tracking-tight text-white drop-shadow-sm sm:text-[8px]">
-                {t.label}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-          {PSL_TIER_BANDS.map((t) => (
-            <span key={t.label} className="text-[9px] font-bold" style={{ color: t.color }}>
-              {t.label} <span className="text-zinc-500 font-normal">{t.range}</span>
-            </span>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
-
-const PSL_TIER_BANDS = [
-  { label: "SUB 5",     range: "< 3.25",    pct: 10, bg: "rgba(239,68,68,0.55)",    color: "#f87171" },
-  { label: "LTN",       range: "3.25–3.74",  pct: 13, bg: "rgba(161,161,170,0.55)",  color: "#a1a1aa" },
-  { label: "MTN",       range: "3.75–4.24",  pct: 13, bg: "rgba(212,212,216,0.55)",  color: "#d4d4d8" },
-  { label: "HTN",       range: "4.25–5.49",  pct: 20, bg: "rgba(134,239,172,0.45)",  color: "#86efac" },
-  { label: "CHAD LITE", range: "5.5–5.99",   pct: 14, bg: "rgba(167,139,250,0.55)",  color: "#a78bfa" },
-  { label: "CHAD",      range: "6.0–7.24",   pct: 17, bg: "rgba(34,211,238,0.55)",   color: "#22d3ee" },
-  { label: "ADAM LITE", range: "7.25+",      pct: 13, bg: "rgba(245,158,11,0.55)",   color: "#f59e0b" },
-];
