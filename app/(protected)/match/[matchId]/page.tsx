@@ -1,6 +1,6 @@
 "use client";
 
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
@@ -22,23 +22,21 @@ export default function MatchRoomPage() {
   const params = useParams();
   const matchId = params.matchId as string;
   const router = useRouter();
-  const { user } = useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
+  const { session, token } = useAuth();
   const { setMatchAtRisk } = useArenaMatchLeaveSetters();
   const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !matchId || !authToken) return;
+    if (!session || !matchId || !token) return;
     (async () => {
-      const res = await getMatchForUser(authToken, matchId);
+      const res = await getMatchForUser(token, matchId);
       if (!res) {
-        router.replace("/battle");
+        router.replace("/arena");
         return;
       }
       setData(res as { match: MatchRow; userId: string });
     })();
-  }, [isAuthenticated, matchId, authToken, router]);
+  }, [session, matchId, token, router]);
 
   const roomLeaveRisk =
     data != null &&
@@ -61,9 +59,7 @@ export default function MatchRoomPage() {
   }
 
   const { match, userId } = data;
-
-  const opponentId =
-    match.player1_id === userId ? match.player2_id : match.player1_id;
+  const opponentId = match.player1_id === userId ? match.player2_id : match.player1_id;
 
   return (
     <div className="w-full">
@@ -75,7 +71,7 @@ export default function MatchRoomPage() {
         userId={userId}
         opponentId={opponentId ?? null}
         betAmount={match.bet_amount}
-        isFreeMatch={match.is_free_match ?? false}
+        isFreeMatch={match.is_free_match ?? true}
         initialAiP1={match.ai_score_p1}
         initialAiP2={match.ai_score_p2}
       />

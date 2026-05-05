@@ -2,14 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  queueForBattle,
   queueForFreeMatch,
-  submitBetOffer,
   submitMoleculeBetOffer,
-  finalizeMatchResult,
   finalizeFreeMatchResult,
   loadBattleQueueState,
   loadProfileSummary,
@@ -112,8 +109,7 @@ export function ArenaClient({
   walletAddress: string | null;
   isFounder?: boolean;
 }) {
-  const {  } = useDynamicContext();
-  const authToken = getAuthToken();
+  const { token: authToken } = useAuth();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [isPending, setIsPending] = useState(false);
@@ -531,7 +527,7 @@ export function ArenaClient({
             if (isFreeDraw) {
               await finalizeFreeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
             } else {
-              await finalizeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
+              await finalizeFreeMatchResult(authToken, { matchId: match.id, aiScoreP1: drawScore, aiScoreP2: drawScore });
             }
             refreshBalance();
           }
@@ -634,7 +630,7 @@ export function ArenaClient({
         if (isFreeMode) {
           await submitMoleculeBetOffer(token, match.id, capped);
         } else {
-          await submitBetOffer(token, match.id, capped);
+          await submitMoleculeBetOffer(token, match.id, capped);
         }
       } catch {}
     }, 300);
@@ -662,7 +658,7 @@ export function ArenaClient({
         if (isFreeMode) {
           await queueForFreeMatch(token, betAmount);
         } else {
-          await queueForBattle(token, betAmount);
+          await queueForFreeMatch(token, betAmount);
         }
         await poll();
       } catch {
@@ -804,7 +800,7 @@ export function ArenaClient({
           if (isFree) {
             await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
           } else {
-            await finalizeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
+            await finalizeFreeMatchResult(token, { matchId: match.id, aiScoreP1: p1Total, aiScoreP2: p2Total });
           }
           refreshBalance();
         });

@@ -1,8 +1,8 @@
 "use client";
 
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/components/auth/auth-context";
 import { checkArenaState, loadProfileSummary } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 
@@ -14,21 +14,16 @@ const ArenaClient = dynamic(
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ArenaPage() {
-  const { user } = useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
+  const { session, token } = useAuth();
   const [ready, setReady] = useState(false);
-  const [balance, setBalance] = useState(0);
   const [molecules, setMolecules] = useState(0);
   const [activeMatch, setActiveMatch] = useState<MatchRow | null>(null);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isFounder, setIsFounder] = useState(false);
 
   const init = useCallback(async () => {
-    const token = authToken;
     if (!token) return;
     const [state, profile] = await Promise.all([
       checkArenaState(token),
@@ -37,18 +32,16 @@ export default function ArenaPage() {
     setActiveMatch(state.activeMatch as MatchRow | null);
     setOpponentName(state.opponentName);
     setUserId(state.userId);
-    setBalance(profile?.total_credits ?? 0);
     setMolecules(profile?.molecules ?? 0);
     setUsername(profile?.username ?? null);
-    setWalletAddress(profile?.wallet_address ?? null);
     setIsFounder(profile?.is_founder ?? false);
     setReady(true);
-  }, [authToken]);
+  }, [token]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!session) return;
     init();
-  }, [isAuthenticated, init]);
+  }, [session, init]);
 
   if (!ready || !userId) {
     return (
@@ -72,13 +65,13 @@ export default function ArenaPage() {
 
   return (
     <ArenaClient
-      initialBalance={balance}
+      initialBalance={0}
       initialMolecules={molecules}
       initialMatch={activeMatch}
       initialOpponentName={opponentName}
       userId={userId}
       displayName={username}
-      walletAddress={walletAddress}
+      walletAddress={null}
       isFounder={isFounder}
     />
   );

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { getAuthToken } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { Megaphone, X, Send, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function FounderMessageButton() {
+  const { token } = useAuth();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -13,9 +14,7 @@ export function FounderMessageButton() {
   const [error, setError] = useState<string | null>(null);
 
   async function send() {
-    if (!message.trim() || sending) return;
-    const token = getAuthToken();
-    if (!token) return;
+    if (!message.trim() || sending || !token) return;
 
     setSending(true);
     setError(null);

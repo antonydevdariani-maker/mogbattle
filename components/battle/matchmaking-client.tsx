@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { getAuthToken, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { queueForBattle, submitBetOffer } from "@/app/actions";
+import { queueForFreeMatch, submitMoleculeBetOffer } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Swords, Loader2, ArrowRight } from "lucide-react";
 import type { Database } from "@/lib/types/database";
@@ -22,8 +22,7 @@ export function MatchmakingClient({
   opponentName: string | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  const {  } = useDynamicContext();
-  const authToken = getAuthToken();
+  const { token: authToken } = useAuth();
   const [match, setMatch] = useState<MatchRow | null>(existingMatch);
   const [queueSeconds, setQueueSeconds] = useState(0);
   const [isPending, startTransition] = useTransition();
@@ -100,7 +99,7 @@ export function MatchmakingClient({
     startTransition(async () => {
       const token = authToken;
       if (!token) return;
-      await queueForBattle(token, 1);
+      await queueForFreeMatch(token, 1);
       await onRefresh?.();
     });
   }
@@ -117,7 +116,7 @@ export function MatchmakingClient({
       const token = authToken;
       if (!token) return;
       try {
-        await submitBetOffer(token, match.id, amount);
+        await submitMoleculeBetOffer(token, match.id, amount);
         await onRefresh?.();
       } catch (e) {
         console.error(e);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { claimDailySpin, loadSpinData } from "@/app/actions";
 import { Atom, Timer } from "lucide-react";
@@ -93,9 +93,7 @@ function Countdown({ nextSpinAt }: { nextSpinAt: number }) {
 }
 
 export function SpinClient() {
-  const { sdkHasLoaded, user } = useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
+  const { session, token: authToken, loaded: sdkHasLoaded } = useAuth();
   const [molecules, setMolecules] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
   const [nextSpinAt, setNextSpinAt] = useState<number | null>(null);
@@ -106,14 +104,14 @@ export function SpinClient() {
   const totalRotation = useRef(0);
 
   useEffect(() => {
-    if (!sdkHasLoaded || !isAuthenticated || !authToken) return;
+    if (!sdkHasLoaded || !session || !authToken) return;
     (async () => {
       const data = await loadSpinData(authToken);
       setMolecules(data.molecules);
       setCanSpin(data.canSpin);
       setNextSpinAt(data.nextSpinAt);
     })();
-  }, [sdkHasLoaded, isAuthenticated, authToken]);
+  }, [sdkHasLoaded, session, authToken]);
 
   async function spin() {
     if (!canSpin || spinning) return;
@@ -148,7 +146,7 @@ export function SpinClient() {
     }
   }
 
-  if (!sdkHasLoaded || molecules === null) {
+  if (!sdkHasLoaded || !session || molecules === null) {
     return (
       <div className="flex min-h-[calc(100dvh-6rem)] items-center justify-center text-zinc-600 text-xs uppercase tracking-widest">
         Loading…

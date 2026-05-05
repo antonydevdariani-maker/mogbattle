@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadProfilePageData,
@@ -22,7 +22,6 @@ import {
   TrendingUp,
   Trophy,
   User as UserIcon,
-  Wallet,
   Zap,
 } from "lucide-react";
 
@@ -30,9 +29,7 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function ProfilePage() {
-  const { user } = useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
+  const { session, token, user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -45,15 +42,15 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
-    if (!authToken) return;
-    const data = await loadProfilePageData(authToken);
+    if (!token) return;
+    const data = await loadProfilePageData(token);
     setProfile(data.profile as Profile | null);
     setMatches((data.matches ?? []) as Match[]);
     setUserId(data.userId);
-  }, [authToken]);
+  }, [token]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!session) return;
     (async () => {
       try {
         await refresh();
@@ -61,7 +58,7 @@ export default function ProfilePage() {
         setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, [isAuthenticated, refresh]);
+  }, [session, refresh]);
 
   useEffect(() => {
     if (profile?.username) setUsernameDraft(profile.username);
@@ -76,10 +73,10 @@ export default function ProfilePage() {
 
   async function saveUsername() {
     setBanner(null);
-    if (!authToken) return;
+    if (!token) return;
     setUserBusy(true);
     try {
-      await updateProfileUsername(authToken, usernameDraft);
+      await updateProfileUsername(token, usernameDraft);
       await refresh();
       setBanner({ type: "ok", text: "Username saved." });
     } catch (e) {
@@ -92,13 +89,13 @@ export default function ProfilePage() {
   async function onAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !authToken) return;
+    if (!file || !token) return;
     setBanner(null);
     setAvatarBusy(true);
     try {
       const fd = new FormData();
       fd.set("avatar", file);
-      await uploadProfileAvatar(authToken, fd);
+      await uploadProfileAvatar(token, fd);
       await refresh();
       setAvatarTs(Date.now());
       setBanner({ type: "ok", text: "Profile picture updated." });
@@ -143,7 +140,6 @@ export default function ProfilePage() {
         </Link>
       </div>
 
-      {/* Edit profile: photo + username */}
       <div className="relative border border-white/10 bg-zinc-950 p-6">
         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-500/80" />
         <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-500/80" />
@@ -217,18 +213,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {profile?.wallet_address && (
-              <p className="font-mono text-[11px] text-zinc-500 break-all">{profile.wallet_address}</p>
-            )}
-
             <div className="flex flex-wrap gap-2">
-              <Link
-                href="/wallet"
-                className="inline-flex items-center gap-2 border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-black uppercase tracking-widest text-zinc-300 hover:border-fuchsia-500/40 hover:text-fuchsia-300"
-              >
-                <Wallet className="size-3.5" />
-                Wallet
-              </Link>
               <Link
                 href="/arena"
                 className="inline-flex items-center gap-2 bg-fuchsia-500 text-black px-3 py-2 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
@@ -248,10 +233,10 @@ export default function ProfilePage() {
         </div>
 
         <div className="mt-4 flex items-center gap-2 border border-white/10 bg-black/40 px-3 py-2">
-          <Zap className="size-4 text-fuchsia-400 shrink-0" />
-          <span className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Balance</span>
+          <Zap className="size-4 text-cyan-400 shrink-0" />
+          <span className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Molecules</span>
           <span className="text-lg font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
-            {(profile?.total_credits ?? 0).toLocaleString()} MC
+            {(profile?.molecules ?? 0).toLocaleString()} mol
           </span>
         </div>
 
@@ -262,7 +247,6 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Email (optional) */}
       <div className="border border-white/10 bg-zinc-950">
         <div className="border-b border-white/10 px-5 py-4">
           <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Email</h2>
@@ -272,7 +256,7 @@ export default function ProfilePage() {
             <Mail className="size-4 shrink-0" />
             <span className="text-xs font-black uppercase tracking-widest">Linked address</span>
           </div>
-          <p className="text-sm text-zinc-300 break-all">{email ?? "No email linked yet."}</p>
+          <p className="text-sm text-zinc-300 break-all">{email ?? "No email linked."}</p>
         </div>
       </div>
 
@@ -306,10 +290,8 @@ export default function ProfilePage() {
                       {myScore?.toFixed(1) ?? "—"} vs {oppScore?.toFixed(1) ?? "—"}
                     </span>
                   </div>
-                  <span
-                    className={`shrink-0 text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}
-                  >
-                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} {m.is_free_match ? "mol" : "MC"}
+                  <span className={`shrink-0 text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}>
+                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} mol
                   </span>
                 </div>
               );

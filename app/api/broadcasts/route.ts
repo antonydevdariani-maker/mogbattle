@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyDynamicAccessToken } from "@/lib/dynamic/verify";
+import { verifySupabaseToken } from "@/lib/supabase/verify";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   let userId: string;
   try {
-    userId = await verifyDynamicAccessToken(token);
+    userId = await verifySupabaseToken(token);
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

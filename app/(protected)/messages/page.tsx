@@ -1,6 +1,6 @@
 "use client";
 
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useState } from "react";
 import { loadProfileSummary } from "@/app/actions";
 import { Send, CheckCircle2 } from "lucide-react";
@@ -8,9 +8,7 @@ import { Send, CheckCircle2 } from "lucide-react";
 const ALLOWED = ["4kxo", "vibecodedthis"];
 
 export default function MessagesPage() {
-  useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
+  const { session, token: authToken } = useAuth();
   const [username, setUsername] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -18,14 +16,14 @@ export default function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !authToken) return;
+    if (!session || !authToken) return;
     (async () => {
       try {
         const row = await loadProfileSummary(authToken);
         setUsername(row?.username ?? null);
       } catch { /* ignore */ }
     })();
-  }, [isAuthenticated, authToken]);
+  }, [session, authToken]);
 
   if (!username) {
     return <p className="text-zinc-500 text-sm">Loading...</p>;

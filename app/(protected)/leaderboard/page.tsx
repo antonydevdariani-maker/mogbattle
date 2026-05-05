@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { getAuthToken, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useMemo, useState } from "react";
-import { loadCreditsLeaderboard, loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
+import { loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
 import {
   ELO_GRAPH_MAX,
   ELO_TIER_BANDS,
@@ -11,26 +11,20 @@ import {
   segmentWidthPercent,
   tierForElo,
 } from "@/lib/leaderboard/elo-tiers";
-import { ArrowLeft, Crown, Medal, User, Zap } from "lucide-react";
-
-type Board = "elo" | "credits";
+import { ArrowLeft, Crown, Medal, User } from "lucide-react";
 
 export default function LeaderboardPage() {
-  const { user } = useDynamicContext();
-  const authToken = getAuthToken();
-  const isAuthenticated = useIsLoggedIn();
-  const [board, setBoard] = useState<Board>("elo");
+  const { session, token } = useAuth();
   const [rows, setRows] = useState<LeaderboardProfileRow[]>([]);
   const [yourUserId, setYourUserId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !authToken) return;
+    if (!session || !token) return;
     let cancelled = false;
     (async () => {
       try {
-        const data =
-          board === "elo" ? await loadLeaderboard(authToken) : await loadCreditsLeaderboard(authToken);
+        const data = await loadLeaderboard(token);
         if (cancelled) return;
         setRows(data.rows);
         setYourUserId(data.yourUserId);
@@ -39,10 +33,8 @@ export default function LeaderboardPage() {
         if (!cancelled) setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, authToken, board]);
+    return () => { cancelled = true; };
+  }, [session, token]);
 
   const yourRank = useMemo(() => {
     if (!yourUserId) return null;
@@ -51,15 +43,9 @@ export default function LeaderboardPage() {
   }, [rows, yourUserId]);
 
   const yourElo = useMemo(() => {
-    if (!yourUserId || board !== "elo") return null;
+    if (!yourUserId) return null;
     return rows.find((r) => r.user_id === yourUserId)?.elo ?? null;
-  }, [rows, yourUserId, board]);
-
-  const yourCredits = useMemo(() => {
-    if (!yourUserId || board !== "credits") return null;
-    const v = rows.find((r) => r.user_id === yourUserId)?.total_credits;
-    return v != null ? Number(v) : null;
-  }, [rows, yourUserId, board]);
+  }, [rows, yourUserId]);
 
   if (err) {
     return <p className="text-red-400 text-sm">{err}</p>;
@@ -75,13 +61,9 @@ export default function LeaderboardPage() {
             style={{ fontFamily: "var(--font-heading)" }}
           >
             <Crown className="size-7 sm:size-8 text-amber-400 shrink-0" />
-            {board === "elo" ? "ELO leaderboard" : "Mog points leaderboard"}
+            ELO Leaderboard
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {board === "elo"
-              ? "Highest ELO is #1. Tie-break: more wins."
-              : "Most Mog Credits (MC) in the bank. Tie-break: higher ELO."}
-          </p>
+          <p className="mt-1 text-sm text-zinc-500">Highest ELO is #1. Tie-break: more wins.</p>
         </div>
         <Link
           href="/profile"
@@ -92,42 +74,9 @@ export default function LeaderboardPage() {
         </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setBoard("elo")}
-          className={`border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
-            board === "elo"
-              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
-              : "border-white/10 bg-zinc-950 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
-          }`}
-        >
-          ELO leaderboard
-        </button>
-        <button
-          type="button"
-          onClick={() => setBoard("credits")}
-          className={`inline-flex items-center gap-2 border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-colors ${
-            board === "credits"
-              ? "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-200"
-              : "border-white/10 bg-zinc-950 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
-          }`}
-        >
-          <Zap className="size-3.5 text-fuchsia-400" />
-          Mog points leaderboard
-        </button>
-      </div>
+      <EloTierGraph yourElo={yourElo} />
 
-      {board === "elo" && <EloTierGraph yourElo={yourElo} />}
-
-      {board === "credits" && yourCredits !== null && (
-        <div className="border border-fuchsia-500/25 bg-fuchsia-500/5 px-4 py-2 text-center text-[10px] font-bold text-fuchsia-200/90">
-          Your balance:{" "}
-          <span className="tabular-nums text-white">{yourCredits.toLocaleString()}</span> MC
-        </div>
-      )}
-
-      <TopThreePodium rows={rows} board={board} />
+      <TopThreePodium rows={rows} />
 
       {yourRank !== null && (
         <div className="flex items-center justify-between gap-3 border border-fuchsia-500/30 bg-fuchsia-500/5 px-4 py-3 text-sm">
@@ -137,7 +86,7 @@ export default function LeaderboardPage() {
       )}
       {yourRank === null && rows.length > 0 && yourUserId && (
         <div className="border border-zinc-800 bg-zinc-950/50 px-4 py-3 text-xs text-zinc-500 text-center">
-          You’re not in the top {rows.length} yet. Keep grinding.
+          You&apos;re not in the top {rows.length} yet. Keep grinding.
         </div>
       )}
 
@@ -156,7 +105,6 @@ export default function LeaderboardPage() {
             const rank = i + 1;
             const isYou = r.user_id === yourUserId;
             const isTop3 = rank <= 3;
-            const mc = Number(r.total_credits);
             return (
               <div
                 key={r.user_id}
@@ -208,36 +156,19 @@ export default function LeaderboardPage() {
                   </div>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played
-                    {board === "credits" && (
-                      <span className="text-zinc-700"> · {r.elo} elo</span>
-                    )}
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  {board === "elo" ? (
-                    <>
-                      <p
-                        className={`font-black tabular-nums ${rank === 1 ? "text-amber-300 text-lg" : "text-white"}`}
-                        style={{ fontFamily: "var(--font-heading)" }}
-                      >
-                        {r.elo}
-                      </p>
-                      <p className="text-[9px] font-bold uppercase text-zinc-600">ELO</p>
-                      <p className="text-[9px] font-black uppercase tracking-tight text-fuchsia-500/80 max-w-[4.5rem] truncate ml-auto">
-                        {tierForElo(r.elo).abbr}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p
-                        className={`font-black tabular-nums ${rank === 1 ? "text-fuchsia-300 text-lg" : "text-fuchsia-200/90"}`}
-                        style={{ fontFamily: "var(--font-heading)" }}
-                      >
-                        {mc.toLocaleString()}
-                      </p>
-                      <p className="text-[9px] font-bold uppercase text-zinc-600">MC</p>
-                    </>
-                  )}
+                  <p
+                    className={`font-black tabular-nums ${rank === 1 ? "text-amber-300 text-lg" : "text-white"}`}
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    {r.elo}
+                  </p>
+                  <p className="text-[9px] font-bold uppercase text-zinc-600">ELO</p>
+                  <p className="text-[9px] font-black uppercase tracking-tight text-fuchsia-500/80 max-w-[4.5rem] truncate ml-auto">
+                    {tierForElo(r.elo).abbr}
+                  </p>
                 </div>
               </div>
             );
@@ -256,7 +187,7 @@ export default function LeaderboardPage() {
   );
 }
 
-function TopThreePodium({ rows, board }: { rows: LeaderboardProfileRow[]; board: Board }) {
+function TopThreePodium({ rows }: { rows: LeaderboardProfileRow[] }) {
   const first = rows[0];
   const second = rows[1];
   const third = rows[2];
@@ -295,7 +226,7 @@ function TopThreePodium({ rows, board }: { rows: LeaderboardProfileRow[]; board:
                     {row.username ?? "Mogger"}
                   </p>
                   <p className="text-[10px] font-black tabular-nums text-amber-200/95">
-                    {board === "elo" ? `${row.elo} ELO` : `${Number(row.total_credits).toLocaleString()} MC`}
+                    {row.elo} ELO
                   </p>
                 </>
               ) : (
@@ -338,8 +269,6 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
           </p>
         )}
       </div>
-
-      {/* ELO number labels above each segment */}
       <div className="flex w-full">
         {ELO_TIER_BANDS.map((band, i) => (
           <div
@@ -352,10 +281,8 @@ function EloTierGraph({ yourElo }: { yourElo: number | null }) {
             </span>
           </div>
         ))}
-        {/* Right edge label */}
         <span className="text-[8px] font-bold tabular-nums text-zinc-500 leading-none shrink-0">{ELO_GRAPH_MAX}+</span>
       </div>
-
       <div className="relative">
         {yourElo !== null && (
           <div
