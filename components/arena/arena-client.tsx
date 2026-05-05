@@ -1486,50 +1486,57 @@ const TIER_INFO: Record<string, { icon: string; label: string; color: string }> 
 function ArenaPslCard({
   psl, tier, dom, flaw, label,
 }: {
-  psl: number | null; tier?: string; dom?: string; flaw?: string;
+  psl: number | null; tier?: string; dom?: string | null; flaw?: string | null;
   label: "YOUR SCAN" | "ENEMY SCAN";
 }) {
+  // Stable fallbacks picked once on mount — guarantees DOM/FLAW always visible from first render
+  const fallbackDom = useRef(DOM_TRAITS[Math.floor(Math.random() * DOM_TRAITS.length)]);
+  const fallbackFlaw = useRef(FLAW_TRAITS[Math.floor(Math.random() * FLAW_TRAITS.length)]);
+
+  const displayDom = (dom && dom !== "n/a") ? dom : fallbackDom.current;
+  const displayFlaw = (flaw && flaw !== "none" && flaw !== "n/a") ? flaw : fallbackFlaw.current;
+
   const derived = psl !== null ? pslTier(psl) : null;
   const t = (tier ? TIER_INFO[tier] : null) ?? (derived ? { icon: "⚡", label: derived.label, color: derived.color } : null);
-  const hasDom = dom && dom !== "n/a";
-  const hasFlaw = flaw && flaw !== "none" && flaw !== "n/a";
-  const accentColor = t?.color ?? "rgba(255,255,255,0.25)";
+  const accentColor = t?.color ?? (label === "YOUR SCAN" ? "#e879f9" : "#22d3ee");
   const isYouScan = label === "YOUR SCAN";
 
   return (
     <div
-      className="rounded-2xl backdrop-blur-md px-4 py-3.5 space-y-2.5 min-w-[170px] max-w-[210px] shadow-2xl"
+      className="rounded-2xl backdrop-blur-md px-4 py-3.5 shadow-2xl"
       style={{
-        background: "rgba(0,0,0,0.78)",
-        border: `1.5px solid ${accentColor}44`,
-        boxShadow: `0 0 24px ${accentColor}22, inset 0 0 0 1px rgba(255,255,255,0.04)`,
+        background: "rgba(0,0,0,0.82)",
+        border: `1.5px solid ${accentColor}55`,
+        boxShadow: `0 0 28px ${accentColor}30, inset 0 0 0 1px rgba(255,255,255,0.05)`,
+        minWidth: 172,
+        maxWidth: 215,
       }}
     >
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-400 leading-none">Overall Score</p>
         <p
           className="text-[8px] font-bold uppercase tracking-[0.1em] leading-none px-1.5 py-0.5 rounded"
-          style={{ color: isYouScan ? "#e879f9" : "#22d3ee", background: isYouScan ? "rgba(232,121,249,0.12)" : "rgba(34,211,238,0.12)" }}
+          style={{ color: accentColor, background: `${accentColor}18` }}
         >
           {label}
         </p>
       </div>
 
-      {/* PSL number — bounces on every update, pulses when waiting */}
+      {/* PSL number — spring-bounces on every update, pulses while scanning */}
       <AnimatePresence mode="wait">
         {psl !== null ? (
           <motion.p
             key={psl.toFixed(1)}
-            initial={{ scale: 1.35, opacity: 0.5, y: -4 }}
+            initial={{ scale: 1.4, opacity: 0.4, y: -6 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.8, opacity: 0, y: 4 }}
-            transition={{ type: "spring", stiffness: 500, damping: 20 }}
-            className="text-5xl font-black tabular-nums leading-none"
+            exit={{ scale: 0.75, opacity: 0, y: 6 }}
+            transition={{ type: "spring", stiffness: 520, damping: 22 }}
+            className="text-5xl font-black tabular-nums leading-none mb-1.5"
             style={{
               fontFamily: "var(--font-ibm-plex-mono)",
               color: accentColor,
-              textShadow: `0 0 28px ${accentColor}99, 0 0 56px ${accentColor}44`,
+              textShadow: `0 0 30px ${accentColor}bb, 0 0 60px ${accentColor}55`,
             }}
           >
             {psl.toFixed(1)}
@@ -1537,10 +1544,10 @@ function ArenaPslCard({
         ) : (
           <motion.p
             key="scanning"
-            animate={{ opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 1.2, repeat: Infinity }}
-            className="text-5xl font-black tabular-nums leading-none text-zinc-600"
-            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+            animate={{ opacity: [0.25, 0.7, 0.25] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+            className="text-5xl font-black tabular-nums leading-none mb-1.5"
+            style={{ fontFamily: "var(--font-ibm-plex-mono)", color: `${accentColor}66` }}
           >
             —.—
           </motion.p>
@@ -1549,51 +1556,45 @@ function ArenaPslCard({
 
       {/* Tier badge */}
       {t && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 mb-2">
           <span className="text-sm leading-none">{t.icon}</span>
           <span className="text-[12px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
         </div>
       )}
 
-      {/* DOM / Refinement */}
-      {(hasDom || hasFlaw) && (
-        <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: `${accentColor}22` }}>
-          {hasDom && (
-            <div className="flex items-start gap-1.5">
-              <span className="text-[9px] font-black uppercase text-emerald-400 shrink-0 mt-px leading-tight">🔷 DOM</span>
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={dom}
-                  initial={{ opacity: 0, x: -4 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 4 }}
-                  transition={{ duration: 0.22 }}
-                  className="text-[10px] font-semibold text-emerald-100 leading-tight line-clamp-1"
-                >
-                  {dom}
-                </motion.span>
-              </AnimatePresence>
-            </div>
-          )}
-          {hasFlaw && (
-            <div className="flex items-start gap-1.5">
-              <span className="text-[9px] font-black uppercase text-amber-400 shrink-0 mt-px leading-tight">🔶 REFINE</span>
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={flaw}
-                  initial={{ opacity: 0, x: -4 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 4 }}
-                  transition={{ duration: 0.22 }}
-                  className="text-[10px] font-semibold text-amber-100 leading-tight line-clamp-1"
-                >
-                  {flaw}
-                </motion.span>
-              </AnimatePresence>
-            </div>
-          )}
+      {/* DOM / REFINE — always visible from mount via stable fallback refs */}
+      <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: `${accentColor}28` }}>
+        <div className="flex items-start gap-1.5">
+          <span className="text-[9px] font-black uppercase text-emerald-400 shrink-0 leading-tight mt-px">🔷 DOM</span>
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={displayDom}
+              initial={{ opacity: 0, x: -5 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 5 }}
+              transition={{ duration: 0.2 }}
+              className="text-[10px] font-semibold text-emerald-100 leading-tight line-clamp-2"
+            >
+              {displayDom}
+            </motion.span>
+          </AnimatePresence>
         </div>
-      )}
+        <div className="flex items-start gap-1.5">
+          <span className="text-[9px] font-black uppercase text-amber-400 shrink-0 leading-tight mt-px">🔶 REFINE</span>
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={displayFlaw}
+              initial={{ opacity: 0, x: -5 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 5 }}
+              transition={{ duration: 0.2 }}
+              className="text-[10px] font-semibold text-amber-100 leading-tight line-clamp-2"
+            >
+              {displayFlaw}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }
