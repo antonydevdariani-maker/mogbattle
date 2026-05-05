@@ -385,11 +385,12 @@ export function ArenaClient({
     });
   }, [queueTimedOut, phase, authToken]);
 
-  // Auto-capture at 2.5s and 4s — use best PSL, broadcast to opponent
+  // Live PSL loop — captures every 1.5s during battle, updates both players' displays in real time
   useEffect(() => {
     if (phase !== "live") return;
+    let cancelled = false;
 
-    async function captureAndJudge() {
+    async function captureAndJudge(): Promise<number | null> {
       try {
         const container = myVideoContainerRef.current;
         const video = container?.querySelector("video") as HTMLVideoElement | null;
@@ -412,50 +413,39 @@ export function ArenaClient({
       } catch { return null; }
     }
 
-    const t1 = setTimeout(async () => {
-      const psl = await captureAndJudge();
-      if (psl) {
-        pslCaptures.current.push(psl);
-        const best = Math.max(...pslCaptures.current);
-        setMyPsl(best);
-        realtimeChannelRef.current?.send({
-          type: "broadcast", event: "psl",
-          payload: { userId, psl: best },
-        });
-        const token = authToken;
-        if (token && match?.id) {
-          try {
-            await submitMyPslScore(token, { matchId: match.id, psl: best });
-          } catch {
-            /* non-fatal */
+    async function runLoop() {
+      // Initial 1.5s delay so camera has time to stabilise
+      await new Promise((r) => setTimeout(r, 1500));
+      let round = 0;
+      while (!cancelled) {
+        const psl = await captureAndJudge();
+        if (cancelled) break;
+        if (psl) {
+          pslCaptures.current.push(psl);
+          // Show the latest reading live (not just the best) so the number moves
+          setMyPsl(psl);
+          realtimeChannelRef.current?.send({
+            type: "broadcast", event: "psl",
+            payload: { userId, psl },
+          });
+          // Only persist the best to the DB on the 2nd+ round (avoids spamming on round 0)
+          if (round >= 1) {
+            const best = Math.max(...pslCaptures.current);
+            const token = authToken;
+            if (token && match?.id) {
+              try { await submitMyPslScore(token, { matchId: match.id, psl: best }); } catch { /* non-fatal */ }
+            }
           }
         }
+        round++;
+        autoJudgeDone.current = round >= 2;
+        // Wait 1.5s between captures so the number updates visibly
+        await new Promise((r) => setTimeout(r, 1500));
       }
-    }, 2500);
+    }
 
-    const t2 = setTimeout(async () => {
-      autoJudgeDone.current = true;
-      const psl = await captureAndJudge();
-      if (psl) {
-        pslCaptures.current.push(psl);
-        const best = Math.max(...pslCaptures.current);
-        setMyPsl(best);
-        realtimeChannelRef.current?.send({
-          type: "broadcast", event: "psl",
-          payload: { userId, psl: best },
-        });
-        const token = authToken;
-        if (token && match?.id) {
-          try {
-            await submitMyPslScore(token, { matchId: match.id, psl: best });
-          } catch {
-            /* non-fatal */
-          }
-        }
-      }
-    }, 4000);
-
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    void runLoop();
+    return () => { cancelled = true; };
   }, [phase, match?.id, userId, authToken]);
 
   // Connect Vonage once when match goes live — do NOT disconnect on phase change
@@ -997,12 +987,6 @@ export function ArenaClient({
             </motion.button>
           )}
 
-          {/* Your metrics during analysis (desktop: below your panel) */}
-          {showAnalysis && (
-            <div className="hidden md:block">
-              <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p1" isP1={isP1} />
-            </div>
-          )}
         </div>
 
         {/* CENTER — VS + status */}
@@ -1042,11 +1026,6 @@ export function ArenaClient({
             rematchReady={oppRematchReady}
             aiResult={oppAiResult}
           />
-          {showAnalysis && (
-            <div className="md:hidden">
-              <MetricsList metrics={METRICS} metricScores={metricScores} revealedMetrics={revealedMetrics} side="p2" isP1={isP1} />
-            </div>
-          )}
         </div>
       </div>
 
@@ -1469,21 +1448,9 @@ function ArenaPslCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none mb-1">Overall Score</p>
-          {psl !== null ? (
-            <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
-              {psl.toFixed(1)}
-            </p>
-          ) : (
-            <div className="flex gap-1 items-end h-9">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 rounded-full bg-white/40"
-                  style={{ height: `${50 + i * 25}%`, animation: `pulse 1s ease-in-out ${i * 0.2}s infinite alternate` }}
-                />
-              ))}
-            </div>
-          )}
+          <p className="text-3xl font-black text-white tabular-nums leading-none" style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: "0 0 18px rgba(255,255,255,0.35)" }}>
+            {psl !== null ? psl.toFixed(1) : "—"}
+          </p>
         </div>
         <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-500 text-right leading-tight mt-0.5 shrink-0">{label}</p>
       </div>
@@ -2077,18 +2044,6 @@ function CenterColumn({
         </AnimatePresence>
       )}
 
-      {/* Analysis: metric bars (desktop: center column) */}
-      {["analyzing", "verdict"].includes(phase) && (
-        <div className="w-full">
-          <MetricsList
-            metrics={METRICS}
-            metricScores={metricScores}
-            revealedMetrics={revealedMetrics}
-            side="both"
-            isP1={isP1}
-          />
-        </div>
-      )}
 
       {/* Decorative line */}
       <div className="w-px flex-1 bg-gradient-to-b from-fuchsia-500/20 to-transparent" />
