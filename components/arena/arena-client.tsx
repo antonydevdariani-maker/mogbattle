@@ -1477,48 +1477,82 @@ function ArenaPslCard({
   const t = (tier ? TIER_INFO[tier] : null) ?? (derived ? { icon: "⚡", label: derived.label, color: derived.color } : null);
   const hasDom = dom && dom !== "n/a";
   const hasFlaw = flaw && flaw !== "none" && flaw !== "n/a";
+  const accentColor = t?.color ?? "rgba(255,255,255,0.25)";
+  const isYouScan = label === "YOUR SCAN";
+
   return (
-    <div className="rounded-2xl bg-black/70 backdrop-blur-md px-3.5 py-3 space-y-2 min-w-[150px] max-w-[185px] border border-white/[0.10] shadow-2xl">
-      {/* Header */}
+    <div
+      className="rounded-2xl backdrop-blur-md px-4 py-3.5 space-y-2.5 min-w-[170px] max-w-[210px] shadow-2xl"
+      style={{
+        background: "rgba(0,0,0,0.78)",
+        border: `1.5px solid ${accentColor}44`,
+        boxShadow: `0 0 24px ${accentColor}22, inset 0 0 0 1px rgba(255,255,255,0.04)`,
+      }}
+    >
+      {/* Header row */}
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-zinc-400 leading-none">Overall Score</p>
-        <p className="text-[8px] font-bold uppercase tracking-[0.08em] text-zinc-500 leading-none">{label}</p>
-      </div>
-      {/* Live PSL number with bounce on change */}
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={psl?.toFixed(1) ?? "dash"}
-          initial={{ scale: 1.25, opacity: 0.6 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.85, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 18 }}
-          className="text-4xl font-black text-white tabular-nums leading-none"
-          style={{ fontFamily: "var(--font-ibm-plex-mono)", textShadow: t ? `0 0 20px ${t.color}88` : "0 0 18px rgba(255,255,255,0.3)" }}
+        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-400 leading-none">Overall Score</p>
+        <p
+          className="text-[8px] font-bold uppercase tracking-[0.1em] leading-none px-1.5 py-0.5 rounded"
+          style={{ color: isYouScan ? "#e879f9" : "#22d3ee", background: isYouScan ? "rgba(232,121,249,0.12)" : "rgba(34,211,238,0.12)" }}
         >
-          {psl !== null ? psl.toFixed(1) : "—"}
-        </motion.p>
+          {label}
+        </p>
+      </div>
+
+      {/* PSL number — bounces on every update, pulses when waiting */}
+      <AnimatePresence mode="wait">
+        {psl !== null ? (
+          <motion.p
+            key={psl.toFixed(1)}
+            initial={{ scale: 1.35, opacity: 0.5, y: -4 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.8, opacity: 0, y: 4 }}
+            transition={{ type: "spring", stiffness: 500, damping: 20 }}
+            className="text-5xl font-black tabular-nums leading-none"
+            style={{
+              fontFamily: "var(--font-ibm-plex-mono)",
+              color: accentColor,
+              textShadow: `0 0 28px ${accentColor}99, 0 0 56px ${accentColor}44`,
+            }}
+          >
+            {psl.toFixed(1)}
+          </motion.p>
+        ) : (
+          <motion.p
+            key="scanning"
+            animate={{ opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+            className="text-5xl font-black tabular-nums leading-none text-zinc-600"
+            style={{ fontFamily: "var(--font-ibm-plex-mono)" }}
+          >
+            —.—
+          </motion.p>
+        )}
       </AnimatePresence>
+
       {/* Tier badge */}
       {t && (
         <div className="flex items-center gap-1.5">
-          <span className="text-base leading-none">{t.icon}</span>
-          <span className="text-[11px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
+          <span className="text-sm leading-none">{t.icon}</span>
+          <span className="text-[12px] font-black uppercase tracking-wider leading-none" style={{ color: t.color }}>{t.label}</span>
         </div>
       )}
+
       {/* DOM / Refinement */}
       {(hasDom || hasFlaw) && (
-        <div className="space-y-1 pt-1.5 border-t border-white/[0.08]">
+        <div className="space-y-1.5 pt-2 border-t" style={{ borderColor: `${accentColor}22` }}>
           {hasDom && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[8px] font-black uppercase text-emerald-400 shrink-0 mt-px leading-tight">🔷 DOM</span>
+              <span className="text-[9px] font-black uppercase text-emerald-400 shrink-0 mt-px leading-tight">🔷 DOM</span>
               <AnimatePresence mode="wait">
                 <motion.span
                   key={dom}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.25 }}
-                  className="text-[9px] text-zinc-200 leading-tight line-clamp-1"
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 4 }}
+                  transition={{ duration: 0.22 }}
+                  className="text-[10px] font-semibold text-emerald-100 leading-tight line-clamp-1"
                 >
                   {dom}
                 </motion.span>
@@ -1527,15 +1561,15 @@ function ArenaPslCard({
           )}
           {hasFlaw && (
             <div className="flex items-start gap-1.5">
-              <span className="text-[8px] font-black uppercase text-amber-400 shrink-0 mt-px leading-tight">🔶 REFINE</span>
+              <span className="text-[9px] font-black uppercase text-amber-400 shrink-0 mt-px leading-tight">🔶 REFINE</span>
               <AnimatePresence mode="wait">
                 <motion.span
                   key={flaw}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.25 }}
-                  className="text-[9px] text-amber-200 leading-tight line-clamp-1"
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 4 }}
+                  transition={{ duration: 0.22 }}
+                  className="text-[10px] font-semibold text-amber-100 leading-tight line-clamp-1"
                 >
                   {flaw}
                 </motion.span>
@@ -1823,7 +1857,7 @@ function PlayerPanel({
 
   return (
     <div
-      className={`relative flex h-full min-h-[18rem] flex-col border-2 rounded-xl md:h-[26rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
+      className={`relative flex h-full min-h-[20rem] flex-col border-2 rounded-xl md:h-[34rem] md:min-h-0 ${accentCss.border} ${accentCss.glow} bg-black/90 overflow-hidden`}
     >
       {/* Giant bet / input readout — above video (fixed block height both sides) */}
       {showHeroNumber && (
@@ -1869,7 +1903,7 @@ function PlayerPanel({
         </div>
       )}
 
-      <div className="relative min-h-[12rem] flex-1 bg-zinc-950 md:min-h-[22rem]">
+      <div className="relative min-h-[14rem] flex-1 bg-zinc-950 md:min-h-[28rem]">
         <div
           ref={videoRef}
           id={isYou ? "vonage-local-video" : "vonage-remote-video"}
@@ -1972,9 +2006,9 @@ function PlayerPanel({
             )}
           </div>
         )}
-        {/* PSL card — live from battle start, number bounces on each update */}
+        {/* PSL card — live from battle start, pinned bottom-left, bounces on update */}
         {["live", "analyzing", "verdict", "done"].includes(phase) && showVideo && (
-          <div className="absolute top-2 left-2 z-[100]">
+          <div className="absolute bottom-10 left-2 z-[100]">
             <ArenaPslCard
               psl={pslBadge ?? null}
               tier={aiResult?.tier}
