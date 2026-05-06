@@ -49,6 +49,13 @@ export default function RootLayout({
       lang="en"
       className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark min-h-full antialiased`}
     >
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8775235220763676"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-full flex flex-col pb-safe">
         <AuthProvider>{children}</AuthProvider>
       </body>

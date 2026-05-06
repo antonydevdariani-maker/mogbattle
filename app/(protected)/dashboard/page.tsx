@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useState } from "react";
+import { AdUnit } from "@/components/ui/ad-unit";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { Swords, TrendingUp, Trophy, Atom, Crown, Zap } from "lucide-react";
@@ -154,6 +155,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      <AdUnit className="w-full min-h-[100px]" />
     </div>
   );
 }

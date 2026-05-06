@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AdUnit } from "@/components/ui/ad-unit";
 import {
   loadProfilePageData,
   updateProfileUsername,
@@ -309,6 +310,8 @@ export default function ProfilePage() {
             </Link>
           </div>
         )}
+
+      <AdUnit className="w-full min-h-[100px]" />
       </div>
     </div>
   );

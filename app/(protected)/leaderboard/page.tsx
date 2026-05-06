@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useMemo, useState } from "react";
+import { AdUnit } from "@/components/ui/ad-unit";
 import { loadLeaderboard, type LeaderboardProfileRow } from "@/app/actions";
 import {
   ELO_GRAPH_MAX,
@@ -253,6 +254,8 @@ function TopThreePodium({ rows }: { rows: LeaderboardProfileRow[] }) {
           </div>
         ))}
       </div>
+
+      <AdUnit className="w-full min-h-[100px]" />
     </div>
   );
 }
