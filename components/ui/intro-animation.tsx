@@ -6,43 +6,38 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
   const flashRef = useRef<HTMLDivElement>(null);
   const purpleRef = useRef<HTMLDivElement>(null);
   const yellowRef = useRef<HTMLDivElement>(null);
-  const lightningRef = useRef<SVGSVGElement>(null);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
     const flash = flashRef.current;
     const purple = purpleRef.current;
     const yellow = yellowRef.current;
-    const lightning = lightningRef.current;
-    if (!flash || !purple || !yellow || !lightning) return;
+    if (!flash || !purple || !yellow) return;
 
-    const s = (el: HTMLElement | SVGSVGElement, styles: Partial<CSSStyleDeclaration>) =>
+    const s = (el: HTMLElement, styles: Partial<CSSStyleDeclaration>) =>
       Object.assign(el.style, styles);
 
-    // 800ms — bolt appears instantly (already positioned over logo)
-    setTimeout(() => s(lightning, { transition: "opacity 0.06s", opacity: "1" }), 800);
-
-    // 1050ms — STRIKE: flash + color swap
+    // 800ms — flash strike
     setTimeout(() => {
-      s(lightning, { opacity: "0" });
       s(flash, { transition: "opacity 0.04s", opacity: "1" });
-    }, 1050);
+    }, 800);
 
+    // 850ms — color swap + flash fades
     setTimeout(() => {
       s(flash, { transition: "opacity 0.2s", opacity: "0" });
       s(purple, { opacity: "0" });
       s(yellow, { opacity: "1", transform: "scale(1.05)" });
-    }, 1110);
+    }, 850);
 
     setTimeout(() => {
       s(yellow, { transition: "transform 0.4s cubic-bezier(0.34,1.56,0.64,1)", transform: "scale(1)" });
-    }, 1150);
+    }, 900);
 
-    // 2200ms — fade out to title
+    // 2000ms — fade out to title
     setTimeout(() => {
       setFading(true);
       setTimeout(onDone, 500);
-    }, 2200);
+    }, 2000);
   }, [onDone]);
 
   return (
@@ -54,31 +49,6 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
       <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none" style={{ opacity: 0 }} />
 
       <div className="relative flex items-center justify-center" style={{ width: "90vw", maxWidth: 700, height: 120 }}>
-
-        {/* Single lightning bolt — sits above .COM */}
-        <svg
-          ref={lightningRef}
-          width="70"
-          height="220"
-          viewBox="0 0 70 220"
-          className="absolute pointer-events-none"
-          style={{
-            opacity: 0,
-            top: -200,
-            right: "5%",
-            filter: "drop-shadow(0 0 10px #fff) drop-shadow(0 0 24px #FFD700)",
-          }}
-        >
-          <polyline
-            points="45,0 20,110 38,110 12,220"
-            fill="none"
-            stroke="#FFE066"
-            strokeWidth="6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-
         {/* Purple .COM (start) */}
         <div ref={purpleRef} className="absolute inset-0 flex items-center justify-center" style={{ opacity: 1 }}>
           <svg width="100%" height="120" viewBox="0 0 700 100">
@@ -87,7 +57,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
           </svg>
         </div>
 
-        {/* Yellow .COM (post-strike) */}
+        {/* Gold .COM (post-strike) */}
         <div ref={yellowRef} className="absolute inset-0 flex items-center justify-center" style={{ opacity: 0 }}>
           <svg width="100%" height="120" viewBox="0 0 700 100">
             <text x="0" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="white" letterSpacing="-3">OMOGGER</text>
