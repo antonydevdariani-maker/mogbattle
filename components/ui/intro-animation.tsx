@@ -3,35 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 
 export function IntroAnimation({ onDone }: { onDone: () => void }) {
-  const flashRef = useRef<HTMLDivElement>(null);
   const purpleRef = useRef<HTMLDivElement>(null);
   const yellowRef = useRef<HTMLDivElement>(null);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    const flash = flashRef.current;
     const purple = purpleRef.current;
     const yellow = yellowRef.current;
-    if (!flash || !purple || !yellow) return;
+    if (!purple || !yellow) return;
 
     const s = (el: HTMLElement, styles: Partial<CSSStyleDeclaration>) =>
       Object.assign(el.style, styles);
 
-    // 800ms — flash strike
+    // 800ms — instant color swap with bounce
     setTimeout(() => {
-      s(flash, { transition: "opacity 0.04s", opacity: "1" });
-    }, 800);
-
-    // 850ms — color swap + flash fades
-    setTimeout(() => {
-      s(flash, { transition: "opacity 0.2s", opacity: "0" });
       s(purple, { opacity: "0" });
       s(yellow, { opacity: "1", transform: "scale(1.05)" });
-    }, 850);
+    }, 800);
 
     setTimeout(() => {
       s(yellow, { transition: "transform 0.4s cubic-bezier(0.34,1.56,0.64,1)", transform: "scale(1)" });
-    }, 900);
+    }, 850);
 
     // 2000ms — fade out to title
     setTimeout(() => {
@@ -45,9 +37,6 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black"
       style={{ transition: "opacity 0.5s", opacity: fading ? 0 : 1, pointerEvents: fading ? "none" : "all" }}
     >
-      {/* Flash */}
-      <div ref={flashRef} className="absolute inset-0 bg-white pointer-events-none" style={{ opacity: 0 }} />
-
       <div className="relative flex items-center justify-center" style={{ width: "90vw", maxWidth: 700, height: 120 }}>
         {/* Purple .COM (start) */}
         <div ref={purpleRef} className="absolute inset-0 flex items-center justify-center" style={{ opacity: 1 }}>
