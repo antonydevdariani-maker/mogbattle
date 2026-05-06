@@ -1,122 +1,111 @@
-import Link from "next/link";
-import type { ComponentType } from "react";
-import { Sword, Zap, Trophy, Flame, Shield, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+"use client";
 
-async function getHomeStats(): Promise<{ accounts: number; battles: number; wagered: number }> {
-  try {
-    const supabase = getSupabaseAdmin();
-    const [{ count: accounts }, { count: battles }, { data: wageredData }] = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("matches").select("*", { count: "exact", head: true }).eq("status", "completed"),
-      supabase.from("matches").select("bet_amount").eq("status", "completed"),
-    ]);
-    const wagered = (wageredData ?? []).reduce((sum, m) => sum + (Number(m.bet_amount) * 2), 0);
-    return { accounts: accounts ?? 0, battles: battles ?? 0, wagered };
-  } catch {
-    return { accounts: 0, battles: 0, wagered: 0 };
-  }
-}
+import { useState } from "react";
+import { Lock, X } from "lucide-react";
 
-export default async function Home() {
-  const { accounts: accountCount, battles, wagered } = await getHomeStats();
+export default function Home() {
+  const [showLocked, setShowLocked] = useState(false);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 relative overflow-hidden bg-black">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 bg-black relative overflow-hidden">
       {/* Grid bg */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
         style={{
-          backgroundImage: `linear-gradient(#fff 1px, transparent 1px),
-            linear-gradient(90deg, #fff 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
           backgroundSize: "60px 60px",
         }}
       />
 
-      <main className="relative w-full max-w-5xl">
-        {/* Hero */}
-        <div className="text-center mb-14 space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-none border border-red-500 bg-transparent px-4 py-1.5 text-xs tracking-widest text-red-400 uppercase font-bold">
-            <span className="inline-block size-1.5 rounded-full bg-red-500 animate-pulse" />
-            Live arena — real stakes
-          </div>
+      {/* Corner accents */}
+      <div className="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-yellow-500/40" />
+      <div className="absolute top-0 right-0 w-16 h-16 border-t-2 border-r-2 border-yellow-500/40" />
+      <div className="absolute bottom-0 left-0 w-16 h-16 border-b-2 border-l-2 border-yellow-500/40" />
+      <div className="absolute bottom-0 right-0 w-16 h-16 border-b-2 border-r-2 border-yellow-500/40" />
 
+      <main className="relative flex flex-col items-center text-center space-y-8 max-w-2xl w-full">
+        {/* Volume label */}
+        <div className="flex items-center gap-3">
+          <div className="h-px w-12 bg-yellow-500/40" />
+          <span className="text-xs font-black uppercase tracking-[0.3em] text-yellow-500">
+            Volume II
+          </span>
+          <div className="h-px w-12 bg-yellow-500/40" />
+        </div>
+
+        {/* Logo / Title */}
+        <div className="space-y-2">
           <h1
-            className="text-6xl font-black tracking-tight md:text-8xl leading-none uppercase"
+            className="text-7xl font-black uppercase tracking-tight leading-none md:text-9xl"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            MOG OR BE
-            <br />
-            <span className="text-yellow-400">MOGGED</span>
+            <span className="text-white">O</span>
+            <span className="text-yellow-400">MOG</span>
+            <span className="text-white">GER</span>
           </h1>
-
-          <p className="text-zinc-500 text-lg max-w-xl mx-auto leading-relaxed">
-            Step into the arena. Bet Mog Credits. Let the AI judge your face.
-            Winner takes the pot. No excuses.
+          <p className="text-zinc-600 text-xs uppercase tracking-[0.4em] font-bold">
+            1v1 Face-Off Arena
           </p>
+        </div>
 
-          <div className="flex justify-center">
-            <Link
-              href="/begin"
-              className={cn(
-                "inline-flex items-center justify-center font-black text-lg px-16 h-14 uppercase tracking-widest",
-                "bg-yellow-500 text-black",
-                "shadow-[4px_4px_0_#fff] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
-              )}
+        {/* Tagline */}
+        <p className="text-zinc-400 text-base max-w-md leading-relaxed">
+          Step into the arena. Bet molecules. Let the AI judge your face.
+          Winner takes the pot. No excuses.
+        </p>
+
+        {/* CTA */}
+        <button
+          onClick={() => setShowLocked(true)}
+          className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black shadow-[4px_4px_0_#ffffff30] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+        >
+          Enter Arena
+        </button>
+
+        {/* Coming soon note */}
+        <p className="text-zinc-700 text-xs uppercase tracking-widest">
+          Season 2 — Coming Soon
+        </p>
+      </main>
+
+      {/* Locked modal */}
+      {showLocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="relative w-full max-w-sm border border-yellow-500/30 bg-zinc-950 p-8 text-center space-y-5">
+            <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-yellow-500" />
+            <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-yellow-500" />
+
+            <button
+              onClick={() => setShowLocked(false)}
+              className="absolute top-3 right-3 text-zinc-600 hover:text-zinc-400 transition-colors"
             >
-              Begin
-            </Link>
+              <X className="size-4" />
+            </button>
+
+            <div className="flex justify-center">
+              <div className="flex items-center justify-center size-14 border border-yellow-500/30 bg-yellow-500/10">
+                <Lock className="size-6 text-yellow-400" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-xl font-black uppercase tracking-wide text-white">
+                Arena Locked
+              </h2>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                Omogger Volume II is not open yet. Check back soon — the arena is loading.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowLocked(false)}
+              className="w-full h-11 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest hover:bg-yellow-400 transition-colors"
+            >
+              Got it
+            </button>
           </div>
         </div>
-
-        {/* Stats bar */}
-        <div className="grid grid-cols-3 divide-x divide-white/10 border border-white/10 bg-zinc-950 mb-10">
-          {[
-            { value: battles.toLocaleString(), label: "Battles Fought" },
-            { value: wagered >= 1000 ? `${(wagered / 1000).toFixed(1)}K` : wagered.toLocaleString(), label: "MC Wagered" },
-            { value: accountCount.toLocaleString(), label: "Moggers" },
-          ].map((s) => (
-            <div key={s.label} className="py-7 text-center">
-              <p
-                className="text-3xl font-black text-yellow-400 tabular-nums"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {s.value}
-              </p>
-              <p className="text-xs text-zinc-600 mt-1 uppercase tracking-widest font-bold">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Features */}
-        <div className="grid grid-cols-2 gap-px md:grid-cols-3 bg-white/10">
-          <Feature icon={Sword} title="1v1 Live Battles" desc="Real-time matchmaking. Face your opponent." />
-          <Feature icon={Zap} title="AI Judgment" desc="6 metrics analyzed. No bias. No mercy." />
-          <Feature icon={Trophy} title="ELO Ranking" desc="Climb the ladder. Prove dominance." />
-          <Feature icon={Flame} title="Degen Energy" desc="High stakes. Instant payouts. Adrenaline." />
-          <Feature icon={Shield} title="Mog Credits" desc="Deposit, withdraw, and stack your bag." />
-          <Feature icon={TrendingUp} title="Win Streaks" desc="Go on a run. Demoralize the field." />
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function Feature({
-  icon: Icon,
-  title,
-  desc,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="bg-zinc-950 p-5 hover:bg-zinc-900 transition-colors group">
-      <Icon className="mb-3 size-5 text-yellow-400 group-hover:text-yellow-300 transition-colors" />
-      <p className="text-sm font-bold text-white mb-1 uppercase tracking-wide">{title}</p>
-      <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
+      )}
     </div>
   );
 }
