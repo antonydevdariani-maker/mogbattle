@@ -40,10 +40,13 @@ export async function GET(request: NextRequest) {
       }
     );
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+    console.log("[auth/callback] exchange result:", error ?? "ok", "origin:", origin, "next:", next);
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error("[auth/callback] exchange error:", error.message);
   }
 
+  console.log("[auth/callback] no code, redirecting to login. url:", request.url);
   return NextResponse.redirect(`${origin}/login?error=oauth`);
 }
