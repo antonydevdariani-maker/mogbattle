@@ -5,7 +5,7 @@ import { Lock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // 16 hours from first deploy — set your target launch time here
-const LAUNCH_TIME = new Date("2026-05-07T02:00:00-04:00").getTime();
+const LAUNCH_TIME = new Date("2026-05-07T09:30:00-04:00").getTime();
 const PASSWORD = "Ticker";
 
 function useCountdown(target: number) {
