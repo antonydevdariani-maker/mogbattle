@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Lock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { IntroAnimation } from "@/components/ui/intro-animation";
 
 // 16 hours from first deploy — set your target launch time here
 const LAUNCH_TIME = new Date("2026-05-07T10:00:00-04:00").getTime();
@@ -27,6 +28,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
+  const [introDone, setIntroDone] = useState(false);
 
   function handleEnter() {
     if (input === PASSWORD) {
@@ -39,6 +41,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 bg-black relative overflow-hidden">
+      {!introDone && <IntroAnimation onDone={() => setIntroDone(true)} />}
       {/* Grid bg */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.04]"
