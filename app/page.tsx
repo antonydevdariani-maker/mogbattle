@@ -41,8 +41,10 @@ const crack: [number, number][] = [
 ];
 
 const crackPolyline = crack.map(([x, y]) => `${x},${y}`).join(" ");
-// Purple clips to LEFT side of crack
+// Purple clips to LEFT side of crack (main page)
 const purpleClip = `polygon(0% 0%, ${crack.map(([x, y]) => `${x}% ${y}%`).join(", ")}, 0% 100%)`;
+// Purple clips to RIGHT side of crack (modal)
+const purpleRightClip = `polygon(${crack.map(([x, y]) => `${x}% ${y}%`).join(", ")}, 100% 100%, 100% 0%)`;
 
 export default function Home() {
   const router = useRouter();
@@ -254,28 +256,26 @@ export default function Home() {
       {/* ── PASSWORD MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+
+          {/* Yellow modal (base) */}
           <div className="relative w-full max-w-sm border border-yellow-500/30 bg-zinc-950 p-8 space-y-5">
             <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-yellow-500" />
             <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-yellow-500" />
-
             <button
               onClick={() => { setShowModal(false); setInput(""); setError(false); }}
               className="absolute top-3 right-3 text-zinc-600 hover:text-zinc-400 transition-colors"
             >
               <X className="size-4" />
             </button>
-
             <div className="flex justify-center">
               <div className="flex items-center justify-center size-14 border border-yellow-500/30 bg-yellow-500/10">
                 <Lock className="size-6 text-yellow-400" />
               </div>
             </div>
-
             <div className="text-center space-y-1">
               <h2 className="text-xl font-black uppercase tracking-wide text-white">Enter Password</h2>
               <p className="text-xs text-zinc-600">Early access only</p>
             </div>
-
             <div className="space-y-3">
               <input
                 type="password"
@@ -297,7 +297,37 @@ export default function Home() {
               </button>
             </div>
           </div>
-          {/* Crack on top of modal box */}
+
+          {/* Purple overlay — right side of crack, visual only */}
+          <div
+            className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none"
+            style={{ clipPath: purpleRightClip }}
+          >
+            <div className="relative w-full max-w-sm border border-purple-500/30 bg-zinc-950 p-8 space-y-5">
+              <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-purple-500" />
+              <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-purple-500" />
+              <div className="w-6 h-6" /> {/* spacer for close btn */}
+              <div className="flex justify-center">
+                <div className="flex items-center justify-center size-14 border border-purple-500/30 bg-purple-500/10">
+                  <Lock className="size-6 text-purple-400" />
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <h2 className="text-xl font-black uppercase tracking-wide text-white">Enter Password</h2>
+                <p className="text-xs text-zinc-600">Early access only</p>
+              </div>
+              <div className="space-y-3">
+                <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700 text-center tracking-widest">
+                  ••••••••
+                </div>
+                <div className="w-full h-11 bg-purple-500 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center">
+                  Enter
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Crack on top of everything */}
           <svg
             className="absolute inset-0 pointer-events-none"
             style={{ zIndex: 60, width: "100%", height: "100%" }}
