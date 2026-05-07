@@ -54,6 +54,7 @@ export default function Home() {
   const [error, setError] = useState(false);
   const [introDone, setIntroDone] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
+  const [modalBtnHovered, setModalBtnHovered] = useState(false);
 
   function handleEnter() {
     if (input === PASSWORD) {
@@ -130,8 +131,9 @@ export default function Home() {
             onClick={() => setShowModal(true)}
             onMouseEnter={() => setBtnHovered(true)}
             onMouseLeave={() => setBtnHovered(false)}
-            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black transition-all duration-100 active:translate-y-[6px] active:shadow-none"
+            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest text-black transition-all duration-100 active:translate-y-[6px] active:shadow-none"
             style={{
+              backgroundColor: btnHovered ? "#facc15" : "#eab308",
               boxShadow: btnHovered ? "0px 2px 0px #00000060" : "0px 6px 0px #00000060",
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
@@ -203,8 +205,9 @@ export default function Home() {
           )}
 
           <div
-            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-purple-500 text-black transition-all duration-100"
+            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest text-black transition-all duration-100"
             style={{
+              backgroundColor: btnHovered ? "#c084fc" : "#a855f7",
               boxShadow: btnHovered ? "0px 2px 0px #00000060" : "0px 6px 0px #00000060",
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
@@ -291,7 +294,10 @@ export default function Home() {
               )}
               <button
                 onClick={handleEnter}
-                className="w-full h-11 bg-yellow-500 text-black text-sm font-black uppercase tracking-widest hover:bg-yellow-400 transition-colors"
+                onMouseEnter={() => setModalBtnHovered(true)}
+                onMouseLeave={() => setModalBtnHovered(false)}
+                className="w-full h-11 text-black text-sm font-black uppercase tracking-widest transition-colors"
+                style={{ backgroundColor: modalBtnHovered ? "#facc15" : "#eab308" }}
               >
                 Enter
               </button>
@@ -321,7 +327,10 @@ export default function Home() {
                 <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700 text-center tracking-widest">
                   ••••••••
                 </div>
-                <div className="w-full h-11 bg-purple-500 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center">
+                <div
+                  className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
+                  style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
+                >
                   Enter
                 </div>
               </div>
