@@ -297,7 +297,7 @@ export default function ProfilePage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/arena"
-                className="inline-flex items-center gap-2 bg-yellow-500 text-black px-3 py-2 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+                className="hidden sm:inline-flex items-center gap-2 bg-yellow-500 text-black px-3 py-2 text-xs font-black uppercase tracking-widest shadow-[2px_2px_0_#fff] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
               >
                 <Swords className="size-3.5" />
                 Arena
