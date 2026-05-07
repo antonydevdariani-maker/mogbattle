@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { claimDailySpin, loadSpinData } from "@/app/actions";
 import { Atom, Timer } from "lucide-react";
+import { AdUnit } from "@/components/ui/ad-unit";
 
 const PRIZES = [50, 75, 100, 125, 150, 200, 250, 500];
 const TOTAL = 360;
@@ -227,6 +228,8 @@ export function SpinClient() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AdUnit variant="auto" className="w-full mt-4" />
     </div>
   );
 }

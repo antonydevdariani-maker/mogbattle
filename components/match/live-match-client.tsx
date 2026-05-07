@@ -8,6 +8,7 @@ import { finalizeFreeMatchResult, forfeitMatch, rematchSameOpponent } from "@/ap
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
 import { SHOP_TAGS } from "@/lib/shop-tags";
+import { AdUnit } from "@/components/ui/ad-unit";
 
 function TagBadge({ tagId }: { tagId: string | null }) {
   if (!tagId) return null;
@@ -697,6 +698,8 @@ export function LiveMatchClient({
                 </p>
               </div>
             )}
+
+            <AdUnit variant="300x250" className="w-full" />
 
             <div className="relative flex gap-3">
               {isFreeMatch ? (

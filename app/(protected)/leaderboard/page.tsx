@@ -122,6 +122,12 @@ export default function LeaderboardPage() {
             const isYou = r.user_id === yourUserId;
             const isTop3 = rank <= 3;
             return (
+              <>
+                {i === 5 && (
+                  <div key="ad-mid" className="px-4 py-3 border-b border-white/5">
+                    <AdUnit variant="auto" className="w-full" />
+                  </div>
+                )}
               <div
                 key={r.user_id}
                 className={`flex items-center gap-3 px-4 py-3 ${
@@ -188,6 +194,7 @@ export default function LeaderboardPage() {
                   </p>
                 </div>
               </div>
+              </>
             );
           })}
         </div>
