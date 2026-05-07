@@ -86,7 +86,9 @@ export default function Home() {
         <main className="relative flex flex-col items-center text-center space-y-8 max-w-2xl w-full">
           <div className="flex items-center gap-3">
             <div className="h-px w-12 bg-yellow-500/40" />
-            <span className="text-xs font-black uppercase tracking-[0.3em] text-yellow-500">Volume II</span>
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-yellow-500">
+              Volume <span className="cursor-pointer" onClick={() => router.push("/login")}>II</span>
+            </span>
             <div className="h-px w-12 bg-yellow-500/40" />
           </div>
 
@@ -166,6 +168,7 @@ export default function Home() {
             <span className="text-xs font-black uppercase tracking-[0.3em] text-purple-500">Volume II</span>
             <div className="h-px w-12 bg-purple-500/40" />
           </div>
+
 
           <div className="space-y-2">
             <h1
