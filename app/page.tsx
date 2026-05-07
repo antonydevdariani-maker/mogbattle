@@ -163,7 +163,7 @@ export default function Home() {
           )}
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => router.push("/login")}
             onMouseEnter={() => setBtnHovered(true)}
             onMouseLeave={() => setBtnHovered(false)}
             className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest text-black transition-all duration-100 active:translate-y-[6px] active:shadow-none"

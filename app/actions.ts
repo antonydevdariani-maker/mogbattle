@@ -163,6 +163,19 @@ export async function loadLeaderboard(accessToken: string) {
     .order("wins", { ascending: false })
     .limit(100);
   if (error) {
+    // active_tag column may not exist yet in DB — fall back without it
+    if (error.message.includes("active_tag")) {
+      const { data: fallback } = await supabase
+        .from("profiles")
+        .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits, is_founder")
+        .order("elo", { ascending: false })
+        .order("wins", { ascending: false })
+        .limit(100);
+      return {
+        rows: ((fallback ?? []) as Omit<LeaderboardProfileRow, "active_tag">[]).map((r) => ({ ...r, active_tag: null })) as LeaderboardProfileRow[],
+        yourUserId: userId,
+      };
+    }
     throw new Error(error.message);
   }
   return {
