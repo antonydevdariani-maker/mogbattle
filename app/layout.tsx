@@ -50,6 +50,13 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${ibmPlexMono.variable} ${lora.variable} dark min-h-full antialiased`}
     >
       <head>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-QCX55MBJ6P" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-QCX55MBJ6P');
+        `}} />
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8775235220763676"
