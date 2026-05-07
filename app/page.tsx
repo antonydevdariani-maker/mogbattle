@@ -21,23 +21,23 @@ function useCountdown(target: number) {
   return { h, m, s, done: total === 0 };
 }
 
-// Jagged crack down the center of the screen
+// Jagged crack through the O (first letter of centered OMOGGER ≈ 31% viewport)
 const crack: [number, number][] = [
-  [50.0, 0],
-  [49.3, 7],
-  [51.1, 14],
-  [48.9, 21],
-  [50.7, 28],
-  [49.1, 35],
-  [51.3, 42],
-  [49.5, 49],
-  [50.9, 56],
-  [49.2, 63],
-  [51.0, 70],
-  [49.6, 77],
-  [50.4, 84],
-  [49.8, 91],
-  [50.0, 100],
+  [31.0, 0],
+  [30.3, 7],
+  [32.1, 14],
+  [29.9, 21],
+  [31.7, 28],
+  [30.1, 35],
+  [32.3, 42],
+  [30.5, 49],
+  [31.9, 56],
+  [30.2, 63],
+  [32.0, 70],
+  [30.6, 77],
+  [31.4, 84],
+  [30.8, 91],
+  [31.0, 100],
 ];
 
 const crackPolyline = crack.map(([x, y]) => `${x},${y}`).join(" ");
@@ -124,7 +124,7 @@ export default function Home() {
 
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black shadow-[4px_4px_0_#ffffff30] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black shadow-[0px_6px_0px_#00000060] hover:shadow-[0px_2px_0px_#00000060] hover:translate-y-1 active:shadow-none active:translate-y-[6px] transition-all duration-100"
           >
             Enter Arena
           </button>
