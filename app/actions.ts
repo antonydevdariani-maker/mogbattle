@@ -3,6 +3,7 @@
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { verifySupabaseToken } from "@/lib/supabase/verify";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { SHOP_TAGS, CHEST_PRICE, pickChestTag } from "@/lib/shop-tags";
 
 async function requireUser(accessToken: string | null | undefined) {
   const userId = await verifySupabaseToken(accessToken);
@@ -760,6 +761,91 @@ export async function forfeitMatch(accessToken: string, matchId: string) {
 
   revalidatePath("/dashboard");
   revalidatePath(`/match/${matchId}`);
+}
+
+export async function loadShopData(accessToken: string) {
+  const userId = await requireUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("profiles")
+    .select("molecules, owned_tags, active_tag")
+    .eq("user_id", userId)
+    .single();
+  return {
+    molecules: data?.molecules ?? 0,
+    ownedTags: (data?.owned_tags ?? []) as string[],
+    activeTag: (data?.active_tag ?? null) as string | null,
+  };
+}
+
+export async function buyTag(accessToken: string, tagId: string) {
+  const userId = await requireUser(accessToken);
+  const tag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!tag) throw new Error("Tag not found");
+  const supabase = getSupabaseAdmin();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules, owned_tags")
+    .eq("user_id", userId)
+    .single();
+  if (!profile) throw new Error("Profile not found");
+  const owned: string[] = profile.owned_tags ?? [];
+  if (owned.includes(tagId)) throw new Error("Already owned");
+  if (profile.molecules < tag.price) throw new Error("Not enough molecules");
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      molecules: profile.molecules - tag.price,
+      owned_tags: [...owned, tagId],
+    })
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/shop");
+  revalidatePath("/dashboard");
+}
+
+export async function openChest(accessToken: string) {
+  const userId = await requireUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules, owned_tags")
+    .eq("user_id", userId)
+    .single();
+  if (!profile) throw new Error("Profile not found");
+  if (profile.molecules < CHEST_PRICE) throw new Error("Not enough molecules");
+  const tag = pickChestTag();
+  const owned: string[] = profile.owned_tags ?? [];
+  const alreadyOwned = owned.includes(tag.id);
+  const refund = alreadyOwned ? Math.floor(tag.price * 0.1) : 0;
+  const newOwned = alreadyOwned ? owned : [...owned, tag.id];
+  await supabase
+    .from("profiles")
+    .update({
+      molecules: profile.molecules - CHEST_PRICE + refund,
+      owned_tags: newOwned,
+    })
+    .eq("user_id", userId);
+  revalidatePath("/shop");
+  revalidatePath("/dashboard");
+  return { tag, alreadyOwned, refund };
+}
+
+export async function setActiveTag(accessToken: string, tagId: string | null) {
+  const userId = await requireUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  if (tagId !== null) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("owned_tags")
+      .eq("user_id", userId)
+      .single();
+    const owned: string[] = profile?.owned_tags ?? [];
+    if (!owned.includes(tagId)) throw new Error("Tag not owned");
+  }
+  await supabase.from("profiles").update({ active_tag: tagId }).eq("user_id", userId);
+  revalidatePath("/shop");
+  revalidatePath("/dashboard");
 }
 
 /** Each player writes only their own PSL column (`ai_score_p1` or `ai_score_p2`) while status is live. */

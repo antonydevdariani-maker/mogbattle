@@ -1,0 +1,2 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS owned_tags text[] DEFAULT '{}';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS active_tag text DEFAULT NULL;

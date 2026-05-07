@@ -17,6 +17,8 @@ export type Database = {
           wins: number;
           is_founder: boolean;
           created_at: string;
+          owned_tags: string[];
+          active_tag: string | null;
         };
         Insert: {
           user_id: string;
@@ -31,6 +33,8 @@ export type Database = {
           wins?: number;
           is_founder?: boolean;
           created_at?: string;
+          owned_tags?: string[];
+          active_tag?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
         Relationships: [];

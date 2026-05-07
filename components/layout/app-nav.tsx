@@ -5,14 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard,
+  House,
   LogOut,
   Zap,
-  Shield,
-  Crown,
-  User,
+  Swords,
+  Trophy,
+  CircleUser,
   MessageSquare,
-  Atom,
+  ShoppingBag,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -24,11 +24,11 @@ import {
 } from "@/components/arena/arena-match-leave-context";
 
 const navItems = [
-  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/leaderboard", label: "Ranks", icon: Crown },
-  { href: "/arena", label: "Battle", icon: Shield },
-  { href: "/spin", label: "Spin", icon: Atom },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/dashboard", label: "Home", icon: House },
+  { href: "/leaderboard", label: "Ranks", icon: Trophy },
+  { href: "/arena", label: "Battle", icon: Swords },
+  { href: "/shop", label: "Shop", icon: ShoppingBag },
+  { href: "/profile", label: "Profile", icon: CircleUser },
 ];
 
 export function AppNav() {
@@ -38,6 +38,19 @@ export function AppNav() {
   const { token, session, signOut, user } = useAuth();
   const [molecules, setMolecules] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
+  const [logoFlash, setLogoFlash] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!sessionStorage.getItem("nav-lightning-done")) {
+      setLogoFlash(true);
+      const t = setTimeout(() => {
+        setLogoFlash(false);
+        sessionStorage.setItem("nav-lightning-done", "1");
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   useEffect(() => {
     if (!session || !token) return;
@@ -101,7 +114,16 @@ export function AppNav() {
             tryNavigate("/dashboard");
           }}
         >
-          OMOG<span className="text-yellow-400">GER</span>
+          <div className="relative overflow-visible">
+            O<span className="text-yellow-400">MOG</span>GER
+            <div
+              className="absolute inset-0 bg-white pointer-events-none"
+              style={{
+                opacity: logoFlash ? 1 : 0,
+                transition: "opacity 400ms ease-out",
+              }}
+            />
+          </div>
         </Link>
         <div className="justify-self-start sm:hidden" />
 
