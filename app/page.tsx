@@ -254,17 +254,6 @@ export default function Home() {
       {/* ── PASSWORD MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-          {/* Crack overlay on modal backdrop */}
-          <svg
-            className="absolute inset-0 pointer-events-none"
-            style={{ width: "100%", height: "100%" }}
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-          >
-            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
-            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-            <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
-          </svg>
           <div className="relative w-full max-w-sm border border-yellow-500/30 bg-zinc-950 p-8 space-y-5">
             <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-yellow-500" />
             <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-yellow-500" />
@@ -308,6 +297,17 @@ export default function Home() {
               </button>
             </div>
           </div>
+          {/* Crack on top of modal box */}
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            style={{ zIndex: 60, width: "100%", height: "100%" }}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
+            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+            <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
+          </svg>
         </div>
       )}
     </div>
