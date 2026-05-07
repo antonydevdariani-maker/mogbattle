@@ -133,6 +133,47 @@ export default function ProfilePage() {
     return <p className="text-red-400 text-sm">{err}</p>;
   }
 
+  if (!profile) {
+    return (
+      <div className="w-full max-w-2xl mx-auto space-y-6 animate-pulse">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-2">
+            <div className="h-3 w-16 bg-zinc-800 rounded" />
+            <div className="h-8 w-48 bg-zinc-800 rounded" />
+          </div>
+          <div className="h-9 w-28 bg-zinc-800 rounded" />
+        </div>
+        <div className="border border-white/10 bg-zinc-950 p-6 space-y-6">
+          <div className="h-3 w-24 bg-zinc-800 rounded" />
+          <div className="flex gap-6">
+            <div className="size-28 bg-zinc-800 rounded shrink-0" />
+            <div className="flex-1 space-y-3">
+              <div className="h-3 w-20 bg-zinc-800 rounded" />
+              <div className="h-10 w-56 bg-zinc-800 rounded" />
+              <div className="h-9 w-24 bg-zinc-800 rounded" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="border border-white/10 bg-black/50 px-3 py-2.5 space-y-1">
+                <div className="h-2.5 w-10 bg-zinc-800 rounded" />
+                <div className="h-6 w-16 bg-zinc-800 rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="h-10 bg-zinc-800 rounded" />
+        </div>
+        <div className="border border-white/10 bg-zinc-950 p-5 space-y-3">
+          <div className="h-3 w-20 bg-zinc-800 rounded" />
+          <div className="flex gap-2">
+            <div className="h-7 w-16 bg-zinc-800 rounded" />
+            <div className="h-7 w-20 bg-zinc-800 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -249,7 +290,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MiniStat label="ELO" value={String(profile?.elo ?? 1500)} accent="text-amber-300" />
+          <MiniStat label="ELO" value={String(profile.elo ?? "—")} accent="text-amber-300" />
           <MiniStat label="W / L" value={`${profile?.wins ?? 0} / ${losses}`} accent="text-white" />
           <MiniStat label="Matches" value={String(profile?.matches_played ?? 0)} accent="text-zinc-300" />
           <MiniStat label="Win rate" value={`${winRate}%`} accent={winRate >= 50 ? "text-green-400" : "text-red-400"} />
