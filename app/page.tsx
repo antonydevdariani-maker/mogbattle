@@ -371,8 +371,8 @@ export default function Home() {
                     <p className="text-xs text-zinc-600">Get a text when the arena opens</p>
                   </div>
                   <div className="space-y-3">
-                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">Your name (optional)</div>
-                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">(555) 000-0000</div>
+                    <div className="w-full border border-white/10 bg-zinc-900 py-2.5">&nbsp;</div>
+                    <div className="w-full border border-white/10 bg-zinc-900 py-2.5">&nbsp;</div>
                     <div
                       className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
                       style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
