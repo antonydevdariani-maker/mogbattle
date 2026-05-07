@@ -848,16 +848,55 @@ export async function setActiveTag(accessToken: string, tagId: string | null) {
   revalidatePath("/dashboard");
 }
 
-export async function joinWaitlist(email: string, name: string) {
+async function sendSms(to: string, text: string) {
+  const { Vonage } = await import("@vonage/server-sdk");
+  const vonage = new Vonage({
+    apiKey: process.env.VONAGE_API_KEY!,
+    apiSecret: process.env.VONAGE_API_SECRET!,
+  });
+  await vonage.sms.send({ to, from: "Omogger", text });
+}
+
+export async function joinWaitlist(phone: string, name: string) {
   const supabase = getSupabaseAdmin();
-  email = email.trim().toLowerCase();
+  phone = phone.trim().replace(/\s+/g, "");
   name = name.trim();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email");
-  const { error } = await supabase.from("waitlist").insert({ email, name: name || null });
+  if (!phone) throw new Error("Phone number required");
+  // normalize to E.164 — prepend +1 if US number without country code
+  if (/^\d{10}$/.test(phone)) phone = `+1${phone}`;
+  else if (/^1\d{10}$/.test(phone)) phone = `+${phone}`;
+  if (!/^\+\d{7,15}$/.test(phone)) throw new Error("Invalid phone number");
+
+  const { error } = await supabase.from("waitlist").insert({ phone, name: name || null });
   if (error) {
     if (error.code === "23505") throw new Error("Already on the waitlist!");
     throw new Error(error.message);
   }
+
+  try {
+    await sendSms(phone, `You're on the Omogger waitlist${name ? `, ${name}` : ""}. We'll text you the moment the arena opens. 🥊 omogger.com`);
+  } catch {
+    // SMS failure doesn't block signup
+  }
+}
+
+export async function blastWaitlistSms(adminToken: string, message: string) {
+  const userId = await requireUser(adminToken);
+  const supabase = getSupabaseAdmin();
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", userId).single();
+  if (profile?.username !== "4kxo" && profile?.username !== "vibecodedthis") throw new Error("Unauthorized");
+
+  const { data: waitlist } = await supabase.from("waitlist").select("phone").not("phone", "is", null);
+  if (!waitlist?.length) return { sent: 0 };
+
+  let sent = 0;
+  for (const row of waitlist) {
+    try {
+      await sendSms(row.phone, message);
+      sent++;
+    } catch { /* skip failed numbers */ }
+  }
+  return { sent };
 }
 
 /** Each player writes only their own PSL column (`ai_score_p1` or `ai_score_p2`) while status is live. */

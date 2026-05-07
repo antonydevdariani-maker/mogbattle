@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Mail, User, CheckCircle } from "lucide-react";
+import { X, Phone, User, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { IntroAnimation } from "@/components/ui/intro-animation";
 import { joinWaitlist } from "@/app/actions";
@@ -50,7 +50,7 @@ export default function Home() {
   const router = useRouter();
   const { h, m, s, done } = useCountdown(LAUNCH_TIME);
   const [showModal, setShowModal] = useState(false);
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -81,7 +81,7 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      await joinWaitlist(email, name);
+      await joinWaitlist(phone, name);
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -92,7 +92,7 @@ export default function Home() {
 
   function closeModal() {
     setShowModal(false);
-    setEmail("");
+    setPhone("");
     setName("");
     setError("");
     setSuccess(false);
@@ -292,13 +292,13 @@ export default function Home() {
               <>
                 <div className="flex justify-center">
                   <div className="flex items-center justify-center size-14 border border-yellow-500/30 bg-yellow-500/10">
-                    <Mail className="size-6 text-yellow-400" />
+                    <Phone className="size-6 text-yellow-400" />
                   </div>
                 </div>
 
                 <div className="text-center space-y-1">
                   <h2 className="text-xl font-black uppercase tracking-wide text-white">Join Waitlist</h2>
-                  <p className="text-xs text-zinc-600">Get notified when the arena opens</p>
+                  <p className="text-xs text-zinc-600">Get a text when the arena opens</p>
                 </div>
 
                 <div className="space-y-3">
@@ -313,13 +313,13 @@ export default function Home() {
                     />
                   </div>
                   <div className="relative" ref={emailInputRef}>
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
                     <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => { setPhone(e.target.value); setError(""); }}
                       onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                      placeholder="your@email.com"
+                      placeholder="(555) 000-0000"
                       autoFocus
                       className="w-full border border-white/10 bg-zinc-900 pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:border-yellow-500/50 focus:outline-none tracking-wide"
                     />
@@ -363,16 +363,16 @@ export default function Home() {
                 <>
                   <div className="flex justify-center">
                     <div className="flex items-center justify-center size-14 border border-purple-500/30 bg-purple-500/10">
-                      <Mail className="size-6 text-purple-400" />
+                      <Phone className="size-6 text-purple-400" />
                     </div>
                   </div>
                   <div className="text-center space-y-1">
                     <h2 className="text-xl font-black uppercase tracking-wide text-white">Join Waitlist</h2>
-                    <p className="text-xs text-zinc-600">Get notified when the arena opens</p>
+                    <p className="text-xs text-zinc-600">Get a text when the arena opens</p>
                   </div>
                   <div className="space-y-3">
                     <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">Your name (optional)</div>
-                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">your@email.com</div>
+                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">(555) 000-0000</div>
                     <div
                       className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
                       style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
