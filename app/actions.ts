@@ -936,3 +936,12 @@ export async function submitMyPslScore(
     .update({ [col]: Number(args.psl.toFixed(2)) })
     .eq("id", args.matchId);
 }
+
+export async function getMatchPlayerProfiles(player1Id: string, player2Id: string) {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("profiles")
+    .select("user_id, username, active_tag")
+    .in("user_id", [player1Id, player2Id]);
+  return (data ?? []) as { user_id: string; username: string | null; active_tag: string | null }[];
+}

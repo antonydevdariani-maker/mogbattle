@@ -7,6 +7,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { finalizeFreeMatchResult, forfeitMatch, rematchSameOpponent } from "@/app/actions";
 import { Loader2, CheckCircle2, Swords, Trophy, Skull, FlaskConical } from "lucide-react";
 import { useAgoraVideo, LocalVideoBox, RemoteVideoBox, type VideoBoxHandle } from "@/components/match/agora-video";
+import { SHOP_TAGS } from "@/lib/shop-tags";
+
+function TagBadge({ tagId }: { tagId: string | null }) {
+  if (!tagId) return null;
+  const tag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!tag) return null;
+  return (
+    <span
+      className="text-[9px] font-black uppercase tracking-widest border px-1.5 py-0.5"
+      style={{ color: tag.color, borderColor: tag.color + "50", background: tag.color + "18" }}
+    >
+      {tag.label}
+    </span>
+  );
+}
 
 const TIER_INFO: Record<string, { icon: string; label: string; color: string }> = {
   chad:     { icon: "🔥", label: "CHAD",     color: "#e879f9" },
@@ -111,6 +126,10 @@ export function LiveMatchClient({
   isFreeMatch,
   initialAiP1,
   initialAiP2,
+  myUsername,
+  myTag,
+  oppUsername,
+  oppTag,
 }: {
   matchId: string;
   isPlayer1: boolean;
@@ -122,6 +141,10 @@ export function LiveMatchClient({
   isFreeMatch: boolean;
   initialAiP1: number | null;
   initialAiP2: number | null;
+  myUsername?: string | null;
+  myTag?: string | null;
+  oppUsername?: string | null;
+  oppTag?: string | null;
 }) {
   const isCompleted = initialStatus === "completed";
 
@@ -328,8 +351,9 @@ export function LiveMatchClient({
             }
           />
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-zinc-300">YOU</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-zinc-300">{myUsername ?? "YOU"}</span>
+              <TagBadge tagId={myTag ?? null} />
               {/* Inline score on mobile after done */}
               {phase === "done" && myDisplayResult && (
                 <span className="text-xs font-mono text-yellow-400 sm:hidden">
@@ -379,8 +403,9 @@ export function LiveMatchClient({
             }
           />
           <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-zinc-300">OPPONENT</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-zinc-300">{oppUsername ?? "OPPONENT"}</span>
+              <TagBadge tagId={oppTag ?? null} />
               {phase === "done" && oppDisplayResult && (
                 <span className="text-xs font-mono text-red-400 sm:hidden">
                   PSL {oppDisplayResult.psl.toFixed(1)}
@@ -636,7 +661,8 @@ export function LiveMatchClient({
             {/* Score comparison */}
             <div className="relative grid grid-cols-2 gap-2 sm:gap-3">
               <ScoreCard
-                label="YOU"
+                label={myUsername ?? "YOU"}
+                tagId={myTag ?? null}
                 score={myScore}
                 won={iWon}
                 color={iWon ? "gold" : "zinc"}
@@ -645,7 +671,8 @@ export function LiveMatchClient({
                 result={myDisplayResult}
               />
               <ScoreCard
-                label="OPPONENT"
+                label={oppUsername ?? "OPPONENT"}
+                tagId={oppTag ?? null}
                 score={oppScore}
                 won={!iWon}
                 color={!iWon ? "gold" : "zinc"}
@@ -814,6 +841,7 @@ function ScoreSidePanel({
 
 function ScoreCard({
   label,
+  tagId,
   score,
   won,
   color,
@@ -822,6 +850,7 @@ function ScoreCard({
   result,
 }: {
   label: string;
+  tagId?: string | null;
   score: number | null;
   won: boolean;
   color: "gold" | "zinc";
@@ -835,7 +864,10 @@ function ScoreCard({
     <div className={`rounded-xl border p-3 text-center ${
       won ? "border-yellow-500/30 bg-yellow-500/8" : "border-zinc-800 bg-zinc-900/50"
     }`}>
-      <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
+      <div className="flex items-center justify-center gap-1.5 flex-wrap mb-1">
+        <p className="text-xs text-zinc-500 uppercase tracking-wider">{label}</p>
+        {tagId && <TagBadge tagId={tagId} />}
+      </div>
       <p
         className={`text-3xl font-black tabular-nums ${accent}`}
         style={{ fontFamily: "var(--font-heading)" }}

@@ -4,7 +4,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { getMatchForUser } from "@/app/actions";
+import { getMatchForUser, getMatchPlayerProfiles } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import {
   useArenaMatchLeaveSetters,
@@ -24,7 +24,8 @@ export default function MatchRoomPage() {
   const router = useRouter();
   const { session, token } = useAuth();
   const { setMatchAtRisk } = useArenaMatchLeaveSetters();
-  const [data, setData] = useState<{ match: MatchRow; userId: string } | null>(null);
+  type PlayerProfile = { user_id: string; username: string | null; active_tag: string | null };
+  const [data, setData] = useState<{ match: MatchRow; userId: string; profiles: PlayerProfile[] } | null>(null);
 
   useEffect(() => {
     if (!session || !matchId || !token) return;
@@ -34,7 +35,10 @@ export default function MatchRoomPage() {
         router.replace("/arena");
         return;
       }
-      setData(res as { match: MatchRow; userId: string });
+      const profiles = res.match.player2_id
+        ? await getMatchPlayerProfiles(res.match.player1_id, res.match.player2_id)
+        : [];
+      setData({ ...(res as { match: MatchRow; userId: string }), profiles });
     })();
   }, [session, matchId, token, router]);
 
@@ -58,8 +62,10 @@ export default function MatchRoomPage() {
     );
   }
 
-  const { match, userId } = data;
+  const { match, userId, profiles } = data;
   const opponentId = match.player1_id === userId ? match.player2_id : match.player1_id;
+  const myProfile = profiles.find((p) => p.user_id === userId);
+  const oppProfile = profiles.find((p) => p.user_id === opponentId);
 
   return (
     <div className="w-full">
@@ -74,6 +80,10 @@ export default function MatchRoomPage() {
         isFreeMatch={match.is_free_match ?? true}
         initialAiP1={match.ai_score_p1}
         initialAiP2={match.ai_score_p2}
+        myUsername={myProfile?.username ?? null}
+        myTag={myProfile?.active_tag ?? null}
+        oppUsername={oppProfile?.username ?? null}
+        oppTag={oppProfile?.active_tag ?? null}
       />
     </div>
   );

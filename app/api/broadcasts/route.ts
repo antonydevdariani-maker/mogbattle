@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabase.from("broadcasts").insert({
     message: message.trim(),
-    sender_username: profile.username ?? "Founder",
+    sender_username: profile?.username ?? "Founder",
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
