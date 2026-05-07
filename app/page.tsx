@@ -298,15 +298,16 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Purple overlay — right side of crack, visual only */}
+          {/* Purple overlay — left side of crack, visual only */}
           <div
             className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none"
-            style={{ clipPath: purpleRightClip }}
+            style={{ clipPath: purpleClip }}
           >
             <div className="relative w-full max-w-sm border border-purple-500/30 bg-zinc-950 p-8 space-y-5">
               <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-purple-500" />
               <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-purple-500" />
-              <div className="w-6 h-6" /> {/* spacer for close btn */}
+              {/* match close button space */}
+              <div className="absolute top-3 right-3 w-4 h-4" />
               <div className="flex justify-center">
                 <div className="flex items-center justify-center size-14 border border-purple-500/30 bg-purple-500/10">
                   <Lock className="size-6 text-purple-400" />
