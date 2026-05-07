@@ -21,27 +21,28 @@ function useCountdown(target: number) {
   return { h, m, s, done: total === 0 };
 }
 
-// Jagged crack through the O (first letter of centered OMOGGER ≈ 31% viewport)
+// Jagged crack through the O in MOG (3rd char of centered OMOGGER ≈ 44% viewport)
 const crack: [number, number][] = [
-  [31.0, 0],
-  [30.3, 7],
-  [32.1, 14],
-  [29.9, 21],
-  [31.7, 28],
-  [30.1, 35],
-  [32.3, 42],
-  [30.5, 49],
-  [31.9, 56],
-  [30.2, 63],
-  [32.0, 70],
-  [30.6, 77],
-  [31.4, 84],
-  [30.8, 91],
-  [31.0, 100],
+  [44.0, 0],
+  [43.3, 7],
+  [45.1, 14],
+  [42.9, 21],
+  [44.7, 28],
+  [43.1, 35],
+  [45.3, 42],
+  [43.5, 49],
+  [44.9, 56],
+  [43.2, 63],
+  [45.0, 70],
+  [43.6, 77],
+  [44.4, 84],
+  [43.8, 91],
+  [44.0, 100],
 ];
 
 const crackPolyline = crack.map(([x, y]) => `${x},${y}`).join(" ");
-const purpleClip = `polygon(${crack.map(([x, y]) => `${x}% ${y}%`).join(", ")}, 100% 100%, 100% 0%)`;
+// Purple clips to LEFT side of crack
+const purpleClip = `polygon(0% 0%, ${crack.map(([x, y]) => `${x}% ${y}%`).join(", ")}, 0% 100%)`;
 
 export default function Home() {
   const router = useRouter();
