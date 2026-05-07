@@ -8,7 +8,10 @@ import {
   loadProfilePageData,
   updateProfileUsername,
   uploadProfileAvatar,
+  loadShopData,
+  setActiveTag,
 } from "@/app/actions";
+import { SHOP_TAGS } from "@/lib/shop-tags";
 import type { Database } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +19,11 @@ import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
   Camera,
+  CheckCircle,
   Crown,
   Loader2,
   Mail,
+  ShoppingBag,
   Swords,
   TrendingUp,
   Trophy,
@@ -41,6 +46,9 @@ export default function ProfilePage() {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarTs, setAvatarTs] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [ownedTags, setOwnedTags] = useState<string[]>([]);
+  const [activeTag, setActiveTagState] = useState<string | null>(null);
+  const [settingTag, setSettingTag] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -48,7 +56,21 @@ export default function ProfilePage() {
     setProfile(data.profile as Profile | null);
     setMatches((data.matches ?? []) as Match[]);
     setUserId(data.userId);
+    const shopData = await loadShopData(token);
+    setOwnedTags(shopData.ownedTags);
+    setActiveTagState(shopData.activeTag);
   }, [token]);
+
+  async function handleSetActive(tagId: string | null) {
+    if (!token) return;
+    setSettingTag(tagId ?? "__clear__");
+    try {
+      await setActiveTag(token, tagId);
+      setActiveTagState(tagId);
+    } catch { /* ignore */ } finally {
+      setSettingTag(null);
+    }
+  }
 
   useEffect(() => {
     if (!session) return;
@@ -259,6 +281,55 @@ export default function ProfilePage() {
           </div>
           <p className="text-sm text-zinc-300 break-all">{email ?? "No email linked."}</p>
         </div>
+      </div>
+
+      {/* My Tags */}
+      <div className="border border-white/10 bg-zinc-950 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="size-4 text-zinc-500" />
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">My Tags</h2>
+          </div>
+          <Link href="/shop" className="text-[10px] font-black uppercase tracking-widest text-yellow-500 hover:text-yellow-400">
+            Shop →
+          </Link>
+        </div>
+        {ownedTags.length === 0 ? (
+          <p className="text-xs text-zinc-700 uppercase tracking-widest">No tags yet — visit the shop.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {ownedTags.map((id) => {
+              const tag = SHOP_TAGS.find((t) => t.id === id);
+              if (!tag) return null;
+              const isActive = activeTag === id;
+              const loading = settingTag === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => handleSetActive(isActive ? null : id)}
+                  disabled={loading}
+                  className={`relative flex items-center gap-1.5 border px-3 py-1 text-xs font-black uppercase tracking-widest transition-all ${
+                    isActive ? "ring-2 ring-yellow-400/60 ring-offset-1 ring-offset-black" : "opacity-70 hover:opacity-100"
+                  }`}
+                  style={{ color: tag.color, borderColor: tag.color + "60", background: tag.color + "15", fontFamily: "var(--font-heading)" }}
+                  title={isActive ? "Click to unequip" : "Click to equip"}
+                >
+                  {tag.label}
+                  {isActive && <CheckCircle className="size-3" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {activeTag && (
+          <button
+            onClick={() => handleSetActive(null)}
+            disabled={settingTag !== null}
+            className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:text-zinc-400 transition-colors"
+          >
+            Remove active tag
+          </button>
+        )}
       </div>
 
       <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/components/auth/auth-context";
 import {
   ShoppingBag,
@@ -24,6 +24,29 @@ import {
 } from "@/app/actions";
 
 const CARD_WIDTH = 96;
+
+function useWeeklyCountdown() {
+  const getNext = useCallback(() => {
+    const now = new Date();
+    const next = new Date(now);
+    const day = now.getDay(); // 0=Sun,1=Mon...
+    const daysUntilMonday = day === 0 ? 1 : 8 - day;
+    next.setDate(now.getDate() + daysUntilMonday);
+    next.setHours(0, 0, 0, 0);
+    return next.getTime();
+  }, []);
+  const [diff, setDiff] = useState(() => getNext() - Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setDiff(getNext() - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [getNext]);
+  const total = Math.max(0, diff);
+  const d = Math.floor(total / 86400000);
+  const h = Math.floor((total % 86400000) / 3600000);
+  const m = Math.floor((total % 3600000) / 60000);
+  const s = Math.floor((total % 60000) / 1000);
+  return { d, h, m, s };
+}
 const WINNER_INDEX = 38;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -105,6 +128,7 @@ function StripCard({ tag }: { tag: ShopTag }) {
 
 export default function ShopPage() {
   const { token } = useAuth();
+  const { d, h, m, s } = useWeeklyCountdown();
   const [molecules, setMolecules] = useState(0);
   const [ownedTags, setOwnedTags] = useState<string[]>([]);
   const [activeTag, setActiveTagState] = useState<string | null>(null);
@@ -223,15 +247,20 @@ export default function ShopPage() {
             TAG SHOP
           </h1>
         </div>
-        <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-4 py-2 w-fit">
-          <Zap className="size-4 text-cyan-400" />
-          <span
-            className="text-lg font-black tabular-nums text-white"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            {molecules.toLocaleString()}
-          </span>
-          <span className="text-xs text-zinc-500 font-bold uppercase">mol</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 border border-cyan-500/30 bg-cyan-500/5 px-4 py-2">
+            <Zap className="size-4 text-cyan-400" />
+            <span className="text-lg font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>
+              {molecules.toLocaleString()}
+            </span>
+            <span className="text-xs text-zinc-500 font-bold uppercase">mol</span>
+          </div>
+          <div className="flex items-center gap-2 border border-white/10 bg-zinc-900/60 px-4 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Resets in</span>
+            <span className="text-sm font-black tabular-nums text-yellow-400" style={{ fontFamily: "var(--font-heading)" }}>
+              {d}d {String(h).padStart(2,"0")}h {String(m).padStart(2,"0")}m {String(s).padStart(2,"0")}s
+            </span>
+          </div>
         </div>
       </div>
 
@@ -305,14 +334,25 @@ export default function ShopPage() {
                   <span className="text-sm font-black" style={{ fontFamily: "var(--font-heading)" }}>+{resultRefund} mol refund (10%)</span>
                 </div>
               )}
-              <button
-                onClick={resetChest}
-                disabled={molecules < CHEST_PRICE}
-                className="mt-2 border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                <RefreshCw className="size-3.5" /> Open Another
-              </button>
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  onClick={() => handleSetActive(wonTag.id)}
+                  disabled={settingTag !== null || activeTag === wonTag.id}
+                  className="border border-yellow-500/60 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2 disabled:opacity-50"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  <CheckCircle className="size-3.5" />
+                  {activeTag === wonTag.id ? "Equipped" : "Equip"}
+                </button>
+                <button
+                  onClick={resetChest}
+                  disabled={molecules < CHEST_PRICE}
+                  className="border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  <RefreshCw className="size-3.5" /> Open Another
+                </button>
+              </div>
             </div>
           )}
 
