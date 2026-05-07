@@ -105,7 +105,6 @@ function StripCard({ tag }: { tag: ShopTag }) {
 
 export default function ShopPage() {
   const { token } = useAuth();
-  const [tab, setTab] = useState<"buy" | "chest">("buy");
   const [molecules, setMolecules] = useState(0);
   const [ownedTags, setOwnedTags] = useState<string[]>([]);
   const [activeTag, setActiveTagState] = useState<string | null>(null);
@@ -251,26 +250,110 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-white/10">
-        {(["buy", "chest"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-6 py-3 text-xs font-black uppercase tracking-widest transition-colors ${
-              tab === t
-                ? "border-b-2 border-yellow-400 text-yellow-400"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            {t === "buy" ? "Buy Tags" : "Open Chest"}
-          </button>
-        ))}
+      {/* OPEN CHEST — top section */}
+      <div className="space-y-6">
+        <div className="border border-yellow-500/30 bg-zinc-900/60 p-6 flex flex-col items-center gap-4">
+          <Package className="size-16 text-yellow-400" strokeWidth={1.5} />
+          <div className="text-center">
+            <h2
+              className="text-xl font-black uppercase tracking-widest text-white"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Mystery Chest
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider">
+              Contains a random tag — higher rarity = harder to get
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Zap className="size-4 text-cyan-400" />
+            <span className="text-lg font-black text-white" style={{ fontFamily: "var(--font-heading)" }}>
+              {CHEST_PRICE}
+            </span>
+            <span className="text-xs text-zinc-500 font-bold uppercase">mol</span>
+          </div>
+
+          {(spinning || showResult) && strip.length > 0 && (
+            <div className="w-full relative mt-2">
+              <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0.5 bg-yellow-400 z-10 pointer-events-none" />
+              <div ref={containerRef} className="overflow-hidden border border-white/10 relative" style={{ height: 108 }}>
+                <div
+                  ref={stripRef}
+                  className="flex gap-1 absolute left-0 top-1"
+                  style={{
+                    transform: `translateX(${translateX}px)`,
+                    transition: spinning ? "transform 4s cubic-bezier(0.15, 0.05, 0.05, 1.0)" : "none",
+                    willChange: "transform",
+                  }}
+                >
+                  {strip.map((tag, i) => <StripCard key={i} tag={tag} />)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showResult && wonTag && (
+            <div className="w-full border border-white/10 bg-zinc-950 p-6 flex flex-col items-center gap-3">
+              <span className="text-xs font-black uppercase tracking-widest text-zinc-500" style={{ fontFamily: "var(--font-heading)" }}>
+                {resultAlreadyOwned ? "DUPLICATE — TAG ALREADY OWNED" : "YOU GOT"}
+              </span>
+              <TagBadge tag={wonTag} size="lg" />
+              <RarityBadge rarity={wonTag.rarity} />
+              {resultAlreadyOwned && resultRefund > 0 && (
+                <div className="flex items-center gap-1.5 text-cyan-400">
+                  <Zap className="size-3.5" />
+                  <span className="text-sm font-black" style={{ fontFamily: "var(--font-heading)" }}>+{resultRefund} mol refund (10%)</span>
+                </div>
+              )}
+              <button
+                onClick={resetChest}
+                disabled={molecules < CHEST_PRICE}
+                className="mt-2 border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                <RefreshCw className="size-3.5" /> Open Another
+              </button>
+            </div>
+          )}
+
+          {!showResult && (
+            <button
+              onClick={handleOpenChest}
+              disabled={spinning || molecules < CHEST_PRICE}
+              className={`px-8 py-3 text-sm font-black uppercase tracking-widest transition-colors flex items-center gap-2 ${
+                spinning || molecules < CHEST_PRICE
+                  ? "border border-zinc-700 text-zinc-600 cursor-not-allowed"
+                  : "border border-yellow-500/60 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20"
+              }`}
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {spinning ? <><RefreshCw className="size-4 animate-spin" />Opening...</> : <><Package className="size-4" />Open Chest ({CHEST_PRICE} mol)</>}
+            </button>
+          )}
+        </div>
+
+        <div className="border border-white/5 bg-zinc-900/30 p-4">
+          <p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3" style={{ fontFamily: "var(--font-heading)" }}>Drop Rates</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {SHOP_TAGS.map((tag) => {
+              const total = SHOP_TAGS.reduce((s, t) => s + t.chestWeight, 0);
+              const pct = ((tag.chestWeight / total) * 100).toFixed(1);
+              return (
+                <div key={tag.id} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-black uppercase truncate" style={{ color: tag.color, fontFamily: "var(--font-heading)" }}>{tag.label}</span>
+                  <span className="text-[11px] text-zinc-600 font-bold tabular-nums">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* BUY TAGS */}
-      {tab === "buy" && (
+      {/* BUY TAGS — scroll down */}
+      <div>
+        <p className="text-xs font-black uppercase tracking-widest text-zinc-500 border-b border-white/10 pb-3 mb-4" style={{ fontFamily: "var(--font-heading)" }}>
+          Buy Tags
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {SHOP_TAGS.map((tag) => {
             const owned = ownedTags.includes(tag.id);
@@ -320,156 +403,9 @@ export default function ShopPage() {
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* OPEN CHEST */}
-      {tab === "chest" && (
-        <div className="space-y-6">
-          <div className="border border-yellow-500/30 bg-zinc-900/60 p-6 flex flex-col items-center gap-4">
-            <Package className="size-16 text-yellow-400" strokeWidth={1.5} />
-            <div className="text-center">
-              <h2
-                className="text-xl font-black uppercase tracking-widest text-white"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Mystery Chest
-              </h2>
-              <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider">
-                Contains a random tag — higher rarity = harder to get
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="size-4 text-cyan-400" />
-              <span
-                className="text-lg font-black text-white"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {CHEST_PRICE}
-              </span>
-              <span className="text-xs text-zinc-500 font-bold uppercase">mol</span>
-            </div>
-
-            {/* Roulette strip */}
-            {(spinning || showResult) && strip.length > 0 && (
-              <div className="w-full relative mt-2">
-                {/* Center marker */}
-                <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0.5 bg-yellow-400 z-10 pointer-events-none" />
-
-                {/* Strip container */}
-                <div
-                  ref={containerRef}
-                  className="overflow-hidden border border-white/10 relative"
-                  style={{ height: 108 }}
-                >
-                  <div
-                    ref={stripRef}
-                    className="flex gap-1 absolute left-0 top-1"
-                    style={{
-                      transform: `translateX(${translateX}px)`,
-                      transition: spinning
-                        ? "transform 4s cubic-bezier(0.15, 0.05, 0.05, 1.0)"
-                        : "none",
-                      willChange: "transform",
-                    }}
-                  >
-                    {strip.map((tag, i) => (
-                      <StripCard key={i} tag={tag} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Result overlay */}
-            {showResult && wonTag && (
-              <div className="w-full border border-white/10 bg-zinc-950 p-6 flex flex-col items-center gap-3">
-                <span
-                  className="text-xs font-black uppercase tracking-widest text-zinc-500"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {resultAlreadyOwned ? "DUPLICATE — TAG ALREADY OWNED" : "YOU GOT"}
-                </span>
-                <TagBadge tag={wonTag} size="lg" />
-                <RarityBadge rarity={wonTag.rarity} />
-                {resultAlreadyOwned && resultRefund > 0 && (
-                  <div className="flex items-center gap-1.5 text-cyan-400">
-                    <Zap className="size-3.5" />
-                    <span
-                      className="text-sm font-black"
-                      style={{ fontFamily: "var(--font-heading)" }}
-                    >
-                      +{resultRefund} mol refund (10%)
-                    </span>
-                  </div>
-                )}
-                <button
-                  onClick={resetChest}
-                  disabled={molecules < CHEST_PRICE}
-                  className="mt-2 border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  <RefreshCw className="size-3.5" />
-                  Open Another
-                </button>
-              </div>
-            )}
-
-            {!showResult && (
-              <button
-                onClick={handleOpenChest}
-                disabled={spinning || molecules < CHEST_PRICE}
-                className={`px-8 py-3 text-sm font-black uppercase tracking-widest transition-colors flex items-center gap-2 ${
-                  spinning || molecules < CHEST_PRICE
-                    ? "border border-zinc-700 text-zinc-600 cursor-not-allowed"
-                    : "border border-yellow-500/60 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20"
-                }`}
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {spinning ? (
-                  <>
-                    <RefreshCw className="size-4 animate-spin" />
-                    Opening...
-                  </>
-                ) : (
-                  <>
-                    <Package className="size-4" />
-                    Open Chest ({CHEST_PRICE} mol)
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Drop rates */}
-          <div className="border border-white/5 bg-zinc-900/30 p-4">
-            <p
-              className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Drop Rates
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {SHOP_TAGS.map((tag) => {
-                const total = SHOP_TAGS.reduce((s, t) => s + t.chestWeight, 0);
-                const pct = ((tag.chestWeight / total) * 100).toFixed(1);
-                return (
-                  <div key={tag.id} className="flex items-center justify-between gap-2">
-                    <span
-                      className="text-[11px] font-black uppercase truncate"
-                      style={{ color: tag.color, fontFamily: "var(--font-heading)" }}
-                    >
-                      {tag.label}
-                    </span>
-                    <span className="text-[11px] text-zinc-600 font-bold tabular-nums">{pct}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MY TAGS — always visible */}
+      {/* MY TAGS */}
       <div className="space-y-3">
         <p
           className="text-xs font-black uppercase tracking-widest text-zinc-500 border-b border-white/5 pb-2"
