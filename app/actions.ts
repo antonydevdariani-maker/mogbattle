@@ -849,12 +849,25 @@ export async function setActiveTag(accessToken: string, tagId: string | null) {
 }
 
 async function sendSms(to: string, text: string) {
-  const { Vonage } = await import("@vonage/server-sdk");
-  const vonage = new Vonage({
-    apiKey: process.env.VONAGE_API_KEY!,
-    apiSecret: process.env.VONAGE_API_SECRET!,
+  const res = await fetch("https://api.nexmo.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      Authorization: `Basic ${Buffer.from(`${process.env.VONAGE_API_KEY}:${process.env.VONAGE_API_SECRET}`).toString("base64")}`,
+    },
+    body: JSON.stringify({
+      to,
+      from: "14437362439",
+      channel: "sms",
+      message_type: "text",
+      text,
+    }),
   });
-  await vonage.sms.send({ to, from: "Omogger", text });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vonage SMS failed: ${body}`);
+  }
 }
 
 export async function joinWaitlist(phone: string, name: string) {
