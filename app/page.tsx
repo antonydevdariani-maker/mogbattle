@@ -51,6 +51,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
   const [introDone, setIntroDone] = useState(false);
+  const [btnHovered, setBtnHovered] = useState(false);
 
   function handleEnter() {
     if (input === PASSWORD) {
@@ -125,7 +126,13 @@ export default function Home() {
 
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black shadow-[0px_6px_0px_#00000060] hover:shadow-[0px_2px_0px_#00000060] hover:translate-y-1 active:shadow-none active:translate-y-[6px] transition-all duration-100"
+            onMouseEnter={() => setBtnHovered(true)}
+            onMouseLeave={() => setBtnHovered(false)}
+            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-yellow-500 text-black transition-all duration-100 active:translate-y-[6px] active:shadow-none"
+            style={{
+              boxShadow: btnHovered ? "0px 2px 0px #00000060" : "0px 6px 0px #00000060",
+              transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
+            }}
           >
             Enter Arena
           </button>
@@ -193,7 +200,13 @@ export default function Home() {
             </div>
           )}
 
-          <div className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-purple-500 text-black shadow-[4px_4px_0_#ffffff30]">
+          <div
+            className="inline-flex items-center justify-center gap-2 font-black text-base px-14 h-14 uppercase tracking-widest bg-purple-500 text-black transition-all duration-100"
+            style={{
+              boxShadow: btnHovered ? "0px 2px 0px #00000060" : "0px 6px 0px #00000060",
+              transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
+            }}
+          >
             Enter Arena
           </div>
         </div>
@@ -241,6 +254,17 @@ export default function Home() {
       {/* ── PASSWORD MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          {/* Crack overlay on modal backdrop */}
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            style={{ width: "100%", height: "100%" }}
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
+            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+            <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
+          </svg>
           <div className="relative w-full max-w-sm border border-yellow-500/30 bg-zinc-950 p-8 space-y-5">
             <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-yellow-500" />
             <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-yellow-500" />
