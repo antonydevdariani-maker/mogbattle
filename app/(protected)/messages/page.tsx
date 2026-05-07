@@ -3,7 +3,8 @@
 import { useAuth } from "@/components/auth/auth-context";
 import { useEffect, useState } from "react";
 import { loadProfileSummary } from "@/app/actions";
-import { Send, CheckCircle2 } from "lucide-react";
+import { Send, CheckCircle2, MessageSquare } from "lucide-react";
+import { blastWaitlistSms } from "@/app/actions";
 
 const ALLOWED = ["4kxo", "vibecodedthis"];
 
@@ -14,6 +15,10 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [smsMessage, setSmsMessage] = useState("The arena is open. Get in now 🥊 omogger.com");
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsResult, setSmsResult] = useState<string | null>(null);
+  const [smsError, setSmsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session || !authToken) return;
@@ -64,6 +69,21 @@ export default function MessagesPage() {
     }
   }
 
+  async function handleSmsBrast() {
+    if (!smsMessage.trim() || !authToken) return;
+    setSmsSending(true);
+    setSmsError(null);
+    setSmsResult(null);
+    try {
+      const result = await blastWaitlistSms(authToken, smsMessage);
+      setSmsResult(`Sent to ${result.sent} numbers`);
+    } catch (e) {
+      setSmsError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSmsSending(false);
+    }
+  }
+
   return (
     <div className="w-full max-w-xl mx-auto space-y-6 pt-4">
       <div>
@@ -105,6 +125,40 @@ export default function MessagesPage() {
               {sending ? "Sending..." : "Broadcast"}
             </>
           )}
+        </button>
+      </div>
+
+      {/* Waitlist SMS Blast */}
+      <div>
+        <h2
+          className="text-xl font-black text-white uppercase tracking-widest"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Blast Waitlist SMS
+        </h2>
+        <p className="text-xs text-zinc-500 mt-1">
+          Texts every number on the waitlist.
+        </p>
+      </div>
+
+      <div className="border border-yellow-500/20 bg-zinc-950 p-5 space-y-4">
+        <textarea
+          value={smsMessage}
+          onChange={(e) => setSmsMessage(e.target.value)}
+          rows={3}
+          className="w-full bg-zinc-900 border border-white/10 text-white text-sm p-3 placeholder-zinc-600 resize-none focus:outline-none focus:border-yellow-500/50"
+        />
+
+        {smsError && <p className="text-xs text-red-400">{smsError}</p>}
+        {smsResult && <p className="text-xs text-green-400 font-bold">{smsResult}</p>}
+
+        <button
+          onClick={handleSmsBrast}
+          disabled={smsSending || !smsMessage.trim()}
+          className="flex items-center gap-2 px-5 py-3 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black uppercase tracking-widest transition-colors"
+        >
+          <MessageSquare className="size-4" />
+          {smsSending ? "Sending…" : "Send SMS to All"}
         </button>
       </div>
     </div>
