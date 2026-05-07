@@ -4,22 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Phone, User, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { IntroAnimation } from "@/components/ui/intro-animation";
-import { joinWaitlist } from "@/app/actions";
-
-const LAUNCH_TIME = new Date("2026-05-14T10:00:00-04:00").getTime();
-
-function useCountdown(target: number) {
-  const [diff, setDiff] = useState(target - Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setDiff(target - Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [target]);
-  const total = Math.max(0, diff);
-  const h = Math.floor(total / 3600000);
-  const m = Math.floor((total % 3600000) / 60000);
-  const s = Math.floor((total % 60000) / 1000);
-  return { h, m, s, done: total === 0 };
-}
+import { joinWaitlist, getPlayerCount } from "@/app/actions";
 
 // Jagged crack through the O in MOG (3rd char of centered OMOGGER ≈ 44% viewport)
 const crack: [number, number][] = [
@@ -48,8 +33,12 @@ const purpleRightClip = `polygon(${crack.map(([x, y]) => `${x}% ${y}%`).join(", 
 
 export default function Home() {
   const router = useRouter();
-  const { h, m, s, done } = useCountdown(LAUNCH_TIME);
+  const [userCount, setUserCount] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    getPlayerCount().then(setUserCount).catch(() => null);
+  }, []);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -141,24 +130,12 @@ export default function Home() {
             Step into the arena. Bet molecules. Let the AI judge your face. Winner takes the pot. No excuses.
           </p>
 
-          {!done && (
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-zinc-600 font-bold">Arena opens in</p>
-              <div className="flex items-center gap-3">
-                {[{ v: h, l: "HRS" }, { v: m, l: "MIN" }, { v: s, l: "SEC" }].map(({ v, l }) => (
-                  <div key={l} className="flex flex-col items-center">
-                    <div className="flex items-center justify-center w-20 h-20 border border-yellow-500/30 bg-zinc-950">
-                      <span
-                        className="text-4xl font-black tabular-nums text-yellow-400"
-                        style={{ fontFamily: "var(--font-heading)" }}
-                      >
-                        {String(v).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="mt-1.5 text-[10px] uppercase tracking-widest text-zinc-600 font-bold">{l}</span>
-                  </div>
-                ))}
-              </div>
+          {userCount !== null && (
+            <div className="flex items-center gap-3">
+              <div className="size-2 rounded-full bg-green-400 animate-pulse" />
+              <p className="text-sm font-black uppercase tracking-widest text-zinc-300">
+                <span className="text-yellow-400">{userCount.toLocaleString()}</span> moggers in the arena
+              </p>
             </div>
           )}
 
@@ -218,24 +195,12 @@ export default function Home() {
             Step into the arena. Bet molecules. Let the AI judge your face. Winner takes the pot. No excuses.
           </p>
 
-          {!done && (
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-zinc-600 font-bold">Arena opens in</p>
-              <div className="flex items-center gap-3">
-                {[{ v: h, l: "HRS" }, { v: m, l: "MIN" }, { v: s, l: "SEC" }].map(({ v, l }) => (
-                  <div key={l} className="flex flex-col items-center">
-                    <div className="flex items-center justify-center w-20 h-20 border border-purple-500/30 bg-zinc-950">
-                      <span
-                        className="text-4xl font-black tabular-nums text-purple-400"
-                        style={{ fontFamily: "var(--font-heading)" }}
-                      >
-                        {String(v).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <span className="mt-1.5 text-[10px] uppercase tracking-widest text-zinc-600 font-bold">{l}</span>
-                  </div>
-                ))}
-              </div>
+          {userCount !== null && (
+            <div className="flex items-center gap-3">
+              <div className="size-2 rounded-full bg-green-400 animate-pulse" />
+              <p className="text-sm font-black uppercase tracking-widest text-zinc-300">
+                <span className="text-purple-400">{userCount.toLocaleString()}</span> moggers in the arena
+              </p>
             </div>
           )}
 
