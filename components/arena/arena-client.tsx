@@ -34,6 +34,7 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
+import { AdUnit } from "@/components/ui/ad-unit";
 
 type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 type ArenaAiResult = { psl: number; tier?: string; strengths?: string; failos?: string } | null;
@@ -1401,6 +1402,8 @@ function IdleScreen({
           <p className="text-xs text-red-400 font-bold uppercase tracking-widest text-center">{camError}</p>
         )}
       </div>
+
+      <AdUnit variant="auto" className="w-full max-w-sm mx-auto" />
 
       {/* Grid bg */}
       <div
