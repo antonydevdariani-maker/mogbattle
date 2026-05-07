@@ -120,21 +120,41 @@ export default function DashboardPage() {
         <div className="border border-white/10 bg-zinc-950 relative overflow-hidden">
           <style>{`
             @keyframes bee-fly {
-              0%   { transform: translateX(110%) translateY(0px) scaleX(-1); }
-              25%  { transform: translateX(70%)  translateY(-8px) scaleX(-1); }
-              50%  { transform: translateX(40%)  translateY(4px) scaleX(-1); }
-              75%  { transform: translateX(15%)  translateY(-6px) scaleX(-1); }
-              100% { transform: translateX(-20%) translateY(0px) scaleX(-1); }
+              0%   { transform: translateX(110vw) translateY(0px); }
+              20%  { transform: translateX(75vw)  translateY(-12px); }
+              40%  { transform: translateX(50vw)  translateY(6px); }
+              60%  { transform: translateX(28vw)  translateY(-8px); }
+              80%  { transform: translateX(10vw)  translateY(4px); }
+              100% { transform: translateX(-20vw) translateY(0px); }
+            }
+            @keyframes wing-flap {
+              0%, 100% { transform: scaleY(1); }
+              50% { transform: scaleY(0.3); }
             }
           `}</style>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/bee.png"
-            alt=""
+          <svg
             aria-hidden
-            className="pointer-events-none absolute bottom-3 w-14 opacity-80"
-            style={{ animation: "bee-fly 18s linear infinite" }}
-          />
+            className="pointer-events-none absolute bottom-4"
+            style={{ animation: "bee-fly 14s linear infinite", width: 48, height: 48 }}
+            viewBox="0 0 100 100"
+          >
+            {/* Body */}
+            <ellipse cx="50" cy="58" rx="18" ry="26" fill="#f59e0b" />
+            <rect x="32" y="52" width="36" height="8" rx="4" fill="#1a1a1a" />
+            <rect x="32" y="64" width="36" height="8" rx="4" fill="#1a1a1a" />
+            <ellipse cx="50" cy="80" rx="10" ry="6" fill="#f59e0b" />
+            {/* Head */}
+            <circle cx="50" cy="32" r="14" fill="#f59e0b" />
+            <circle cx="44" cy="28" r="4" fill="#1a1a1a" />
+            <circle cx="56" cy="28" r="4" fill="#1a1a1a" />
+            <circle cx="45" cy="27" r="1.5" fill="white" />
+            <circle cx="57" cy="27" r="1.5" fill="white" />
+            {/* Wings */}
+            <ellipse cx="28" cy="44" rx="16" ry="8" fill="white" fillOpacity="0.7" style={{ animation: "wing-flap 0.15s linear infinite", transformOrigin: "40px 44px" }} />
+            <ellipse cx="72" cy="44" rx="16" ry="8" fill="white" fillOpacity="0.7" style={{ animation: "wing-flap 0.15s linear infinite 0.075s", transformOrigin: "60px 44px" }} />
+            {/* Stinger */}
+            <ellipse cx="50" cy="87" rx="4" ry="6" fill="#d97706" />
+          </svg>
           <div className="border-b border-white/10 px-5 py-4">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Recent Battles</h2>
           </div>

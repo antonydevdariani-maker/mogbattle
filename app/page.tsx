@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { IntroAnimation } from "@/components/ui/intro-animation";
 import { joinWaitlist } from "@/app/actions";
 
-const LAUNCH_TIME = new Date("2026-05-07T10:00:00-04:00").getTime();
+const LAUNCH_TIME = new Date("2026-05-14T10:00:00-04:00").getTime();
 
 function useCountdown(target: number) {
   const [diff, setDiff] = useState(target - Date.now());
@@ -173,7 +173,7 @@ export default function Home() {
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
           >
-            Join Waitlist
+            Continue
           </button>
         </main>
       </div>
@@ -247,7 +247,7 @@ export default function Home() {
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
           >
-            Join Waitlist
+            Continue
           </div>
         </div>
       </div>
@@ -377,7 +377,7 @@ export default function Home() {
                       className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
                       style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
                     >
-                      Join Waitlist
+                      Continue
                     </div>
                   </div>
                 </>
