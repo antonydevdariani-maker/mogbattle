@@ -181,10 +181,11 @@ export function LiveMatchClient({
   const router = useRouter();
   const { token: authToken } = useAuth();
 
-  const iWon = winnerId
+  const isDraw = scoreP1 !== null && scoreP2 !== null && scoreP1 === scoreP2;
+  const iWon = isDraw ? false : winnerId
     ? winnerId === userId
     : scoreP1 !== null && scoreP2 !== null
-      ? isPlayer1 ? scoreP1 >= scoreP2 : scoreP2 >= scoreP1
+      ? isPlayer1 ? scoreP1 > scoreP2 : scoreP2 > scoreP1
       : false;
 
   const myScore = isPlayer1 ? scoreP1 : scoreP2;
@@ -589,9 +590,9 @@ export function LiveMatchClient({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: "spring", bounce: 0.3 }}
             className={`relative overflow-hidden border ${
-              iWon
-                ? "border-yellow-500/40 bg-zinc-950"
-                : "border-red-500/30 bg-zinc-950"
+              isDraw ? "border-yellow-500/30 bg-zinc-950"
+              : iWon ? "border-yellow-500/40 bg-zinc-950"
+              : "border-red-500/30 bg-zinc-950"
             } p-6 space-y-5`}
           >
             {testMode && (
@@ -602,17 +603,19 @@ export function LiveMatchClient({
 
             <div className="relative text-center space-y-2">
               <div className="flex justify-center mb-4">
-                {iWon ? (
+                {isDraw ? (
+                  <span className="text-4xl">🤝</span>
+                ) : iWon ? (
                   <Trophy className="size-10 text-yellow-400" />
                 ) : (
                   <Skull className="size-10 text-red-400" />
                 )}
               </div>
               <h2
-                className={`text-4xl font-black tracking-tight ${iWon ? "text-yellow-200" : "text-red-300"}`}
+                className={`text-4xl font-black tracking-tight ${isDraw ? "text-yellow-300" : iWon ? "text-yellow-200" : "text-red-300"}`}
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                {opponentAbandoned && iWon ? "OPPONENT FLED" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
+                {isDraw ? "DEAD EVEN" : opponentAbandoned && iWon ? "OPPONENT FLED" : iWon ? "YOU MOGGED HIM" : "YOU GOT MOGGED"}
               </h2>
               <p className="text-zinc-500 text-sm">
                 {opponentAbandoned && iWon
@@ -686,15 +689,17 @@ export function LiveMatchClient({
             {/* P&L — hidden in test mode */}
             {!testMode && (
               <div className={`relative rounded-xl border px-4 py-3 text-center ${
-                iWon ? "border-green-500/30 bg-green-500/10" : "border-red-500/20 bg-red-500/8"
+                isDraw ? "border-yellow-500/20 bg-yellow-500/5"
+                : iWon ? "border-green-500/30 bg-green-500/10"
+                : "border-red-500/20 bg-red-500/8"
               }`}>
-                <p className={`text-2xl font-black tabular-nums ${iWon ? "text-green-300" : "text-red-400"}`}
+                <p className={`text-2xl font-black tabular-nums ${isDraw ? "text-yellow-400" : iWon ? "text-green-300" : "text-red-400"}`}
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  {iWon ? `+${(betAmount * 2).toLocaleString()}` : `-${betAmount.toLocaleString()}`} MC
+                  {isDraw ? "±0 MC" : iWon ? `+${(betAmount * 2).toLocaleString()} MC` : `-${betAmount.toLocaleString()} MC`}
                 </p>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  {iWon ? "deposited to your wallet" : "taken by winner"}
+                  {isDraw ? "bet returned — too close to call" : iWon ? "deposited to your wallet" : "taken by winner"}
                 </p>
               </div>
             )}
@@ -702,7 +707,35 @@ export function LiveMatchClient({
             <AdUnit variant="300x250" className="w-full" />
 
             <div className="relative flex gap-3">
-              {isFreeMatch ? (
+              {isDraw ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setRtcEnabled(false);
+                      leaveChannel();
+                      if (!authToken || !opponentId) { router.push("/arena"); return; }
+                      startTransition(async () => {
+                        try {
+                          const { matchId: newId } = await rematchSameOpponent(authToken, matchId);
+                          if (newId) router.push(`/match/${newId}`);
+                          else router.push("/arena");
+                        } catch {
+                          router.push("/arena");
+                        }
+                      });
+                    }}
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
+                  >
+                    Play Again
+                  </button>
+                  <button
+                    onClick={() => { setRtcEnabled(false); leaveChannel(); router.push("/dashboard"); }}
+                    className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
+                  >
+                    Dashboard
+                  </button>
+                </>
+              ) : isFreeMatch ? (
                 <>
                   {/* Molecule battle: rematch same person */}
                   <button
@@ -726,11 +759,7 @@ export function LiveMatchClient({
                   </button>
                   {/* Molecule battle: go to arena (ranked) */}
                   <button
-                    onClick={() => {
-                      setRtcEnabled(false);
-                      leaveChannel();
-                      router.push("/arena");
-                    }}
+                    onClick={() => { setRtcEnabled(false); leaveChannel(); router.push("/arena"); }}
                     className="flex-1 bg-cyan-600 hover:bg-cyan-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
                   >
                     Next
@@ -740,21 +769,13 @@ export function LiveMatchClient({
                 <>
                   {/* Paid battle: standard rematch flow */}
                   <button
-                    onClick={() => {
-                      setRtcEnabled(false);
-                      leaveChannel();
-                      router.push("/battle");
-                    }}
+                    onClick={() => { setRtcEnabled(false); leaveChannel(); router.push("/battle"); }}
                     className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-4 text-sm sm:text-base font-black text-white transition-colors min-h-[52px] uppercase tracking-widest"
                   >
                     {testMode ? "Battle for real" : "Rematch"}
                   </button>
                   <button
-                    onClick={() => {
-                      setRtcEnabled(false);
-                      leaveChannel();
-                      router.push("/dashboard");
-                    }}
+                    onClick={() => { setRtcEnabled(false); leaveChannel(); router.push("/dashboard"); }}
                     className="flex-1 border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 py-4 text-sm sm:text-base font-bold text-zinc-300 transition-colors min-h-[52px]"
                   >
                     Dashboard

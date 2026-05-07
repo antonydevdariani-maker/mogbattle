@@ -174,21 +174,26 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-white/5">
             {matches.map((m) => {
-              const won = m.winner_id === userId;
+              const isDraw = m.status === "completed" && m.winner_id === null;
+              const won = !isDraw && m.winner_id === userId;
               const myScore = m.player1_id === userId ? m.ai_score_p1 : m.ai_score_p2;
               const oppScore = m.player1_id === userId ? m.ai_score_p2 : m.ai_score_p1;
               return (
                 <div key={m.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-zinc-900 transition-colors">
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs font-black uppercase px-2 py-0.5 border ${won ? "border-green-500 text-green-400 bg-green-500/5" : "border-red-500 text-red-400 bg-red-500/5"}`}>
-                      {won ? "W" : "L"}
+                    <span className={`text-xs font-black uppercase px-2 py-0.5 border ${
+                      isDraw ? "border-yellow-500 text-yellow-400 bg-yellow-500/5"
+                      : won ? "border-green-500 text-green-400 bg-green-500/5"
+                      : "border-red-500 text-red-400 bg-red-500/5"
+                    }`}>
+                      {isDraw ? "D" : won ? "W" : "L"}
                     </span>
                     <span className="text-xs text-zinc-500 tabular-nums">
                       {myScore?.toFixed(1)} vs {oppScore?.toFixed(1)}
                     </span>
                   </div>
-                  <span className={`text-sm font-black tabular-nums ${won ? "text-green-400" : "text-zinc-600"}`}>
-                    {won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} mol
+                  <span className={`text-sm font-black tabular-nums ${won ? "text-green-400" : isDraw ? "text-yellow-500" : "text-zinc-600"}`}>
+                    {isDraw ? "draw" : won ? `+${m.bet_amount * 2}` : `-${m.bet_amount}`} {isDraw ? "" : "mol"}
                   </span>
                 </div>
               );
