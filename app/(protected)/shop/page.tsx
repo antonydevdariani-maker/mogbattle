@@ -49,6 +49,7 @@ function useWeeklyCountdown() {
   return { d, h, m, s };
 }
 const WINNER_INDEX = 38;
+const CARD_GAP = 4; // gap-1 = 4px
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -114,7 +115,7 @@ function StripCard({ tag }: { tag: ShopTag }) {
   return (
     <div
       className={`flex-shrink-0 border ${RARITY_BORDER[tag.rarity]} bg-zinc-900 flex flex-col items-center justify-center gap-1 p-2`}
-      style={{ width: CARD_WIDTH, height: 100 }}
+      style={{ width: CARD_WIDTH, height: 100, boxSizing: "border-box" }}
     >
       <span
         className="text-[11px] font-black uppercase tracking-widest text-center leading-tight"
@@ -199,7 +200,8 @@ export default function ShopPage() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const containerWidth = containerRef.current?.offsetWidth ?? 400;
-        const finalX = -(WINNER_INDEX * CARD_WIDTH + CARD_WIDTH / 2 - containerWidth / 2);
+        const slotWidth = CARD_WIDTH + CARD_GAP;
+        const finalX = -(WINNER_INDEX * slotWidth + CARD_WIDTH / 2 - containerWidth / 2);
         setTranslateX(finalX);
       });
     });
