@@ -133,7 +133,7 @@ export function ArenaClient({
   const [queueTimedOut, setQueueTimedOut] = useState(false);
   const [myPsl, setMyPsl] = useState<number | null>(null);
   const [oppPsl, setOppPsl] = useState<number | null>(null);
-  const [isFreeMode, setIsFreeMode] = useState(initialMatch?.is_free_match ?? false);
+  const [isFreeMode, setIsFreeMode] = useState(initialMatch?.is_free_match ?? true);
   const [molecules, setMolecules] = useState(initialMolecules);
   const [lockedBet, setLockedBet] = useState(0);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1303,47 +1303,9 @@ function IdleScreen({
         <p className="text-zinc-600 text-xs uppercase tracking-widest">1v1 · face-off · bet your balance</p>
       </div>
 
-      {/* Step 1 — Pick currency */}
-      <div className="w-full max-w-sm space-y-2">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 1 — Choose currency</p>
-        <div className="grid grid-cols-2 gap-3">
-          {/* MOG Coins */}
-          <button
-            onClick={() => onModeChange(false)}
-            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-5 transition-all ${
-              !isFreeMode ? "border-yellow-500 bg-yellow-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
-            }`}
-          >
-            {!isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-yellow-400" />}
-            <Zap className={`size-7 ${!isFreeMode ? "text-yellow-400" : "text-zinc-600"}`} />
-            <p className={`text-sm font-black uppercase tracking-widest ${!isFreeMode ? "text-white" : "text-zinc-500"}`}>MOG Coins</p>
-            <p className={`text-[11px] font-mono ${!isFreeMode ? "text-yellow-300" : "text-zinc-600"}`}>{balance.toLocaleString()} MC</p>
-            {!isFreeMode && balance < 1 && (
-              <a href="/wallet" className="text-[10px] text-red-400 underline">Deposit →</a>
-            )}
-          </button>
-
-          {/* Molecules */}
-          <button
-            onClick={() => onModeChange(true)}
-            className={`relative flex flex-col items-center gap-2 border-2 px-4 py-5 transition-all ${
-              isFreeMode ? "border-cyan-500 bg-cyan-500/10" : "border-white/10 bg-zinc-950 hover:border-white/20"
-            }`}
-          >
-            {isFreeMode && <div className="absolute top-2 right-2 size-2 rounded-full bg-cyan-400" />}
-            <Atom className={`size-7 ${isFreeMode ? "text-cyan-400" : "text-zinc-600"}`} />
-            <p className={`text-sm font-black uppercase tracking-widest ${isFreeMode ? "text-white" : "text-zinc-500"}`}>Molecules</p>
-            <p className={`text-[11px] font-mono ${isFreeMode ? "text-cyan-300" : "text-zinc-600"}`}>{molecules.toLocaleString()} mol</p>
-            {isFreeMode && molecules < 1 && (
-              <a href="/spin" className="text-[10px] text-cyan-400 underline">Spin to earn →</a>
-            )}
-          </button>
-        </div>
-      </div>
-
       {/* Step 2 — Set bet */}
       <div className="w-full max-w-sm space-y-2">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Set your bet</p>
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 1 — Set your bet</p>
         <div className={`border-2 px-4 py-3 ${accentColor === "cyan" ? "border-cyan-500/40" : "border-yellow-500/40"} bg-zinc-950`}>
           <div className="flex items-center gap-2">
             <input
@@ -1390,7 +1352,7 @@ function IdleScreen({
 
       {/* Step 3 — Camera */}
       <div className="w-full max-w-sm space-y-2">
-        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 3 — Enable camera</p>
+        <p className="text-center text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Step 2 — Enable camera</p>
         <div className={`relative w-full h-44 border-2 rounded-xl overflow-hidden bg-zinc-950 ${camOn ? (accentColor === "cyan" ? "border-cyan-500/50" : "border-yellow-500/50") : "border-white/10"}`}>
           {camOn ? (
             <>
