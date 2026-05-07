@@ -848,6 +848,18 @@ export async function setActiveTag(accessToken: string, tagId: string | null) {
   revalidatePath("/dashboard");
 }
 
+export async function joinWaitlist(email: string, name: string) {
+  const supabase = getSupabaseAdmin();
+  email = email.trim().toLowerCase();
+  name = name.trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email");
+  const { error } = await supabase.from("waitlist").insert({ email, name: name || null });
+  if (error) {
+    if (error.code === "23505") throw new Error("Already on the waitlist!");
+    throw new Error(error.message);
+  }
+}
+
 /** Each player writes only their own PSL column (`ai_score_p1` or `ai_score_p2`) while status is live. */
 export async function submitMyPslScore(
   accessToken: string,

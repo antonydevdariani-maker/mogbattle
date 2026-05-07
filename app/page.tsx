@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, X } from "lucide-react";
+import { X, Mail, User, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { IntroAnimation } from "@/components/ui/intro-animation";
+import { joinWaitlist } from "@/app/actions";
 
 const LAUNCH_TIME = new Date("2026-05-07T10:00:00-04:00").getTime();
-const PASSWORD = "Ticker";
 
 function useCountdown(target: number) {
   const [diff, setDiff] = useState(target - Date.now());
@@ -50,19 +50,34 @@ export default function Home() {
   const router = useRouter();
   const { h, m, s, done } = useCountdown(LAUNCH_TIME);
   const [showModal, setShowModal] = useState(false);
-  const [input, setInput] = useState("");
-  const [error, setError] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [introDone, setIntroDone] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
   const [modalBtnHovered, setModalBtnHovered] = useState(false);
 
-  function handleEnter() {
-    if (input === PASSWORD) {
-      router.push("/login");
-    } else {
-      setError(true);
-      setInput("");
+  async function handleJoin() {
+    setLoading(true);
+    setError("");
+    try {
+      await joinWaitlist(email, name);
+      setSuccess(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function closeModal() {
+    setShowModal(false);
+    setEmail("");
+    setName("");
+    setError("");
+    setSuccess(false);
   }
 
   return (
@@ -140,12 +155,12 @@ export default function Home() {
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
           >
-            Enter Arena
+            Join Waitlist
           </button>
         </main>
       </div>
 
-      {/* ── PURPLE OVERLAY (right side, visual only) ── */}
+      {/* ── PURPLE OVERLAY (left side, visual only) ── */}
       <div
         className="absolute inset-0 bg-black flex flex-col items-center justify-center px-4 pointer-events-none"
         style={{ clipPath: purpleClip }}
@@ -168,7 +183,6 @@ export default function Home() {
             <span className="text-xs font-black uppercase tracking-[0.3em] text-purple-500">Volume II</span>
             <div className="h-px w-12 bg-purple-500/40" />
           </div>
-
 
           <div className="space-y-2">
             <h1
@@ -215,7 +229,7 @@ export default function Home() {
               transform: btnHovered ? "translateY(4px)" : "translateY(0px)",
             }}
           >
-            Enter Arena
+            Join Waitlist
           </div>
         </div>
       </div>
@@ -227,39 +241,12 @@ export default function Home() {
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
-        {/* Glow */}
-        <polyline
-          points={crackPolyline}
-          fill="none"
-          stroke="white"
-          strokeWidth="0.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.2"
-        />
-        {/* Main crack */}
-        <polyline
-          points={crackPolyline}
-          fill="none"
-          stroke="white"
-          strokeWidth="0.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.7"
-        />
-        {/* Bright core */}
-        <polyline
-          points={crackPolyline}
-          fill="none"
-          stroke="#ffffee"
-          strokeWidth="0.1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="1"
-        />
+        <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
+        <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+        <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
       </svg>
 
-      {/* ── PASSWORD MODAL ── */}
+      {/* ── WAITLIST MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
 
@@ -267,44 +254,74 @@ export default function Home() {
           <div className="relative w-full max-w-sm border border-yellow-500/30 bg-zinc-950 p-8 space-y-5">
             <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-yellow-500" />
             <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-yellow-500" />
+
             <button
-              onClick={() => { setShowModal(false); setInput(""); setError(false); }}
+              onClick={closeModal}
               className="absolute top-3 right-3 text-zinc-600 hover:text-zinc-400 transition-colors"
             >
               <X className="size-4" />
             </button>
-            <div className="flex justify-center">
-              <div className="flex items-center justify-center size-14 border border-yellow-500/30 bg-yellow-500/10">
-                <Lock className="size-6 text-yellow-400" />
+
+            {success ? (
+              <div className="flex flex-col items-center text-center space-y-4 py-4">
+                <CheckCircle className="size-12 text-yellow-400" />
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-wide text-white">You&apos;re In</h2>
+                  <p className="text-xs text-zinc-500 mt-1">We&apos;ll email you when the arena opens.</p>
+                </div>
               </div>
-            </div>
-            <div className="text-center space-y-1">
-              <h2 className="text-xl font-black uppercase tracking-wide text-white">Enter Password</h2>
-              <p className="text-xs text-zinc-600">Early access only</p>
-            </div>
-            <div className="space-y-3">
-              <input
-                type="password"
-                value={input}
-                onChange={(e) => { setInput(e.target.value); setError(false); }}
-                onKeyDown={(e) => e.key === "Enter" && handleEnter()}
-                placeholder="••••••••"
-                autoFocus
-                className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:border-yellow-500/50 focus:outline-none text-center tracking-widest"
-              />
-              {error && (
-                <p className="text-xs text-red-400 text-center font-bold uppercase tracking-widest">Wrong password</p>
-              )}
-              <button
-                onClick={handleEnter}
-                onMouseEnter={() => setModalBtnHovered(true)}
-                onMouseLeave={() => setModalBtnHovered(false)}
-                className="w-full h-11 text-black text-sm font-black uppercase tracking-widest transition-colors"
-                style={{ backgroundColor: modalBtnHovered ? "#facc15" : "#eab308" }}
-              >
-                Enter
-              </button>
-            </div>
+            ) : (
+              <>
+                <div className="flex justify-center">
+                  <div className="flex items-center justify-center size-14 border border-yellow-500/30 bg-yellow-500/10">
+                    <Mail className="size-6 text-yellow-400" />
+                  </div>
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black uppercase tracking-wide text-white">Join Waitlist</h2>
+                  <p className="text-xs text-zinc-600">Get notified when the arena opens</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name (optional)"
+                      className="w-full border border-white/10 bg-zinc-900 pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:border-yellow-500/50 focus:outline-none tracking-wide"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                      placeholder="your@email.com"
+                      autoFocus
+                      className="w-full border border-white/10 bg-zinc-900 pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:border-yellow-500/50 focus:outline-none tracking-wide"
+                    />
+                  </div>
+                  {error && (
+                    <p className="text-xs text-red-400 text-center font-bold uppercase tracking-widest">{error}</p>
+                  )}
+                  <button
+                    onClick={handleJoin}
+                    disabled={loading}
+                    onMouseEnter={() => setModalBtnHovered(true)}
+                    onMouseLeave={() => setModalBtnHovered(false)}
+                    className="w-full h-11 text-black text-sm font-black uppercase tracking-widest transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: modalBtnHovered ? "#facc15" : "#eab308" }}
+                  >
+                    {loading ? "Joining…" : "Join Waitlist"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Purple overlay — left side of crack, visual only */}
@@ -315,28 +332,38 @@ export default function Home() {
             <div className="relative w-full max-w-sm border border-purple-500/30 bg-zinc-950 p-8 space-y-5">
               <div className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-purple-500" />
               <div className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-purple-500" />
-              {/* match close button space */}
               <div className="absolute top-3 right-3 w-4 h-4" />
-              <div className="flex justify-center">
-                <div className="flex items-center justify-center size-14 border border-purple-500/30 bg-purple-500/10">
-                  <Lock className="size-6 text-purple-400" />
+              {success ? (
+                <div className="flex flex-col items-center text-center space-y-4 py-4">
+                  <CheckCircle className="size-12 text-purple-400" />
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-wide text-white">You&apos;re In</h2>
+                    <p className="text-xs text-zinc-500 mt-1">We&apos;ll email you when the arena opens.</p>
+                  </div>
                 </div>
-              </div>
-              <div className="text-center space-y-1">
-                <h2 className="text-xl font-black uppercase tracking-wide text-white">Enter Password</h2>
-                <p className="text-xs text-zinc-600">Early access only</p>
-              </div>
-              <div className="space-y-3">
-                <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700 text-center tracking-widest">
-                  ••••••••
-                </div>
-                <div
-                  className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
-                  style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
-                >
-                  Enter
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex justify-center">
+                    <div className="flex items-center justify-center size-14 border border-purple-500/30 bg-purple-500/10">
+                      <Mail className="size-6 text-purple-400" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <h2 className="text-xl font-black uppercase tracking-wide text-white">Join Waitlist</h2>
+                    <p className="text-xs text-zinc-600">Get notified when the arena opens</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">Your name (optional)</div>
+                    <div className="w-full border border-white/10 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-700">your@email.com</div>
+                    <div
+                      className="w-full h-11 text-black text-sm font-black uppercase tracking-widest flex items-center justify-center transition-colors"
+                      style={{ backgroundColor: modalBtnHovered ? "#c084fc" : "#a855f7" }}
+                    >
+                      Join Waitlist
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
