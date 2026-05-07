@@ -108,7 +108,7 @@ export async function loadProfileSummary(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from("profiles")
-    .select("total_credits, molecules, last_spin_at, username, avatar_url, is_founder")
+    .select("total_credits, molecules, last_spin_at, username, avatar_url, is_founder, active_tag")
     .eq("user_id", userId)
     .maybeSingle();
   return data as {
@@ -118,6 +118,7 @@ export async function loadProfileSummary(accessToken: string) {
     username: string | null;
     avatar_url: string | null;
     is_founder: boolean | null;
+    active_tag: string | null;
   } | null;
 }
 
@@ -148,6 +149,7 @@ export type LeaderboardProfileRow = {
   matches_played: number;
   total_credits: number;
   is_founder: boolean | null;
+  active_tag: string | null;
 };
 
 export async function loadLeaderboard(accessToken: string) {
@@ -156,7 +158,7 @@ export async function loadLeaderboard(accessToken: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits, is_founder")
+    .select("user_id, username, avatar_url, elo, wins, matches_played, total_credits, is_founder, active_tag")
     .order("elo", { ascending: false })
     .order("wins", { ascending: false })
     .limit(100);

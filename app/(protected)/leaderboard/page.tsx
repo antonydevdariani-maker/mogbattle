@@ -13,6 +13,21 @@ import {
   tierForElo,
 } from "@/lib/leaderboard/elo-tiers";
 import { ArrowLeft, Crown, Medal, User } from "lucide-react";
+import { SHOP_TAGS } from "@/lib/shop-tags";
+
+function TagChip({ tagId }: { tagId: string | null | undefined }) {
+  if (!tagId) return null;
+  const tag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!tag) return null;
+  return (
+    <span
+      className="text-[9px] font-black uppercase tracking-widest border px-1.5 py-0.5 shrink-0"
+      style={{ color: tag.color, borderColor: tag.color + "50", background: tag.color + "18", fontFamily: "var(--font-heading)" }}
+    >
+      {tag.label}
+    </span>
+  );
+}
 
 export default function LeaderboardPage() {
   const { session, token } = useAuth();
@@ -154,6 +169,7 @@ export default function LeaderboardPage() {
                         Founder
                       </span>
                     )}
+                    <TagChip tagId={r.active_tag} />
                   </div>
                   <p className="text-[11px] text-zinc-600 tabular-nums">
                     {r.wins}W · {r.matches_played - r.wins}L · {r.matches_played} played
@@ -226,6 +242,7 @@ function TopThreePodium({ rows }: { rows: LeaderboardProfileRow[] }) {
                   <p className="w-full truncate px-0.5 text-[10px] sm:text-xs font-black uppercase text-white">
                     {row.username ?? "Mogger"}
                   </p>
+                  <TagChip tagId={row.active_tag} />
                   <p className="text-[10px] font-black tabular-nums text-amber-200/95">
                     {row.elo} ELO
                   </p>
@@ -261,56 +278,80 @@ function TopThreePodium({ rows }: { rows: LeaderboardProfileRow[] }) {
 }
 
 function EloTierGraph({ yourElo }: { yourElo: number | null }) {
+  const yourTier = yourElo !== null ? tierForElo(yourElo) : null;
   return (
-    <div className="border border-white/10 bg-zinc-950/90 p-4 space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">ELO ladder</p>
-        {yourElo !== null && (
-          <p className="text-[10px] font-bold text-yellow-400/90">
-            You: <span className="tabular-nums text-white">{yourElo}</span>
-            <span className="text-zinc-500 font-black uppercase ml-2">{tierForElo(yourElo).abbr}</span>
-          </p>
-        )}
-      </div>
-      <div className="flex w-full">
-        {ELO_TIER_BANDS.map((band, i) => (
-          <div
-            key={band.abbr}
-            className="flex flex-col items-start min-w-0"
-            style={{ width: `${segmentWidthPercent(i)}%` }}
-          >
-            <span className="text-[8px] font-bold tabular-nums text-zinc-500 leading-none pl-0.5">
-              {band.min === 0 ? "0" : band.min}
+    <div className="border border-white/10 bg-zinc-950 p-5 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">ELO Ladder</p>
+        {yourElo !== null && yourTier && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">You</span>
+            <span className="text-sm font-black tabular-nums text-white" style={{ fontFamily: "var(--font-heading)" }}>{yourElo}</span>
+            <span
+              className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border"
+              style={{ color: "#facc15", borderColor: "#facc1540", background: "#facc1510", fontFamily: "var(--font-heading)" }}
+            >
+              {yourTier.abbr}
             </span>
           </div>
-        ))}
-        <span className="text-[8px] font-bold tabular-nums text-zinc-500 leading-none shrink-0">{ELO_GRAPH_MAX}+</span>
+        )}
       </div>
-      <div className="relative">
+
+      {/* Bar */}
+      <div className="relative pt-5">
         {yourElo !== null && (
           <div
-            className="pointer-events-none absolute -top-1 z-10 flex flex-col items-center -translate-x-1/2"
+            className="pointer-events-none absolute top-0 z-10 flex flex-col items-center -translate-x-1/2"
             style={{ left: `${eloToPercentOnGraph(yourElo)}%` }}
-            title={`Your ELO: ${yourElo}`}
           >
-            <span className="text-[8px] font-black text-yellow-400 uppercase leading-none mb-0.5">YOU</span>
-            <div className="size-0 border-x-[5px] border-x-transparent border-t-[6px] border-t-yellow-400 drop-shadow-[0_0_6px_rgba(217,70,239,0.9)]" />
+            <span className="text-[8px] font-black text-yellow-400 uppercase leading-none mb-0.5 whitespace-nowrap">YOU</span>
+            <div className="w-px h-3 bg-yellow-400" />
           </div>
         )}
-        <div className="flex h-8 w-full overflow-hidden rounded-md border border-white/15 shadow-inner">
+        <div className="flex h-10 w-full overflow-hidden border border-white/10">
           {ELO_TIER_BANDS.map((band, i) => (
             <div
               key={band.abbr}
-              title={`${band.full}: ${band.min}–${band.max >= ELO_GRAPH_MAX ? `${band.min}+` : band.max}`}
-              className={`${band.barClass} flex min-w-0 items-center justify-center border-r border-black/30 last:border-r-0 px-0.5`}
+              className={`${band.barClass} flex min-w-0 items-center justify-center border-r border-black/20 last:border-r-0`}
               style={{ width: `${segmentWidthPercent(i)}%` }}
+              title={`${band.full}: ${band.min}–${band.max >= ELO_GRAPH_MAX ? `${band.min}+` : band.max}`}
             >
-              <span className="truncate text-center text-[7px] font-black uppercase tracking-tight text-white drop-shadow-sm sm:text-[8px]">
+              <span className="truncate text-center text-[7px] sm:text-[9px] font-black uppercase tracking-tight text-white/80 px-0.5">
                 {band.abbr}
               </span>
             </div>
           ))}
         </div>
+        {/* ELO labels below */}
+        <div className="flex w-full mt-1">
+          {ELO_TIER_BANDS.map((band, i) => (
+            <div key={band.abbr} className="flex flex-col items-start min-w-0" style={{ width: `${segmentWidthPercent(i)}%` }}>
+              <span className="text-[8px] tabular-nums text-zinc-600 pl-0.5">{band.min === 0 ? "0" : band.min}</span>
+            </div>
+          ))}
+          <span className="text-[8px] tabular-nums text-zinc-600 shrink-0">{ELO_GRAPH_MAX}+</span>
+        </div>
+      </div>
+
+      {/* Tier legend */}
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 pt-1">
+        {ELO_TIER_BANDS.map((band) => {
+          const isYours = yourTier?.abbr === band.abbr;
+          return (
+            <div
+              key={band.abbr}
+              className={`border px-2 py-1.5 text-center transition-all ${isYours ? "border-yellow-400/60 ring-1 ring-yellow-400/30" : "border-white/5"}`}
+              style={{ background: isYours ? "#facc1510" : "transparent" }}
+            >
+              <p className={`text-[8px] sm:text-[9px] font-black uppercase tracking-tight ${isYours ? "text-yellow-400" : "text-zinc-400"}`}
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {band.abbr}
+              </p>
+              <p className="text-[7px] tabular-nums text-zinc-600 mt-0.5">{band.min}+</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

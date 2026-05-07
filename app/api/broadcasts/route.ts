@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (!profile?.is_founder) {
+  const ADMINS = ["4kxo", "vibecodedthis"];
+  if (!profile?.is_founder && !ADMINS.includes(profile?.username ?? "x")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

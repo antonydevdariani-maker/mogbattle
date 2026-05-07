@@ -7,6 +7,7 @@ import { AdUnit } from "@/components/ui/ad-unit";
 import { loadDashboardData } from "@/app/actions";
 import type { Database } from "@/lib/types/database";
 import { Swords, TrendingUp, Trophy, Atom, Crown, Zap } from "lucide-react";
+import { SHOP_TAGS } from "@/lib/shop-tags";
 import { BroadcastBanner } from "@/components/dashboard/broadcast-popup";
 import { FounderMessageButton } from "@/components/dashboard/founder-message-button";
 
@@ -70,12 +71,25 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="mb-1 text-xs uppercase tracking-widest text-zinc-600 font-bold">Arena Identity</p>
-            <h1
-              className="mb-1 text-3xl font-black text-white uppercase truncate max-w-[200px]"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {profile?.username ?? "…"}
-            </h1>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h1
+                className="text-3xl font-black text-white uppercase truncate max-w-[200px]"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {profile?.username ?? "…"}
+              </h1>
+              {profile?.active_tag && (() => {
+                const tag = SHOP_TAGS.find((t) => t.id === profile.active_tag);
+                return tag ? (
+                  <span
+                    className="text-[10px] font-black uppercase tracking-widest border px-2 py-0.5"
+                    style={{ color: tag.color, borderColor: tag.color + "50", background: tag.color + "18", fontFamily: "var(--font-heading)" }}
+                  >
+                    {tag.label}
+                  </span>
+                ) : null;
+              })()}
+            </div>
             <p className="text-sm text-zinc-500">
               <span className="font-bold text-yellow-400">{profile?.elo ?? 1500}</span> ELO
               {" · "}

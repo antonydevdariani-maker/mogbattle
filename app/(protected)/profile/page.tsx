@@ -12,6 +12,20 @@ import {
   setActiveTag,
 } from "@/app/actions";
 import { SHOP_TAGS } from "@/lib/shop-tags";
+
+function TagChip({ tagId }: { tagId: string | null | undefined }) {
+  if (!tagId) return null;
+  const tag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!tag) return null;
+  return (
+    <span
+      className="text-[10px] font-black uppercase tracking-widest border px-2 py-0.5"
+      style={{ color: tag.color, borderColor: tag.color + "50", background: tag.color + "18", fontFamily: "var(--font-heading)" }}
+    >
+      {tag.label}
+    </span>
+  );
+}
 import type { Database } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,12 +201,15 @@ export default function ProfilePage() {
               </span>
             )}
           </div>
-          <h1
-            className="text-3xl font-black text-white uppercase tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Your mogger card
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1
+              className="text-3xl font-black text-white uppercase tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Your mogger card
+            </h1>
+            <TagChip tagId={activeTag} />
+          </div>
         </div>
         <Link
           href="/leaderboard"
