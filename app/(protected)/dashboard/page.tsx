@@ -117,7 +117,24 @@ export default function DashboardPage() {
       </div>
 
       {matches.length > 0 && userId && (
-        <div className="border border-white/10 bg-zinc-950">
+        <div className="border border-white/10 bg-zinc-950 relative overflow-hidden">
+          <style>{`
+            @keyframes bee-fly {
+              0%   { transform: translateX(110%) translateY(0px) scaleX(-1); }
+              25%  { transform: translateX(70%)  translateY(-8px) scaleX(-1); }
+              50%  { transform: translateX(40%)  translateY(4px) scaleX(-1); }
+              75%  { transform: translateX(15%)  translateY(-6px) scaleX(-1); }
+              100% { transform: translateX(-20%) translateY(0px) scaleX(-1); }
+            }
+          `}</style>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/bee.png"
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute bottom-3 w-14 opacity-80"
+            style={{ animation: "bee-fly 18s linear infinite" }}
+          />
           <div className="border-b border-white/10 px-5 py-4">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Recent Battles</h2>
           </div>

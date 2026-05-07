@@ -42,7 +42,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
         <div ref={purpleRef} className="absolute inset-0 flex items-center justify-center" style={{ opacity: 1 }}>
           <svg width="100%" height="120" viewBox="0 0 700 100">
             <text x="0" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="white" letterSpacing="-3">OMOGGER</text>
-            <text x="506" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="#cc44ff" letterSpacing="-3">.COM</text>
+            <text x="424" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="#cc44ff" letterSpacing="-3">.COM</text>
           </svg>
         </div>
 
@@ -50,7 +50,7 @@ export function IntroAnimation({ onDone }: { onDone: () => void }) {
         <div ref={yellowRef} className="absolute inset-0 flex items-center justify-center" style={{ opacity: 0 }}>
           <svg width="100%" height="120" viewBox="0 0 700 100">
             <text x="0" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="white" letterSpacing="-3">OMOGGER</text>
-            <text x="506" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="#FFD700" letterSpacing="-3" style={{ filter: "drop-shadow(0 0 8px #FFD70088)" }}>.COM</text>
+            <text x="424" y="88" fontFamily="Impact, Arial Black, sans-serif" fontSize="96" fontWeight="900" fill="#FFD700" letterSpacing="-3" style={{ filter: "drop-shadow(0 0 8px #FFD70088)" }}>.COM</text>
           </svg>
         </div>
       </div>
