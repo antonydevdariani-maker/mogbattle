@@ -22,6 +22,7 @@ import {
   openChest,
   setActiveTag,
 } from "@/app/actions";
+import { AdUnit } from "@/components/ui/ad-unit";
 
 const CARD_WIDTH = 96;
 
@@ -388,6 +389,8 @@ export default function ShopPage() {
           </div>
         </div>
       </div>
+
+      <AdUnit variant="auto" className="w-full" />
 
       {/* BUY TAGS — scroll down */}
       <div>
