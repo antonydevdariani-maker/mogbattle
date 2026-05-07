@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Mail, User, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { IntroAnimation } from "@/components/ui/intro-animation";
@@ -58,6 +58,24 @@ export default function Home() {
   const [introDone, setIntroDone] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
   const [modalBtnHovered, setModalBtnHovered] = useState(false);
+  const nameInputRef = useRef<HTMLDivElement>(null);
+  const emailInputRef = useRef<HTMLDivElement>(null);
+  const [inputMaskRects, setInputMaskRects] = useState<{ y: number; h: number }[]>([]);
+
+  useEffect(() => {
+    if (!showModal) { setInputMaskRects([]); return; }
+    const measure = () => {
+      const rects = [nameInputRef.current, emailInputRef.current]
+        .filter(Boolean)
+        .map((el) => {
+          const r = el!.getBoundingClientRect();
+          return { y: (r.top / window.innerHeight) * 100, h: (r.height / window.innerHeight) * 100 };
+        });
+      setInputMaskRects(rects);
+    };
+    const t = setTimeout(measure, 60);
+    return () => clearTimeout(t);
+  }, [showModal]);
 
   async function handleJoin() {
     setLoading(true);
@@ -284,7 +302,7 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="relative">
+                  <div className="relative" ref={nameInputRef}>
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
                     <input
                       type="text"
@@ -294,7 +312,7 @@ export default function Home() {
                       className="w-full border border-white/10 bg-zinc-900 pl-9 pr-3 py-2.5 text-sm text-white placeholder-zinc-700 focus:border-yellow-500/50 focus:outline-none tracking-wide"
                     />
                   </div>
-                  <div className="relative">
+                  <div className="relative" ref={emailInputRef}>
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-600" />
                     <input
                       type="email"
@@ -367,16 +385,26 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Crack on top of everything */}
+          {/* Crack on top of everything — masked out over input boxes */}
           <svg
             className="absolute inset-0 pointer-events-none"
             style={{ zIndex: 60, width: "100%", height: "100%" }}
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
           >
-            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
-            <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-            <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
+            <defs>
+              <mask id="modal-crack-mask">
+                <rect x="0" y="0" width="100" height="100" fill="white" />
+                {inputMaskRects.map(({ y, h }, i) => (
+                  <rect key={i} x="0" y={y} width="100" height={h} fill="black" />
+                ))}
+              </mask>
+            </defs>
+            <g mask="url(#modal-crack-mask)">
+              <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" />
+              <polyline points={crackPolyline} fill="none" stroke="white" strokeWidth="0.25" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+              <polyline points={crackPolyline} fill="none" stroke="#ffffee" strokeWidth="0.1" strokeLinecap="round" strokeLinejoin="round" opacity="1" />
+            </g>
           </svg>
         </div>
       )}
