@@ -440,7 +440,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-      <AdUnit className="w-full min-h-[100px]" />
+      <AdUnit variant="auto" className="w-full" />
       </div>
     </div>
   );
