@@ -390,6 +390,8 @@ export default function ProfilePage() {
         )}
       </div>
 
+      <AdUnit variant="300x250" className="w-full" />
+
       <div>
         <div className="mb-3 flex items-center gap-2">
           <Trophy className="size-4 text-zinc-500" />

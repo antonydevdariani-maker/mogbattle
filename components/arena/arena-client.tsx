@@ -2333,6 +2333,8 @@ function DoneOverlay({
           </motion.p>
         )}
 
+        <AdUnit variant="300x250" className="w-full" />
+
         {/* Buttons */}
         <div className="space-y-2">
           {/* Rematch row */}

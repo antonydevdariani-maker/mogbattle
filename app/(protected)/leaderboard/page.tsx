@@ -94,6 +94,8 @@ export default function LeaderboardPage() {
 
       <TopThreePodium rows={rows} />
 
+      <AdUnit variant="300x250" className="w-full" />
+
       {yourRank !== null && (
         <div className="flex items-center justify-between gap-3 border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 text-sm">
           <span className="text-zinc-500 uppercase tracking-widest font-bold text-xs">Your rank</span>

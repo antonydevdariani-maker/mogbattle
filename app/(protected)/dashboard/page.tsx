@@ -123,6 +123,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <AdUnit variant="300x250" className="w-full" />
+
       <div className="grid grid-cols-2 gap-px md:grid-cols-4 bg-white/10">
         <StatCard icon={Zap} label="Molecules" value={(profile?.molecules ?? 0).toLocaleString()} accent="cyan" />
         <StatCard icon={TrendingUp} label="ELO Rating" value={String(profile?.elo ?? 1500)} accent="blue" />
