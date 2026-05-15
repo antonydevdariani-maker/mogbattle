@@ -11,6 +11,7 @@ interface AuthContextValue {
   token: string | null;
   loaded: boolean;
   signOut: () => Promise<void>;
+  refreshSession: () => Promise<Session | null>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -19,17 +20,20 @@ const AuthContext = createContext<AuthContextValue>({
   token: null,
   loaded: false,
   signOut: async () => {},
+  refreshSession: async () => null,
 });
+
+// Single instance outside component — recreating inside causes subscription leaks
+// that accumulate until auth state goes stale and server actions start throwing Unauthorized
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -43,13 +47,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     router.replace("/login");
-  }, [supabase, router]);
+  }, [router]);
+
+  const refreshSession = useCallback(async (): Promise<Session | null> => {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) return null;
+    setSession(data.session);
+    return data.session;
+  }, []);
 
   return (
     <AuthContext.Provider value={{
@@ -58,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token: session?.access_token ?? null,
       loaded,
       signOut,
+      refreshSession,
     }}>
       {children}
     </AuthContext.Provider>

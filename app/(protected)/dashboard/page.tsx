@@ -15,7 +15,7 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 
 export default function DashboardPage() {
-  const { session, token } = useAuth();
+  const { session, token, refreshSession } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -25,15 +25,31 @@ export default function DashboardPage() {
     if (!session || !token) return;
     (async () => {
       try {
-        const data = await loadDashboardData(token);
-        setProfile(data.profile as Profile | null);
-        setMatches((data.matches ?? []) as Match[]);
-        setUserId(data.userId);
+        let activeToken = token;
+        try {
+          const data = await loadDashboardData(activeToken);
+          setProfile(data.profile as Profile | null);
+          setMatches((data.matches ?? []) as Match[]);
+          setUserId(data.userId);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "";
+          if (msg.includes("Unauthorized")) {
+            const refreshed = await refreshSession();
+            if (!refreshed) { setErr("Session expired. Please sign in again."); return; }
+            activeToken = refreshed.access_token;
+            const data = await loadDashboardData(activeToken);
+            setProfile(data.profile as Profile | null);
+            setMatches((data.matches ?? []) as Match[]);
+            setUserId(data.userId);
+          } else {
+            throw e;
+          }
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : "Failed to load");
       }
     })();
-  }, [session, token]);
+  }, [session, token, refreshSession]);
 
   const winRate =
     profile && profile.matches_played > 0
