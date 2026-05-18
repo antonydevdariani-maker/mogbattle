@@ -8,6 +8,8 @@ import {
   Zap,
   CheckCircle,
   RefreshCw,
+  DollarSign,
+  Shuffle,
 } from "lucide-react";
 import {
   SHOP_TAGS,
@@ -21,6 +23,8 @@ import {
   buyTag,
   openChest,
   setActiveTag,
+  sellTag,
+  rerollTag,
 } from "@/app/actions";
 import { AdUnit } from "@/components/ui/ad-unit";
 
@@ -143,6 +147,9 @@ export default function ShopPage() {
   const [resultRefund, setResultRefund] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [settingTag, setSettingTag] = useState<string | null>(null);
+  const [sellingTag, setSellingTag] = useState<string | null>(null);
+  const [rerollingTag, setRerollingTag] = useState<string | null>(null);
+  const [rerollResult, setRerollResult] = useState<{ newTag: import("@/lib/shop-tags").ShopTag; alreadyOwned: boolean; dupRefund: number } | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -174,6 +181,8 @@ export default function ShopPage() {
     if (!token || spinning) return;
     setWonTag(null);
     setShowResult(false);
+    setStrip([]);
+    setTranslateX(0);
     setSpinning(true);
 
     let result: { tag: ShopTag; alreadyOwned: boolean; refund: number };
@@ -228,11 +237,39 @@ export default function ShopPage() {
     }
   }
 
-  function resetChest() {
-    setShowResult(false);
-    setWonTag(null);
-    setStrip([]);
-    setTranslateX(0);
+  async function handleSellTag(tagId: string) {
+    if (!token) return;
+    setSellingTag(tagId);
+    try {
+      const { sellPrice } = await sellTag(token, tagId);
+      setMolecules((m) => m + sellPrice);
+      setOwnedTags((prev) => prev.filter((id) => id !== tagId));
+      if (activeTag === tagId) setActiveTagState(null);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSellingTag(null);
+    }
+  }
+
+  async function handleRerollTag(tagId: string) {
+    if (!token) return;
+    setRerollingTag(tagId);
+    setRerollResult(null);
+    try {
+      const result = await rerollTag(token, tagId);
+      setMolecules((m) => m - 250 + result.dupRefund);
+      setOwnedTags((prev) => {
+        const without = prev.filter((id) => id !== tagId);
+        return result.alreadyOwned ? without : [...without, result.newTag.id];
+      });
+      if (activeTag === tagId) setActiveTagState(null);
+      setRerollResult(result);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Error");
+    } finally {
+      setRerollingTag(null);
+    }
   }
 
   const activeTagData = activeTag ? SHOP_TAGS.find((t) => t.id === activeTag) : null;
@@ -348,9 +385,9 @@ export default function ShopPage() {
                   {activeTag === wonTag.id ? "Equipped" : "Equip"}
                 </button>
                 <button
-                  onClick={resetChest}
-                  disabled={molecules < CHEST_PRICE}
-                  className="border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                  onClick={handleOpenChest}
+                  disabled={spinning || molecules < CHEST_PRICE}
+                  className="border border-white/20 text-zinc-400 hover:text-white hover:border-white/40 px-6 py-2 text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   <RefreshCw className="size-3.5" /> Open Another
@@ -458,32 +495,70 @@ export default function ShopPage() {
         >
           My Tags ({ownedTags.length})
         </p>
+        {rerollResult && (
+          <div className="border border-white/10 bg-zinc-950 p-4 flex flex-col items-center gap-2 text-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Reroll Result</span>
+            <TagBadge tag={rerollResult.newTag} size="md" />
+            <RarityBadge rarity={rerollResult.newTag.rarity} />
+            {rerollResult.alreadyOwned && (
+              <p className="text-xs text-zinc-500">Duplicate — <span className="text-cyan-400 font-black">+{rerollResult.dupRefund} mol refund</span></p>
+            )}
+            <button onClick={() => setRerollResult(null)} className="text-[10px] text-zinc-600 hover:text-zinc-400 uppercase tracking-widest mt-1">Dismiss</button>
+          </div>
+        )}
         {ownedTags.length === 0 ? (
           <p className="text-xs text-zinc-700 uppercase tracking-widest">
             No tags yet — buy one above or open a chest.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {ownedTags.map((id) => {
               const tag = SHOP_TAGS.find((t) => t.id === id);
               if (!tag) return null;
               const isActive = activeTag === id;
-              const loading = settingTag === id;
+              const loadingSet = settingTag === id;
+              const loadingSell = sellingTag === id;
+              const loadingReroll = rerollingTag === id;
+              const sellPrice = Math.floor(tag.price * 0.75);
               return (
-                <button
+                <div
                   key={id}
-                  onClick={() => handleSetActive(isActive ? null : id)}
-                  disabled={loading}
-                  className={`relative transition-all ${
-                    isActive ? "ring-2 ring-yellow-400/60 ring-offset-1 ring-offset-black" : ""
-                  }`}
-                  title={isActive ? "Click to deactivate" : "Click to set active"}
+                  className={`border bg-zinc-900/60 p-3 flex flex-col gap-2 ${RARITY_BORDER[tag.rarity]} ${isActive ? "ring-1 ring-yellow-400/40" : ""}`}
                 >
-                  <TagBadge tag={tag} size="sm" />
-                  {isActive && (
-                    <CheckCircle className="absolute -top-1.5 -right-1.5 size-3.5 text-yellow-400 bg-black rounded-full" />
-                  )}
-                </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <TagBadge tag={tag} size="sm" />
+                    {isActive && <CheckCircle className="size-3.5 text-yellow-400 shrink-0" />}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleSetActive(isActive ? null : id)}
+                      disabled={loadingSet}
+                      className="flex-1 py-1 text-[10px] font-black uppercase tracking-widest border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-40"
+                      style={{ fontFamily: "var(--font-heading)" }}
+                    >
+                      {isActive ? "Unequip" : "Equip"}
+                    </button>
+                    <button
+                      onClick={() => handleRerollTag(id)}
+                      disabled={loadingReroll || molecules < 250}
+                      className="flex-1 py-1 text-[10px] font-black uppercase tracking-widest border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors disabled:opacity-40 flex items-center justify-center gap-1"
+                      style={{ fontFamily: "var(--font-heading)" }}
+                      title="Spend 250 mol to reroll this tag into a random one"
+                    >
+                      {loadingReroll ? <RefreshCw className="size-3 animate-spin" /> : <><Shuffle className="size-3" />250</>}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Sell ${tag.label} for ${sellPrice} mol?`)) handleSellTag(id);
+                      }}
+                      disabled={loadingSell}
+                      className="flex-1 py-1 text-[10px] font-black uppercase tracking-widest border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors disabled:opacity-40 flex items-center justify-center gap-1"
+                      style={{ fontFamily: "var(--font-heading)" }}
+                    >
+                      {loadingSell ? <RefreshCw className="size-3 animate-spin" /> : <><DollarSign className="size-3" />{sellPrice}</>}
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>

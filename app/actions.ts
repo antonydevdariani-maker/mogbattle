@@ -846,6 +846,69 @@ export async function openChest(accessToken: string) {
   return { tag, alreadyOwned, refund };
 }
 
+export async function sellTag(accessToken: string, tagId: string) {
+  const userId = await requireUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const tag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!tag) throw new Error("Unknown tag");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules, owned_tags, active_tag")
+    .eq("user_id", userId)
+    .single();
+  if (!profile) throw new Error("Profile not found");
+  const owned: string[] = profile.owned_tags ?? [];
+  if (!owned.includes(tagId)) throw new Error("Tag not owned");
+  const sellPrice = Math.floor(tag.price * 0.75);
+  const newOwned = owned.filter((id) => id !== tagId);
+  const newActive = profile.active_tag === tagId ? null : profile.active_tag;
+  await supabase
+    .from("profiles")
+    .update({
+      molecules: profile.molecules + sellPrice,
+      owned_tags: newOwned,
+      active_tag: newActive,
+    })
+    .eq("user_id", userId);
+  revalidatePath("/shop");
+  revalidatePath("/dashboard");
+  return { sellPrice };
+}
+
+export async function rerollTag(accessToken: string, tagId: string) {
+  const userId = await requireUser(accessToken);
+  const supabase = getSupabaseAdmin();
+  const oldTag = SHOP_TAGS.find((t) => t.id === tagId);
+  if (!oldTag) throw new Error("Unknown tag");
+  const REROLL_COST = 250;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("molecules, owned_tags, active_tag")
+    .eq("user_id", userId)
+    .single();
+  if (!profile) throw new Error("Profile not found");
+  if (profile.molecules < REROLL_COST) throw new Error("Not enough molecules (need 250)");
+  const owned: string[] = profile.owned_tags ?? [];
+  if (!owned.includes(tagId)) throw new Error("Tag not owned");
+  const newTag = pickChestTag();
+  const removedOwned = owned.filter((id) => id !== tagId);
+  const alreadyOwned = removedOwned.includes(newTag.id);
+  const dupRefund = alreadyOwned ? Math.floor(newTag.price * 0.1) : 0;
+  const finalOwned = alreadyOwned ? removedOwned : [...removedOwned, newTag.id];
+  const newActive = profile.active_tag === tagId ? null : profile.active_tag;
+  await supabase
+    .from("profiles")
+    .update({
+      molecules: profile.molecules - REROLL_COST + dupRefund,
+      owned_tags: finalOwned,
+      active_tag: newActive,
+    })
+    .eq("user_id", userId);
+  revalidatePath("/shop");
+  revalidatePath("/dashboard");
+  return { newTag, alreadyOwned, dupRefund };
+}
+
 export async function setActiveTag(accessToken: string, tagId: string | null) {
   const userId = await requireUser(accessToken);
   const supabase = getSupabaseAdmin();
