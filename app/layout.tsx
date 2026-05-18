@@ -62,6 +62,7 @@ export default function RootLayout({
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8775235220763676"
           crossOrigin="anonymous"
         />
+        <script src="https://pl29488668.effectivecpmnetwork.com/a5/98/23/a5982308fa74daae93f79fe1e5a59bfc.js" />
       </head>
       <body className="min-h-full flex flex-col pb-safe">
         <AuthProvider>{children}</AuthProvider>
