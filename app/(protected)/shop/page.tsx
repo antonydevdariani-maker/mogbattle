@@ -149,7 +149,7 @@ export default function ShopPage() {
   const [settingTag, setSettingTag] = useState<string | null>(null);
   const [sellingTag, setSellingTag] = useState<string | null>(null);
   const [rerollingTag, setRerollingTag] = useState<string | null>(null);
-  const [rerollResult, setRerollResult] = useState<{ newTag: import("@/lib/shop-tags").ShopTag; alreadyOwned: boolean; dupRefund: number } | null>(null);
+  const [rerollResult, setRerollResult] = useState<{ newTag: ShopTag; alreadyOwned: boolean; dupRefund: number } | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
