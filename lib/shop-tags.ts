@@ -21,7 +21,7 @@ export const SHOP_TAGS: ShopTag[] = [
   { id: "ghost",   label: "GHOST",      price: 900,  rarity: "common",    color: "#64748b", chestWeight: 10 },
 ];
 
-export const CHEST_PRICE = 500; // mol
+export const CHEST_PRICE = 250; // mol
 
 export const RARITY_LABEL: Record<TagRarity, string> = {
   legendary: "LEGENDARY",

@@ -644,6 +644,8 @@ export function ArenaClient({
     setQueueSecs(0);
     setQueueSession((s) => s + 1);
     setLockedBet(betAmount);
+    // Must call inside user gesture handler so iOS/Safari grants camera+mic permission
+    vonagePreview();
     setPhase("queued");
     setIsPending(true);
     pslCaptures.current = [];
